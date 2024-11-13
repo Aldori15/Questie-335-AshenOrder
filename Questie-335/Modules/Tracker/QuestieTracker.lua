@@ -2137,7 +2137,7 @@ function QuestieTracker:AQW_Insert(index, expire)
                 QuestieDebugOffer.QuestTracking(questId)
             else
                 -- Questie:Error("Missing quest " .. tostring(questId) .. "," .. tostring(expire) .. " during tracker update")
-                Questie:Error("Missing quest " .. tostring(questId) .. " in Questie's database.  Please contact @Aldori on Discord or report in the WoW Repacks Community Discord under the 'Questie - Missing Database Quests' thread found in the #ashen-addons channel.")
+                Questie:Error("Missing quest " .. tostring(questId) .. " in Questie's database. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.")
             end
         end
     end

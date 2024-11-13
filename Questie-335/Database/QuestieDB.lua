@@ -1721,7 +1721,7 @@ function QuestieDB.GetQuestIDFromName(name, questgiverGUID, questStarter)
                     end
                 end
             elseif Questie.IsSoD == false then -- don't print these errors in SoD, as we expect missing data when new quests release; debug offers will handle these scenarios instead
-                Questie:Error("Database mismatch! No entries found that match quest name. Please contact @Aldori on Discord or report this in the WoW Repacks Community Discord under the 'Questie - Missing Database Quests' thread found in the #ashen-addons channel.")
+                Questie:Error("Database mismatch! No entries found that match quest name. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.")
                 Questie:Error("Queststarter is: " .. unit_type .. " " .. questgiverID)
                 Questie:Error("Quest name is: " .. name)
                 Questie:Error("Client info is: " .. GetBuildInfo() .. ";  Questie " .. QuestieLib:GetAddonVersionString())
@@ -1734,7 +1734,7 @@ function QuestieDB.GetQuestIDFromName(name, questgiverGUID, questStarter)
                     end
                 end
             elseif Questie.IsSoD == false then -- don't print these errors in SoD, as we expect missing data when new quests release; debug offers will handle these scenarios instead
-                Questie:Error("Database mismatch! No entries found that match quest name. Please contact @Aldori on Discord or report this in the WoW Repacks Community Discord under the 'Questie - Missing Database Quests' thread found in the #ashen-addons channel.")
+                Questie:Error("Database mismatch! No entries found that match quest name. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.")
                 Questie:Error("Questender is: " .. unit_type .. " " .. questgiverID)
                 Questie:Error("Quest name is: " .. name)
                 Questie:Error("Client info is: " .. GetBuildInfo() .. ";  Questie " .. QuestieLib:GetAddonVersionString())

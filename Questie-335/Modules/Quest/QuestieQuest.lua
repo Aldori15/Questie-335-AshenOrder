@@ -687,7 +687,7 @@ function QuestieQuest:GetAllQuestIds()
         if (not QuestieDB.QuestPointers[questId]) then
             if not Questie._sessionWarnings[questId] then
                 -- if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please report this on GitHub or Discord!", tostring(questId))) end
-                if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please contact @Aldori on Discord or report in the WoW Repacks Community Discord under the 'Questie - Missing Database Quests' thread found in the #ashen-addons channel.", tostring(questId))) end
+                if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.", tostring(questId))) end
                 Questie._sessionWarnings[questId] = true
             end
         else
@@ -841,7 +841,7 @@ function QuestieQuest:GetAllQuestIdsNoObjectives()
         if (not QuestieDB.QuestPointers[questId]) then
             if not Questie._sessionWarnings[questId] then
                 -- if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please report this on GitHub or Discord!", tostring(questId))) end
-                if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please contact @Aldori on Discord or report in the WoW Repacks Community Discord under the 'Questie - Missing Database Quests' thread found in the #ashen-addons channel.", tostring(questId))) end
+                if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.", tostring(questId))) end
                 Questie._sessionWarnings[questId] = true
             end
         else
