@@ -6,6 +6,7 @@ local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID
 local WOW_PROJECT_WRATH_CLASSIC = QuestieCompat.WOW_PROJECT_WRATH_CLASSIC
 
 QuestieDB.sortKeys = {
+    EPIC = -1,
     SEASONAL = -22,
     HERBALISM = -24,
     BATTLEGROUND = -25,

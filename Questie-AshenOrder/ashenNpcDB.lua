@@ -315,6 +315,15 @@ QuestieCompat.RegisterCorrection("npcData", function()
             [npcKeys.minLevel] = 25,
             [npcKeys.maxLevel] = 25,
         },
+        [810119] = {
+            [npcKeys.name] = "Crystallon, the Stonehearted",
+            [npcKeys.minLevel] = 63,
+            [npcKeys.maxLevel] = 63,
+            [npcKeys.zoneID] = zoneIDs.STONETALON_MOUNTAINS,
+            [npcKeys.spawns] = {
+                [zoneIDs.STONETALON_MOUNTAINS] = {{44.5,20.3}},
+            },
+        },
         [900003] = {
             [npcKeys.name] = "Foe Reaper 9001",
             [npcKeys.minLevel] = 23,
