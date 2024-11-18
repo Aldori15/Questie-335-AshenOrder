@@ -46,6 +46,21 @@ QuestieCompat.RegisterCorrection("questData", function()
         [109] = {
             [questKeys.zoneOrSort] = zoneIDs.WESTFALL,
         },
+        [5722] = {
+            [questKeys.startedBy] = {{11833,883296}},
+        },
+        [5723] = {
+            [questKeys.startedBy] = {{11833,883296}},
+        },
+        [5728] = {
+            [questKeys.startedBy] = {{4949,883296}},
+        },
+        [5761] = {
+            [questKeys.startedBy] = {{3216,883296}},
+        },
+        [14356] = {
+            [questKeys.startedBy] = {{36273,883296}},
+        },
         [30000] = {
             [questKeys.name] = "Battle for Westfall",
             [questKeys.startedBy] = {{234}},

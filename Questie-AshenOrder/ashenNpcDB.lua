@@ -324,6 +324,16 @@ QuestieCompat.RegisterCorrection("npcData", function()
                 [zoneIDs.STONETALON_MOUNTAINS] = {{44.5,20.3}},
             },
         },
+        [883296] = {
+            [npcKeys.name] = "Orgrimmar Grunt",
+            [npcKeys.minLevel] = 15,
+            [npcKeys.maxLevel] = 55,
+            [npcKeys.questStarts] = {5722,5723,5728,5761,14356},
+            [npcKeys.zoneID] = zoneIDs.RAGEFIRE_CHASM,
+            [npcKeys.spawns] = {
+                [zoneIDs.RAGEFIRE_CHASM] = {{65.1,9.3}},
+            },
+        },
         [900003] = {
             [npcKeys.name] = "Foe Reaper 9001",
             [npcKeys.minLevel] = 23,

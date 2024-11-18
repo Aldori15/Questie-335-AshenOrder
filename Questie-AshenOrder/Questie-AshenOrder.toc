@@ -1,7 +1,7 @@
 ## Interface: 30300
-## Title: Questie-335-AshenOrder|cFF00FF00 v1.0.2|r
+## Title: Questie-335-AshenOrder|cFF00FF00 v1.0.3|r
 ## Notes: This addon aims to make the Questie-335 addon compatible with the Ashen Order repack.  It cannot be used independently from Questie-335 and both need to be used together.
-## Version: 1.0.2
+## Version: 1.0.3
 ## Dependencies: Questie-335
 
 ashenQuestsDB.lua
