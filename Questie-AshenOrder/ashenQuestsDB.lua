@@ -46,6 +46,9 @@ QuestieCompat.RegisterCorrection("questData", function()
         [109] = {
             [questKeys.zoneOrSort] = zoneIDs.WESTFALL,
         },
+        [471] = {
+            [questKeys.nextQuestInChain] = 40471,
+        },
         [5722] = {
             [questKeys.startedBy] = {{11833,883296}},
         },
@@ -587,6 +590,16 @@ QuestieCompat.RegisterCorrection("questData", function()
             [questKeys.sourceItemId] = 800083,
             [questKeys.zoneOrSort] = sortKeys.STORMWIND_CITY,
         },
+        [39533] = {
+            [questKeys.name] = "Something Wicked This Way Comes",
+            [questKeys.startedBy] = {nil,{888649,888650}},
+            [questKeys.finishedBy] = {{890021}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.objectivesText] = {"Investigate the Dawning Wood Catacombs in Raven Hill."},
+            [questKeys.objectives] = nil,
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
         [39534] = {
             [questKeys.name] = "Crushing Crystallon: A Stonetalon Showdown",
             [questKeys.startedBy] = {nil,{888649}},
@@ -646,6 +659,44 @@ QuestieCompat.RegisterCorrection("questData", function()
             [questKeys.objectives] = {{{14471}}},
             [questKeys.zoneOrSort] = sortKeys.EPIC,
         },
+        [40471] = {
+            [questKeys.name] = "Tik-Tok's Last Tock",
+            [questKeys.startedBy] = {{2094}},
+            [questKeys.startedBy] = {{2094}},
+            [questKeys.requiredLevel] = 18,
+            [questKeys.questLevel] = 26,
+            [questKeys.preQuestSingle] = {471},
+            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
+            [questKeys.objectivesText] = {"Retrieve the Swallowed Clock and bring it back to James Halloran in Menethil Harbor."},
+            [questKeys.objectives] = {nil,nil,{{883348}}},
+            [questKeys.zoneOrSort] = zoneIDs.WETLANDS,
+        },
+        [41536] = {
+            [questKeys.name] = "Ragnaros Must Die!",
+            [questKeys.startedBy] = {nil,{888650}},
+            [questKeys.finishedBy] = {{4949}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Ragnaros in the Molten Core."},
+            [questKeys.objectives] = {{{11502}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41537] = {
+            [questKeys.name] = "Ragnaros Must Die!",
+            [questKeys.startedBy] = {nil,{888649}},
+            [questKeys.finishedBy] = {{1748}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Ragnaros in the Molten Core."},
+            [questKeys.objectives] = {{{11502}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
         [41538] = {
             [questKeys.name] = "Nefarian Must Die!",
             [questKeys.startedBy] = {nil,{888649}},
@@ -654,6 +705,7 @@ QuestieCompat.RegisterCorrection("questData", function()
             [questKeys.questLevel] = 60,
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
             [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
             [questKeys.objectivesText] = {"Defeat Nefarian in Blackwing Lair."},
             [questKeys.objectives] = {{{11583}}},
             [questKeys.zoneOrSort] = sortKeys.EPIC,
@@ -666,8 +718,139 @@ QuestieCompat.RegisterCorrection("questData", function()
             [questKeys.questLevel] = 60,
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
             [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
             [questKeys.objectivesText] = {"Defeat Nefarian in Blackwing Lair."},
             [questKeys.objectives] = {{{11583}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41540] = {
+            [questKeys.name] = "Onyxia Must Die!",
+            [questKeys.startedBy] = {nil,{888650}},
+            [questKeys.finishedBy] = {{4949}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Onyxia in Onyxia's Lair."},
+            [questKeys.objectives] = {{{301000}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41541] = {
+            [questKeys.name] = "Onyxia Must Die!",
+            [questKeys.startedBy] = {nil,{888649}},
+            [questKeys.finishedBy] = {{14394}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Onyxia in Onyxia's Lair."},
+            [questKeys.objectives] = {{{301000}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41542] = {
+            [questKeys.name] = "C'Thun Must Die!",
+            [questKeys.startedBy] = {nil,{888649}},
+            [questKeys.finishedBy] = {{15181}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat C'Thun in the Temple of Ahn'Qiraj."},
+            [questKeys.objectives] = {{{15727}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41543] = {
+            [questKeys.name] = "C'Thun Must Die!",
+            [questKeys.startedBy] = {nil,{888650}},
+            [questKeys.finishedBy] = {{15181}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat C'Thun in the Temple of Ahn'Qiraj."},
+            [questKeys.objectives] = {{{15727}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41544] = {
+            [questKeys.name] = "Kel'Thuzad Must Die!",
+            [questKeys.startedBy] = {nil,{888649}},
+            [questKeys.finishedBy] = {{11034}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Kel'Thuzad in Naxxramas."},
+            [questKeys.objectives] = {{{351019}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41545] = {
+            [questKeys.name] = "Kel'Thuzad Must Die!",
+            [questKeys.startedBy] = {nil,{888650}},
+            [questKeys.finishedBy] = {{11034}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Kel'Thuzad in Naxxramas."},
+            [questKeys.objectives] = {{{351019}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41546] = {
+            [questKeys.name] = "Hakkar Must Die!",
+            [questKeys.startedBy] = {nil,{888649}},
+            [questKeys.finishedBy] = {{14875}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Hakkar the Soulflayer in Zul'Gurub."},
+            [questKeys.objectives] = {{{14834}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41547] = {
+            [questKeys.name] = "Hakkar Must Die!",
+            [questKeys.startedBy] = {nil,{888650}},
+            [questKeys.finishedBy] = {{14875}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Hakkar the Soulflayer in Zul'Gurub."},
+            [questKeys.objectives] = {{{14834}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41548] = {
+            [questKeys.name] = "Ossirian Must Die!",
+            [questKeys.startedBy] = {nil,{888650}},
+            [questKeys.finishedBy] = {{15181}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Ossirian the Unscarred in the Ruins of Ahn'Qiraj."},
+            [questKeys.objectives] = {{{15339}}},
+            [questKeys.zoneOrSort] = sortKeys.EPIC,
+        },
+        [41549] = {
+            [questKeys.name] = "Ossirian Must Die!",
+            [questKeys.startedBy] = {nil,{888649}},
+            [questKeys.finishedBy] = {{15181}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 60,
+            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
+            [questKeys.questFlags] = 32832, -- Weekly/Raid
+            [questKeys.specialFlags] = 1, -- Repeatable
+            [questKeys.objectivesText] = {"Defeat Ossirian the Unscarred in the Ruins of Ahn'Qiraj."},
+            [questKeys.objectives] = {{{15339}}},
             [questKeys.zoneOrSort] = sortKeys.EPIC,
         },
         [50000] = {

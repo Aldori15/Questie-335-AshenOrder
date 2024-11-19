@@ -24,5 +24,13 @@ QuestieCompat.RegisterCorrection("objectData", function()
                 [zoneIDs.ORGRIMMAR] = {{50.5,70.5}},
             },
         },
+        [890021] = {
+            [objectKeys.name] = "Witch's Cauldron",
+            [objectKeys.questEnds] = {39533},
+            [objectKeys.zoneID] = zoneIDs.DUSKWOOD,
+            [objectKeys.spawns] = {
+                [zoneIDs.DUSKWOOD] = {{20.6,28.6}},
+            },
+        },
     }
 end)

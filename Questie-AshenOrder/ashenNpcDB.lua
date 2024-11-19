@@ -17,6 +17,10 @@ QuestieCompat.RegisterCorrection("npcData", function()
         [1405] = {
             [npcKeys.questStarts] = {30040},
         },
+        [2094] = {
+            [npcKeys.questStarts] = {471,484,40471},
+            [npcKeys.questEnds] = {469,471,484,40471},
+        },
         [100139] = {
             [npcKeys.name] = "Aquila Empyrean",
             [npcKeys.subName] = "High Priestess",
@@ -140,6 +144,18 @@ QuestieCompat.RegisterCorrection("npcData", function()
             [npcKeys.name] = "Scourge Force",
             [npcKeys.minLevel] = 20,
             [npcKeys.maxLevel] = 20,
+        },
+        [301000] = {
+            [npcKeys.name] = "Onyxia",
+            [npcKeys.minLevel] = 63,
+            [npcKeys.maxLevel] = 63,
+            [npcKeys.zoneID] = zoneIDs.ONYXIAS_LAIR,
+        },
+        [351019] = {
+            [npcKeys.name] = "Kel'Thuzad",
+            [npcKeys.minLevel] = 63,
+            [npcKeys.maxLevel] = 63,
+            [npcKeys.zoneID] = zoneIDs.NAXXRAMAS_FROSTWYRM_LAIR,
         },
         [400010] = {
             [npcKeys.name] = "Ghoul",

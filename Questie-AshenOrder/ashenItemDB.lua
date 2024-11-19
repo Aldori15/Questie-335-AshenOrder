@@ -90,5 +90,9 @@ QuestieCompat.RegisterCorrection("itemData", function()
             [itemKeys.name] = "Rognar's Claw",
             [itemKeys.relatedQuests] = {50176},
         },
+        [883348] = {
+            [itemKeys.name] = "Swallowed Clock",
+            [itemKeys.relatedQuests] = {40471},
+        },
     }
 end)
