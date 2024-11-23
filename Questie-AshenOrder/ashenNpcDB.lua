@@ -21,6 +21,10 @@ QuestieCompat.RegisterCorrection("npcData", function()
             [npcKeys.questStarts] = {471,484,40471},
             [npcKeys.questEnds] = {469,471,484,40471},
         },
+        [10299] = {
+            [npcKeys.questStarts] = {4742,4743},
+            [npcKeys.questEnds] = {4742,4743},
+        },
         [100139] = {
             [npcKeys.name] = "Aquila Empyrean",
             [npcKeys.subName] = "High Priestess",
