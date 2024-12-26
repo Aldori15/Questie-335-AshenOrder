@@ -36,6 +36,8 @@ local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
 local QuestieNameplate = QuestieLoader:ImportModule("QuestieNameplate")
 ---@type QuestieCorrections
 local QuestieCorrections = QuestieLoader:ImportModule("QuestieCorrections")
+---@class QuestieLink
+local QuestieLink = QuestieLoader:ImportModule("QuestieLink")
 
 -- addon/folder name
 QuestieCompat.addonName = ...
@@ -458,6 +460,10 @@ end
 function QuestieCompat.GetQuestLink(questId)
     local questLogIndex = QuestieCompat.GetQuestLogIndexByID(questId)
     return questLogIndex and GetQuestLink(questLogIndex)
+end
+
+function QuestieCompat:GetQuestLinkString(questLevel, questName, questId)
+	return QuestieCompat.GetQuestLink(questId) or "[["..tostring(questLevel).."] "..questName.." ("..tostring(questId)..")]"
 end
 
 -- https://wowpedia.fandom.com/wiki/API_GetQuestLogRewardMoney
@@ -1523,9 +1529,25 @@ function QuestieCompat.QuestieOptions_Initialize()
         name = "3.3.5 Compatibility Settings",
     }
 
+    optionsTable.args.advanced_tab.args.initDelay = {
+        type = "range",
+        order = 6.1,
+        name = "Init rate delay",
+        desc = "Init rate delay",
+        width = "full",
+        min = 0.1,
+        max = 1,
+        step = 0.01,
+        hidden = function() return not Questie.db.profile.debugEnabled; end,
+        get = function(info) return QuestieOptions:GetProfileValue(info)*10; end,
+        set = function (info, value)
+            QuestieOptions:SetProfileValue(info, value/10)
+        end,
+    }
+
     optionsTable.args.advanced_tab.args.useWotlkMapData = {
         type = "toggle",
-        order = 6.1,
+        order = 6.2,
         name = "Use WotLK map data",
         desc = "Use WotLK map data",
         width = 1.65,
@@ -1537,25 +1559,22 @@ function QuestieCompat.QuestieOptions_Initialize()
         end,
     }
 
-    optionsTable.args.advanced_tab.args.initDelay = {
-        type = "range",
-        order = 6.2,
-        name = "Init rate delay",
-        desc = "Init rate delay",
+    optionsTable.args.advanced_tab.args.useQuestieLinks = {
+        type = "toggle",
+        order = 6.3,
+        name = "Use Questie Links",
+        desc = "Use Questie Links",
         width = 1.65,
-        min = 0.1,
-        max = 1,
-        step = 0.01,
-        hidden = function() return not Questie.db.profile.debugEnabled; end,
-        get = function(info) return QuestieOptions:GetProfileValue(info)*10; end,
+        get = function (info) return QuestieOptions:GetProfileValue(info); end,
         set = function (info, value)
-            QuestieOptions:SetProfileValue(info, value/10)
+            QuestieOptions:SetProfileValue(info, value)
+            StaticPopup_Show("QUESTIE_RELOAD")
         end,
     }
 
     optionsTable.args.advanced_tab.args.resetDailyQuests = {
         type = "toggle",
-        order = 6.2,
+        order = 6.4,
         name = "Reset Daily Quests",
         desc = "Reset Daily Quests",
         width = 1.65,
@@ -1569,7 +1588,7 @@ function QuestieCompat.QuestieOptions_Initialize()
 
     optionsTable.args.advanced_tab.args.weeklyResetDay = {
         type = "select",
-        order = 6.3,
+        order = 6.5,
         values = QuestieCompat.CALENDAR_WEEKDAY_NAMES,
         style = 'dropdown',
         disabled = function() return not Questie.db.profile.resetDailyQuests end,
@@ -1637,6 +1656,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
             useWotlkMapData = false,
             resetDailyQuests = true,
             weeklyResetDay = 4,
+            useQuestieLinks = false,
         },
         char = {
             daily = {},
@@ -1660,14 +1680,22 @@ function QuestieCompat:ADDON_LOADED(event, addon)
         QuestieMenu.private.townsfolk_texturemap[name] = path
     end
 
-    for _, moduleName in pairs({
+    local DISABLED_MODULES = {
         "HBDHooks",
         "QuestieDebugOffer",
         "SeasonOfDiscovery",
-        "QuestieDBMIntegration",
-    }) do
+        "QuestieDBMIntegration"
+    }
+	
+	if not Questie.db.profile.useQuestieLinks then
+		table.insert(DISABLED_MODULES, "ChatFilter")
+		table.insert(DISABLED_MODULES, "Hooks")
+		table.insert(DISABLED_MODULES, "QuestieLink")
+	end
+
+    for _, moduleName in pairs(DISABLED_MODULES) do
         local module = QuestieLoader:ImportModule(moduleName)
-        setmetatable(module, QuestieCompat.NOOP_MT)
+        setmetatable(wipe(module), QuestieCompat.NOOP_MT)
     end
 
 	QuestieLoader.PopulateGlobals = QuestieCompat.PopulateGlobals
@@ -1683,6 +1711,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     QuestieOptions.Initialize = QuestieCompat.QuestieOptions_Initialize
     QuestieCompat.orig_GetSelectedSoundFile = Sounds.GetSelectedSoundFile
     Sounds.GetSelectedSoundFile = QuestieCompat.GetSelectedSoundFile
+    QuestieLink.GetQuestLinkString = rawget(QuestieLink, "GetQuestLinkString") or QuestieCompat.GetQuestLinkString
 
     hooksecurefunc(QuestieEventHandler, "RegisterLateEvents", QuestieCompat.QuestieEventHandler_RegisterLateEvents)
     hooksecurefunc(QuestEventHandler, "RegisterEvents", QuestieCompat.QuestEventHandler_RegisterEvents)
