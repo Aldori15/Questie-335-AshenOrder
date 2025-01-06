@@ -86,6 +86,62 @@ QuestieCompat.RegisterCorrection("itemData", function()
             [itemKeys.name] = "Delivery of Fish",
             [itemKeys.relatedQuests] = {30043},
         },
+        [800087] = {
+            [itemKeys.name] = "Gloomroot Extract",
+            [itemKeys.relatedQuests] = {100001,100005},
+        },
+        [800088] = {
+            [itemKeys.name] = "Fresh Boar Meat",
+            [itemKeys.relatedQuests] = {100002},
+        },
+        [800089] = {
+            [itemKeys.name] = "Fresh Deer Meat",
+            [itemKeys.relatedQuests] = {100002},
+        },
+        [800090] = {
+            [itemKeys.name] = "Potion of Lucidity",
+            [itemKeys.relatedQuests] = {100003,100028},
+        },
+        [800091] = {
+            [itemKeys.name] = "Chicken Eggs",
+            [itemKeys.relatedQuests] = {100007},
+        },
+        [800092] = {
+            [itemKeys.name] = "Selene's Necklace",
+            [itemKeys.relatedQuests] = {100011},
+        },
+        [800095] = {
+            [itemKeys.name] = "Spider Leg",
+            [itemKeys.relatedQuests] = {100014},
+        },
+        [800096] = {
+            [itemKeys.name] = "Blackwald Spider Silk",
+            [itemKeys.relatedQuests] = {100015},
+        },
+        [800101] = {
+            [itemKeys.name] = "Lycanthea Diary",
+            [itemKeys.startQuest] = 100023,
+        },
+        [800102] = {
+            [itemKeys.name] = "Lycanthea Diary",
+            [itemKeys.relatedQuests] = {100022,100023},
+        },
+        [800103] = {
+            [itemKeys.name] = "Shadowfang Heart",
+            [itemKeys.relatedQuests] = {100026},
+        },
+        [800104] = {
+            [itemKeys.name] = "The Lady's Letter",
+            [itemKeys.relatedQuests] = {100027},
+        },
+        [800108] = {
+            [itemKeys.name] = "Operation Supply Disruption",
+            [itemKeys.relatedQuests] = {100030},
+        },
+        [800109] = {
+            [itemKeys.name] = "Critical Dispatch",
+            [itemKeys.relatedQuests] = {100031},
+        },
         [801931] = {
             [itemKeys.name] = "Rognar's Claw",
             [itemKeys.relatedQuests] = {50176},

@@ -649,6 +649,7 @@ l10n.zoneLookup = {
         [4636]="The Noxious Pass",
         [4668]="The Cooper Residence",
         [4679]="The Forlorn Cavern",
+        [4714]="Gilneas",
     },
     [1]={
         [14]="Durotar",

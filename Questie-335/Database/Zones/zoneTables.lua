@@ -7,7 +7,7 @@ ZoneDB.private = {}
 --- the UiMapId of each zone.
 --- The UiMapId identifies a map which can be displayed ingame on the worldmap.
 --- Dungeons don't have a UiMapId!
---- https://wow.gamepedia.com/UiMapID/Classic
+--- https://wowpedia.fandom.com/wiki/UiMapID#Classic
 ---@type table<AreaId, UiMapId>
 ZoneDB.private.areaIdToUiMapId = {
     [1] = 1426, -- Dun Morogh
@@ -193,6 +193,8 @@ ZoneDB.private.areaIdToUiMapId = {
     [4841] = 165, -- Naxxramas - Plague Quarter (fake ID for Naxxramas)
     [4842] = 167, -- Naxxramas - Frostwyrm Lair (fake ID for Naxxramas)
     [4987] = 200, -- The Ruby Sanctum - Raid
+    [4714] = 654, -- Gilneas
+
     --- These should not be needed from my limited testing
     -- [14284] = 114, -- Borean Tundra - Battleground
     -- [14285] = 118, -- Icecrown - Battleground
@@ -452,6 +454,7 @@ ZoneDB.private.uiMapIdToAreaId = {
     [192] = 4837, -- Icecrown Citadel - The Frozen Throne (fake ID for ICC)
     [193] = 4812, -- Icecrown Citadel - Raid
     [200] = 4987, -- The Ruby Sanctum - Raid
+    [654] = 4714, -- Gilneas
 }
 
 -- [areaId] = {"name", alternative areaId (a sub zone), parentId}
@@ -2813,9 +2816,90 @@ ZoneDB.private.subZoneToParentZone = {
   [14339] = 14287, -- Agmar's Hammer -> Dragonblight
   [14340] = 14287, -- Coldwind Pass -> Dragonblight
   [14341] = 14287, -- Angrathar the Wrathgate -> Dragonblight
+  [4725] = 4714, -- The Headlands -> Gilneas
+  [4726] = 4714, -- Keel Harbor -> Gilneas
+  [4727] = 4714, -- Aderic's Repose -> Gilneas
+  [4728] = 4714, -- Northern Headlands -> Gilneas
+  [4729] = 4714, -- Northgate Woods -> Gilneas
+  [4730] = 4714, -- The Blackwald -> Gilneas
+  [4731] = 4714, -- Stormglen Village -> Gilneas
+  [4732] = 4714, -- Emberstone Mine -> Gilneas
+  [4733] = 4714, -- Galewatch Lighthouse -> Gilneas
+  [4734] = 4714, -- Emberstone Village -> Gilneas
+  [4735] = 4714, -- Northgate Breach -> Gilneas
+  [4755] = 4714, -- The Bite -> Gilneas
+  [4729] = 4714, -- Gilneas City -> Gilneas
+  [4786] = 4714, -- Duskhaven -> Gilneas
+  [4787] = 4714, -- Stagecoach Crash Site -> Gilneas
+  [4788] = 4714, -- Tempest's Reach -> Gilneas
+  [4789] = 4714, -- The Greymane Wall -> Gilneas
+  [4790] = 4714, -- Northgate River -> Gilneas
+  [4791] = 4714, -- Hailwood Marsh -> Gilneas
+  [4792] = 4714, -- Allen Farmstead -> Gilneas
+  [4793] = 4714, -- Hammond Farmstead -> Gilneas
+  [4794] = 4714, -- Koroth's Den -> Gilneas
+  [4806] = 4714, -- Wahl Cottage -> Gilneas
+  [4807] = 4714, -- Crowley Orchard -> Gilneas
+  [4808] = 4714, -- Hayward Fishery -> Gilneas
+  [4810] = 4714, -- Queen's Gate -> Gilneas
+  [4811] = 4714, -- King's Gate -> Gilneas
+  [4817] = 4714, -- Greymane Manor -> Gilneas
+  [4818] = 4714, -- Crowley Stable Grounds -> Gilneas
+  [4841] = 4714, -- Tal'doren -> Gilneas
+  [4842] = 4714, -- Livery Outpost -> Gilneas
+  [4858] = 4714, -- Rygna's Lair -> Gilneas
+  [4868] = 4714, -- The Bradshaw Mill -> Gilneas
+  [4869] = 4714, -- Wood's End Cabin -> Gilneas
+  [5432] = 4714, -- Forsaken Forward Command -> Gilneas
+  [5720] = 4714, -- Duskmist Shore -> Gilneas
+  [6545] = 4714, -- Greymane Manor -> Gilneas
+  [6546] = 4714, -- Emberstone Mine -> Gilneas
 }
 ZoneDB.private.subZoneToParentZone[3545] = 3483 -- Hellfire Citadel -> Hellfire Peninsula
 ZoneDB.private.subZoneToParentZone[3563] = 3483 -- Hellfire Citadel -> Hellfire Peninsula
+-- ZoneDB.private.subZoneToParentZone[4725] = 4714 -- The Headlands -> Gilneas
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+-- ZoneDB.private.subZoneToParentZone
+
 
 -- Different source of zoneIds
 -- These are not in use anymore but are quite helpful when fixing the database
@@ -2963,6 +3047,7 @@ ZoneDB.private.zoneIDs = {
     ACHERUS_THE_EBON_HOLD = 4281,
     PLAGUELANDS_THE_SCARLET_ENCLAVE = 4298,
     THE_ARCHIVUM = 4657,
+    GILNEAS = 4714,
     TRIAL_OF_THE_CRUSADER = 4722,
     TRIAL_OF_THE_CHAMPION = 4723,
     HROTHGARS_LANDING = 4742,

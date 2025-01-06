@@ -151,8 +151,9 @@ local VANILLA = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 QuestieDB.raceKeys = {
     -- ALL_ALLIANCE = VANILLA and 77 or 1101,
     -- ALL_HORDE = VANILLA and 178 or 690,
-    ALL_ALLIANCE = VANILLA and 77 or 830541, -- Ashen Order custom races
-    ALL_HORDE = VANILLA and 178 or 1135538, -- Ashen Order custom races
+    ALL_ALLIANCE = bit.bor(1, 4, 8, 64, 1024, 2048, 8192, 32768, 262144, 524288), -- Ashen Order custom races
+    ALL_HORDE = bit.bor(2, 16, 32, 128, 256, 512, 4096, 16384, 65536, 1048576), -- Ashen Order custom races
+
     NONE = 0,
 
     HUMAN = 1,

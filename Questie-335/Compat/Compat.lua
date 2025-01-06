@@ -91,7 +91,7 @@ QuestieCompat.CALENDAR_FULLDATE_MONTH_NAMES = {
 	FULLDATE_MONTH_DECEMBER,
 };
 
--- https://wago.tools/db2/ChrRaces?build=3.4.3.52237
+-- The below names should match the ClientFilestring column in ChrRaces.dbc 
 QuestieCompat.ChrRaces = {
 	Human = 1,
 	Orc = 2,
@@ -104,16 +104,16 @@ QuestieCompat.ChrRaces = {
 	Goblin = 9,
 	BloodElf = 10,
 	Draenei = 11,
-	FelOrc = 12,
-	Naga_ = 13,
-	Broken = 14,
-	Skeleton = 15,
-	Vrykul = 16,
-	Tuskarr = 17,
-	ForestTroll = 18,
-	Taunka = 19,
-	NorthrendSkeleton = 20,
-	IceTroll = 21,
+	FelOrc = 12, -- Void Elf
+	Naga_ = 13, -- Vulpera
+	Broken = 14, -- High Elf
+    ForestTroll = 15, -- Pandaren
+    Worgen = 16, -- Worgen
+	Skeleton = 17, -- Man'ari Eredar
+	-- Skeleton = 18, -- Zandalari Troll
+	Taunka = 19, -- Lightforged
+	NorthrendSkeleton = 20, -- Demon Hunter [A]
+	IceTroll = 21, -- Demon Hunter [H]
 }
 
 -- https://wago.tools/db2/ChrClasses?build=3.4.3.52237
@@ -464,6 +464,12 @@ end
 
 function QuestieCompat:GetQuestLinkString(questLevel, questName, questId)
 	return QuestieCompat.GetQuestLink(questId) or "[["..tostring(questLevel).."] "..questName.." ("..tostring(questId)..")]"
+end
+
+function QuestieCompat:GetQuestLinkStringById(questId)
+    local questName = QuestieDB.QueryQuestSingle(questId, "name");
+    local questLevel, _ = QuestieLib.GetTbcLevel(questId);
+    return QuestieCompat:GetQuestLinkString(questLevel, questName, questId)
 end
 
 -- https://wowpedia.fandom.com/wiki/API_GetQuestLogRewardMoney
@@ -1712,6 +1718,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     QuestieCompat.orig_GetSelectedSoundFile = Sounds.GetSelectedSoundFile
     Sounds.GetSelectedSoundFile = QuestieCompat.GetSelectedSoundFile
     QuestieLink.GetQuestLinkString = rawget(QuestieLink, "GetQuestLinkString") or QuestieCompat.GetQuestLinkString
+    QuestieLink.GetQuestLinkStringById = rawget(QuestieLink, "GetQuestLinkStringById") or QuestieCompat.GetQuestLinkStringById
 
     hooksecurefunc(QuestieEventHandler, "RegisterLateEvents", QuestieCompat.QuestieEventHandler_RegisterLateEvents)
     hooksecurefunc(QuestEventHandler, "RegisterEvents", QuestieCompat.QuestEventHandler_RegisterEvents)

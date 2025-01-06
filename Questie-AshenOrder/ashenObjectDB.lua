@@ -32,5 +32,17 @@ QuestieCompat.RegisterCorrection("objectData", function()
                 [zoneIDs.DUSKWOOD] = {{20.6,28.6}},
             },
         },
+        [893062] = {
+            [objectKeys.name] = "Corn Kernels",
+            [objectKeys.zoneID] = zoneIDs.THUNDER_BLUFF,
+            [objectKeys.spawns] = {
+                [zoneIDs.THUNDER_BLUFF] = {{40.3,50.5},{34.4,54.1},{52.6,58.1},{53.3,81.4},{59.7,75.6},{61.8,48.7},{48.5,33.6},{69.5,31.5},{74.9,27.3}},
+            },
+        },
+        [1000010] = {
+            [objectKeys.name] = "Lost Journal",
+            [objectKeys.questEnds] = {100022},
+            [objectKeys.zoneID] = zoneIDs.GILNEAS,
+        },
     }
 end)

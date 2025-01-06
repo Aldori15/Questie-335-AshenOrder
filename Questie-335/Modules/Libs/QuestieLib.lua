@@ -349,7 +349,16 @@ function QuestieLib:GetRaceString(raceMask)
             l10n('Troll'),
             l10n('Goblin'),
             l10n('Blood Elf'),
-            l10n('Draenei')
+            l10n('Draenei'),
+            l10n('Void Elf'),
+            l10n('Vulpera'),
+            l10n('High Elf'),
+            l10n('Pandaren'),
+            l10n('Worgen'),
+            l10n('Man\'ari Eredar'),
+            l10n('Lightforged'),
+            l10n('Demon Hunter'),
+            l10n('Demon Hunter')
         }
         local firstRun = true
         for k, v in pairs(raceTable) do
@@ -496,9 +505,21 @@ function QuestieLib:MathRandom(low_or_high_arg, high_arg)
     return low + math.floor(rand * high)
 end
 
+-- function QuestieLib:UnpackBinary(val)
+--     local ret = {}
+--     for q = 0, 16 do
+--         if bit.band(bit.rshift(val, q), 1) == 1 then
+--             tinsert(ret, true)
+--         else
+--             tinsert(ret, false)
+--         end
+--     end
+--     return ret
+-- end
+
 function QuestieLib:UnpackBinary(val)
     local ret = {}
-    for q = 0, 16 do
+    for q = 0, 20 do  -- Increased to 20 to cover bits 0–20 (up to 1048576)
         if bit.band(bit.rshift(val, q), 1) == 1 then
             tinsert(ret, true)
         else

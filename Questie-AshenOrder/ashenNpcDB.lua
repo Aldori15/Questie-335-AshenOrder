@@ -21,6 +21,10 @@ QuestieCompat.RegisterCorrection("npcData", function()
             [npcKeys.questStarts] = {471,484,40471},
             [npcKeys.questEnds] = {469,471,484,40471},
         },
+        [8383] = {
+            [npcKeys.questStarts] = {900600},
+            [npcKeys.questEnds] = {900600},
+        },
         [10299] = {
             [npcKeys.questStarts] = {4742,4743},
             [npcKeys.questEnds] = {4742,4743},
@@ -142,6 +146,30 @@ QuestieCompat.RegisterCorrection("npcData", function()
             [npcKeys.zoneID] = zoneIDs.STORMWIND_CITY,
             [npcKeys.spawns] = {
                 [zoneIDs.STORMWIND_CITY] = {{69.4,29.7}},
+            },
+        },
+        [180016] = {
+            [npcKeys.name] = "Alaric Ashenford",
+            [npcKeys.subName] = "Journeyman Alchemist",
+            [npcKeys.minLevel] = 5,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.questStarts] = {100003,100006},
+            [npcKeys.questEnds] = {100003,100005},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{37.7,64.4}},
+            },
+        },
+        [180028] = {
+            [npcKeys.name] = "Giovanny Swail",
+            [npcKeys.subName] = "Journeyman Tailor",
+            [npcKeys.minLevel] = 22,
+            [npcKeys.maxLevel] = 22,
+            [npcKeys.questStarts] = {100015,100016},
+            [npcKeys.questEnds] = {100015,100016},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{64.4,91.0}},
             },
         },
         [300000] = {
@@ -335,6 +363,33 @@ QuestieCompat.RegisterCorrection("npcData", function()
             [npcKeys.minLevel] = 25,
             [npcKeys.maxLevel] = 25,
         },
+        [800058] = {
+            [npcKeys.name] = "Invisible Thorns Bunny",
+            [npcKeys.minLevel] = 1,
+            [npcKeys.maxLevel] = 1,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{63.0,91.1}},
+            },
+        },
+        [800059] = {
+            [npcKeys.name] = "Invisible Claw Marks Bunny",
+            [npcKeys.minLevel] = 1,
+            [npcKeys.maxLevel] = 1,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{65.2,90.6}},
+            },
+        },
+        [800060] = {
+            [npcKeys.name] = "Invisible Grave Bunny",
+            [npcKeys.minLevel] = 1,
+            [npcKeys.maxLevel] = 1,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{62.5,93.5}},
+            },
+        },
         [810119] = {
             [npcKeys.name] = "Crystallon, the Stonehearted",
             [npcKeys.minLevel] = 63,
@@ -362,6 +417,451 @@ QuestieCompat.RegisterCorrection("npcData", function()
             [npcKeys.spawns] = {
                 [zoneIDs.WESTFALL] = {{54.8,32.6}},
             },
+        },
+        [950000] = {
+            [npcKeys.name] = "Sir Cedric Blackwood",
+            [npcKeys.subName] = "Enclave Member",
+            [npcKeys.minLevel] = 9,
+            [npcKeys.maxLevel] = 10,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{54.6,27.8}},
+            },
+        },
+        [950002] = {
+            [npcKeys.name] = "Notarius Blackwood",
+            [npcKeys.subName] = "Enclave Member",
+            [npcKeys.minLevel] = 8,
+            [npcKeys.maxLevel] = 9,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{51.7,33.6}},
+            },
+        },
+        [950005] = {
+            [npcKeys.name] = "Marisa Bristol",
+            [npcKeys.subName] = "Enclave Member",
+            [npcKeys.minLevel] = 12,
+            [npcKeys.maxLevel] = 13,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{56.6,33.5}},
+            },
+        },
+        [950006] = {
+            [npcKeys.name] = "Mira Nightwhisper",
+            [npcKeys.subName] = "The Nightcloaks",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.questStarts] = {100033,100034},
+            [npcKeys.questEnds] = {100031,100032,100033,100034},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{52.6,36.1}},
+            },
+        },
+        [950009] = {
+            [npcKeys.name] = "Ravenous Worgen",
+            [npcKeys.minLevel] = 11,
+            [npcKeys.maxLevel] = 12,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+        },
+        [950010] = {
+            [npcKeys.name] = "Ravenous Worgen",
+            [npcKeys.minLevel] = 11,
+            [npcKeys.maxLevel] = 12,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+        },
+        [950012] = {
+            [npcKeys.name] = "Trueblood Worgen",
+            [npcKeys.minLevel] = 11,
+            [npcKeys.maxLevel] = 12,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+        },
+        [950013] = {
+            [npcKeys.name] = "Bridge Barricade",
+            [npcKeys.minLevel] = 10,
+            [npcKeys.maxLevel] = 10,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+        },
+        [1000000] = {
+            [npcKeys.name] = "Victor Hawthorn",
+            [npcKeys.subName] = "Duskhaven's Vigilant",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.questStarts] = {100000,100004},
+            [npcKeys.questEnds] = {100000},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{36.3,64.1}},
+            },
+        },
+        [1000001] = {
+            [npcKeys.name] = "Obsidian Wolf",
+            [npcKeys.minLevel] = 1,
+            [npcKeys.maxLevel] = 2,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{34.6,68.5}},
+            },
+        },
+        [1000002] = {
+            [npcKeys.name] = "Cormac Blackwood",
+            [npcKeys.subName] = "Gilnean Herbologist",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.questStarts] = {100001,100002,100005},
+            [npcKeys.questEnds] = {100001,100002,100004},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{38.1,64.7}},
+            },
+        },
+        [1000003] = {
+            [npcKeys.name] = "Feral Worgen",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 4,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{37.5,74.5}},
+            },
+        },
+        [1000009] = {
+            [npcKeys.name] = "Cursed Gilnean",
+            [npcKeys.minLevel] = 4,
+            [npcKeys.maxLevel] = 4,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{36.4,61.3}},
+            },
+        },
+        [1000012] = {
+            [npcKeys.name] = "Lorna Crowley",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.questStarts] = {100012},
+            [npcKeys.questEnds] = {100006,100020},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{26.6,47.0}},
+            },
+        },
+        [1000013] = {
+            [npcKeys.name] = "Aldric Wolfheart",
+            [npcKeys.minLevel] = 4,
+            [npcKeys.maxLevel] = 4,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{32.5,77.5}},
+            },
+        },
+        [1000014] = {
+            [npcKeys.name] = "Eleanor Silverpaw",
+            [npcKeys.minLevel] = 5,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.questStarts] = {100007},
+            [npcKeys.questEnds] = {100007},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{36.9,64.3}},
+            },
+        },
+        [1000015] = {
+            [npcKeys.name] = "Eamon Greyson",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.questStarts] = {100008},
+            [npcKeys.questEnds] = {100008},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{35.8,74.5}},
+            },
+        },
+        [1000016] = {
+            [npcKeys.name] = "Emilli Greyson",
+            [npcKeys.minLevel] = 4,
+            [npcKeys.maxLevel] = 4,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{29.0,63.6}},
+            },
+        },
+        [1000017] = {
+            [npcKeys.name] = "Rugged Thorne",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.questStarts] = {100009},
+            [npcKeys.questEnds] = {100009},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{29.1,61.0}},
+            },
+        },
+        [1000018] = {
+            [npcKeys.name] = "Stray Horse",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{26.8,67.1},{28.7,69.5},{26.0,71.3},{24.5,68.3},{26.1,58.1},{24.4,60.8}},
+            },
+        },
+        [1000019] = {
+            [npcKeys.name] = "Brook Harrington",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.questStarts] = {100010},
+            [npcKeys.questEnds] = {100010},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{36.3,82.2}},
+            },
+        },
+        [1000020] = {
+            [npcKeys.name] = "Murloc",
+            [npcKeys.minLevel] = 4,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{35.0,82.7},{33.6,85.7},{36.9,83.4},{36.4,87.4},{37.3,86.0},{38.9,84.0}},
+            },
+        },
+        [1000021] = {
+            [npcKeys.name] = "Thresher",
+            [npcKeys.minLevel] = 5,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{35.1,87.9},{33.3,88.4},{29.2,86.5}},
+            },
+        },
+        [1000025] = {
+            [npcKeys.name] = "Carriage",
+            [npcKeys.minLevel] = 5,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{29.0,54.0}},
+            },
+        },
+        [1000026] = {
+            [npcKeys.name] = "Munira Hammond",
+            [npcKeys.minLevel] = 5,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.questStarts] = {100011,100017},
+            [npcKeys.questEnds] = {100011,100019},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{27.9,67.0}},
+            },
+        },
+        [1000030] = {
+            [npcKeys.name] = "Darius Crowley",
+            [npcKeys.subName] = "Lord",
+            [npcKeys.minLevel] = 23,
+            [npcKeys.maxLevel] = 23,
+            [npcKeys.questStarts] = {100013},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+        },
+        [1000031] = {
+            [npcKeys.name] = "Crazed Worgen",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{49.2,80.1}},
+            },
+        },
+        [1000033] = {
+            [npcKeys.name] = "Blackwald Spider",
+            [npcKeys.minLevel] = 5,
+            [npcKeys.maxLevel] = 7,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{67.5,89.7},{66.8,87.3},{66.5,90.7}},
+            },
+        },
+        [1000034] = {
+            [npcKeys.name] = "Arachnothorn Weaver",
+            [npcKeys.minLevel] = 6,
+            [npcKeys.maxLevel] = 7,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{67.7,82.9},{67.0,84.9},{66.2,85.7}},
+            },
+        },
+        [1000044] = {
+            [npcKeys.name] = "Alden Croley",
+            [npcKeys.minLevel] = 23,
+            [npcKeys.maxLevel] = 23,
+            [npcKeys.questStarts] = {100014},
+            [npcKeys.questEnds] = {100013,100014},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+        },
+        [1000048] = {
+            [npcKeys.name] = "Alexandar Hammond",
+            [npcKeys.minLevel] = 5,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.questStarts] = {100018},
+            [npcKeys.questEnds] = {100017},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{27.8,66.7}},
+            },
+        },
+        [1000049] = {
+            [npcKeys.name] = "Selene Hammond",
+            [npcKeys.minLevel] = 5,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.questStarts] = {100019},
+            [npcKeys.questEnds] = {100018},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{47.0,81.8}},
+            },
+        },
+        [1000050] = {
+            [npcKeys.name] = "Selene Hammond",
+            [npcKeys.minLevel] = 5,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+        },
+        [1000051] = {
+            [npcKeys.name] = "Snoutripper the Tuskbane",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{46.8,83.8},{50.7,83.1},{48.6,86.9}},
+            },
+        },
+        [1000052] = {
+            [npcKeys.name] = "Hamlet",
+            [npcKeys.minLevel] = 6,
+            [npcKeys.maxLevel] = 6,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{47.0,81.8}},
+            },
+        },
+        [1000053] = {
+            [npcKeys.name] = "Carlisle Harmond",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.questStarts] = {100020},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{51.7,81.0}},
+            },
+        },
+        [1000054] = {
+            [npcKeys.name] = "Grom'thar the Sorcerer",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 5,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{45.9,88.1},{47.9,86.1},{49.6,83.3}},
+            },
+        },
+        [1000061] = {
+            [npcKeys.name] = "Eadric Greymane",
+            [npcKeys.subName] = "Captain",
+            [npcKeys.minLevel] = 20,
+            [npcKeys.maxLevel] = 30,
+            [npcKeys.questEnds] = {100012},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{59.0,92.9}},
+            },
+        },
+        [1000062] = {
+            [npcKeys.name] = "Delina Ravenshadow",
+            [npcKeys.minLevel] = 20,
+            [npcKeys.maxLevel] = 30,
+            [npcKeys.questStarts] = {100022,100024,100025,100026,100027},
+            [npcKeys.questEnds] = {100021,100023,100024,100025,100026},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{63.8,91.7}},
+            },
+        },
+        [1000067] = {
+            [npcKeys.name] = "Bound Villager",
+            [npcKeys.minLevel] = 20,
+            [npcKeys.maxLevel] = 30,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+        },
+        [1000068] = {
+            [npcKeys.name] = "Invisible Egg Bunny",
+            [npcKeys.minLevel] = 1,
+            [npcKeys.maxLevel] = 1,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{68.2,83.5}},
+            },
+        },
+        [1000069] = {
+            [npcKeys.name] = "Rennick Shadowclaw",
+            [npcKeys.subName] = "The Nightcloaks",
+            [npcKeys.minLevel] = 3,
+            [npcKeys.maxLevel] = 3,
+            [npcKeys.questStarts] = {100028,100029,100030,100031,100032},
+            [npcKeys.questEnds] = {100027,100028,100029,100030},
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{74.1,76.0}},
+            },
+        },
+        [1000070] = {
+            [npcKeys.name] = "Thalorin Fangclaw",
+            [npcKeys.minLevel] = 7,
+            [npcKeys.maxLevel] = 10,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{78.2,72.2}},
+            },
+        },
+        [1000071] = {
+            [npcKeys.name] = "Garok Ironfur",
+            [npcKeys.minLevel] = 7,
+            [npcKeys.maxLevel] = 10,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{77.4,72.4}},
+            },
+        },
+        [1000072] = {
+            [npcKeys.name] = "Lyran Shadowpelt",
+            [npcKeys.minLevel] = 7,
+            [npcKeys.maxLevel] = 10,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{77.2,72.2}},
+            },
+        },
+        [1000073] = {
+            [npcKeys.name] = "Invisible Cage Bunny",
+            [npcKeys.minLevel] = 1,
+            [npcKeys.maxLevel] = 1,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{78.3,70.7}},
+            },
+        },
+        [1000075] = {
+            [npcKeys.name] = "Invisible House Bunny",
+            [npcKeys.minLevel] = 1,
+            [npcKeys.maxLevel] = 1,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
+            [npcKeys.spawns] = {
+                [zoneIDs.GILNEAS] = {{78.2,65.9}},
+            },
+        },
+        [1000079] = {
+            [npcKeys.name] = "Renegades Carriage",
+            [npcKeys.minLevel] = 10,
+            [npcKeys.maxLevel] = 10,
+            [npcKeys.zoneID] = zoneIDs.GILNEAS,
         },
         [1400060] = {
             [npcKeys.name] = "Jared Long",
