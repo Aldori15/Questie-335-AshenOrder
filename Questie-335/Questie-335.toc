@@ -1,12 +1,12 @@
 ## Interface: 30300
-## Title: Questie-335|cFF00FF00 v1.1.1|r
+## Title: Questie-335|cFF00FF00 v1.1.2|r
 ## Author: Aero/Logon/Muehe/TheCrux(BreakBB)/Drejjmit/Dyaxler/Schaka/Zoey/Everyone else
-## Notes: A standalone Classic QuestHelper updated for Wotlk 3.3.5 to work with Ashen Order.  It cannot be used independently from Questie-335-AshenOrder v1.1.1 and both need to be used together.
+## Notes: A standalone Classic QuestHelper updated for Wotlk 3.3.5 to work with Ashen Order.  It cannot be used independently from Questie-335-AshenOrder v1.1.2 and both need to be used together.
 ## Notes-esMX: Ayundante de misión
 ## Notes-esES: Ayundante de misión
 ## Notes-ptBR: Ajudante de missão
 ## Notes-frFR: Assistant de quête
-## Version: 1.1.1
+## Version: 1.1.2
 ## RequiredDeps:
 ## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu
 ## SavedVariables: QuestieConfig

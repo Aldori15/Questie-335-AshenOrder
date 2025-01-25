@@ -1762,7 +1762,7 @@ function QuestieCompat.LoadUiMapData(expansionLevel)
     end
     UiMapData = nil
 
-    QuestieCompat.worldMapData[0] = { 48033.24, 32020.8, 36867.97, 14848.84 }
-    QuestieCompat.worldMapData[1] = { 47908.72, 31935.28, 8552.61, 18467.83 }
-    QuestieCompat.worldMapData[571] = { 47662.7, 31772.19, 25198.53, 11072.07 }
+    QuestieCompat.worldMapData[0] = { 58033.24, 42020.8, 48467.97, 19328.84 }
+    QuestieCompat.worldMapData[1] = { 66908.72, 38935.28, 12102.61, 21567.83 }
+    QuestieCompat.worldMapData[571] = { 56262.7, 36772.19, 28678.53, 10972.07 }
 end
