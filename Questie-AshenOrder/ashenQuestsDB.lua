@@ -66,7 +66,48 @@ QuestieCompat.RegisterCorrection("questData", function()
         [6402] = {
             [questKeys.finishedBy] = {{12580,17804}},
         },
-
+        [8325] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8326] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8327] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8330] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8334] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8335] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8336] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8338] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8345] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8347] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8350] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [8547] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [9704] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
+        [9705] = {
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        },
         [14356] = {
             [questKeys.startedBy] = {{36273,883296}},
         },
@@ -472,6 +513,7 @@ QuestieCompat.RegisterCorrection("questData", function()
             [questKeys.requiredLevel] = 1,
             [questKeys.questLevel] = 3,
             [questKeys.preQuestSingle] = {30031},
+            [questKeys.nextQuestInChain] = 30033,
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
             [questKeys.objectivesText] = {"Collect 5 Light-infused Crystals."},
             [questKeys.objectives] = {nil,nil,{{800070}}},
@@ -484,6 +526,7 @@ QuestieCompat.RegisterCorrection("questData", function()
             [questKeys.finishedBy] = {{100147}},
             [questKeys.requiredLevel] = 1,
             [questKeys.questLevel] = 4,
+            [questKeys.preQuestSingle] = {30032},
             [questKeys.nextQuestInChain] = 30034,
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
             [questKeys.objectivesText] = {"Speak with Elandra Sagequill."},

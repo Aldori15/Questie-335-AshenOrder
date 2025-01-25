@@ -339,26 +339,25 @@ function QuestieLib:GetRaceString(raceMask)
         local raceString = ""
         local raceTable = QuestieLib:UnpackBinary(raceMask)
         local stringTable = {
-            l10n('Human'),
-            l10n('Orc'),
-            l10n('Dwarf'),
-            l10n('Nightelf'),
-            l10n('Undead'),
-            l10n('Tauren'),
-            l10n('Gnome'),
-            l10n('Troll'),
-            l10n('Goblin'),
-            l10n('Blood Elf'),
-            l10n('Draenei'),
-            l10n('Void Elf'),
-            l10n('Vulpera'),
-            l10n('High Elf'),
-            l10n('Pandaren'),
-            l10n('Worgen'),
-            l10n('Man\'ari Eredar'),
-            l10n('Lightforged'),
-            l10n('Demon Hunter'),
-            l10n('Demon Hunter')
+            l10n("Human"),
+            l10n("Orc"),
+            l10n("Dwarf"),
+            l10n("Nightelf"),
+            l10n("Undead"),
+            l10n("Tauren"),
+            l10n("Gnome"),
+            l10n("Troll"),
+            l10n("Goblin"),
+            l10n("Blood Elf"),
+            l10n("Draenei"),
+            l10n("Void Elf"),
+            l10n("Vulpera"),
+            l10n("High Elf"),
+            l10n("Pandaren"),
+            l10n("Worgen"),
+            l10n("Man'ari Eredar"),
+            l10n("Lightforged"),
+            l10n("Demon Hunter")
         }
         local firstRun = true
         for k, v in pairs(raceTable) do
