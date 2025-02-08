@@ -917,9 +917,9 @@ function QuestieCompat.LoadUiMapData(expansionLevel)
         },
         [113] =
         {
-            [1] = 17763.010742188,
-            [2] = 11842.702514648,
-            [3] = 9198.58203125,
+            [1] = 18763.010742188,
+            [2] = 11912.702514648,
+            [3] = 9728.58203125,
             [4] = 10619.23046875,
             ["mapType"] = 2,
             ["parentMapID"] = 947,
@@ -1764,5 +1764,5 @@ function QuestieCompat.LoadUiMapData(expansionLevel)
 
     QuestieCompat.worldMapData[0] = { 58033.24, 42020.8, 48467.97, 19328.84 }
     QuestieCompat.worldMapData[1] = { 66908.72, 38935.28, 12102.61, 21567.83 }
-    QuestieCompat.worldMapData[571] = { 56262.7, 36772.19, 28678.53, 10972.07 }
+    QuestieCompat.worldMapData[571] = { 59762.7, 37772.19, 30478.53, 10972.07 }
 end
