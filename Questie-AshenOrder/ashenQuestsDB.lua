@@ -111,12 +111,6 @@ QuestieCompat.RegisterCorrection("questData", function()
         [14356] = {
             [questKeys.startedBy] = {{36273,883296}},
         },
-        [24541] = {
-            [questKeys.objectives] = {{{37172,nil,Questie.ICON_TYPE_EVENT}},nil,nil,nil,nil,{{71539}}},
-        },
-        [24656] = {
-            [questKeys.objectives] = {{{38066,nil,Questie.ICON_TYPE_EVENT}},nil,nil,nil,nil,{{71522}}},
-        },
         [30000] = {
             [questKeys.name] = "Battle for Westfall",
             [questKeys.startedBy] = {{234}},

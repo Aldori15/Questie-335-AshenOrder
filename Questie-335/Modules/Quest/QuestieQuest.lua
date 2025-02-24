@@ -1375,10 +1375,10 @@ _GetIconsSortedByDistance = function(icons)
 
     -- use the keys to retrieve the values in the sorted order
     for distIndex = 1, #distances do
-        local iconsAtDistance = icons[distances[distIndex]]
+        local iconsAtDisntace = icons[distances[distIndex]]
 
-        for iconIndex = 1, #iconsAtDistance do
-            local icon = iconsAtDistance[iconIndex]
+        for iconIndex = 1, #iconsAtDisntace do
+            local icon = iconsAtDisntace[iconIndex]
 
             iconCount = iconCount + 1
             orderedList[iconCount] = icon

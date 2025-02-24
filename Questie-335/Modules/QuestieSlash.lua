@@ -161,14 +161,14 @@ function QuestieSlash.HandleCommands(input)
     if mainCommand == "version" then
         local gameType = ""
         if Questie.IsWotlk then
-            gameType = "Wrath"
+            gameType = "Wotlk"
         elseif Questie.IsSoD then -- seasonal checks must be made before non-seasonal for that client, since IsEra resolves true in SoD
             gameType = "SoD"
         elseif Questie.IsEra then
             gameType = "Era"
         end
 
-        Questie:Print("Questie " .. QuestieLib:GetAddonVersionString() .. ", Client " .. GetBuildInfo() .. " " .. gameType .. ", Locale " .. GetLocale())
+        Questie:Print("Questie - Ashen Order " .. QuestieLib:GetAddonVersionString() .. ", Client: " .. GetBuildInfo() .. " " .. gameType .. ", Locale: " .. GetLocale())
         return
     end
 

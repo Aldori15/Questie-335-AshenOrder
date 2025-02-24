@@ -421,12 +421,12 @@ end
 _GetLanguages = function()
     local languages = {
         ['auto'] = l10n('Automatic'),
+        ['deDE'] = 'Deutsch',
         ['enUS'] = 'English',
         ['esES'] = 'Español',
         ['esMX'] = 'Español (América Latina)',
-        ['ptBR'] = 'Português',
         ['frFR'] = 'Français',
-        ['deDE'] = 'Deutsch',
+        ['ptBR'] = 'Português',
         ['ruRU'] = 'Русский',
         ['zhCN'] = '简体中文',
         ['zhTW'] = '正體中文',

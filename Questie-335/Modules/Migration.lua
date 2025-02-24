@@ -9,7 +9,7 @@ local migrationFunctions = {
     [1] = function()
         -- this is the big Questie v9.0 settings refactor, implementing profiles
         if Questie.db.char then -- if you actually have previous settings, then on first startup we should notify you of this
-            Questie:Print("[Migration] Migrated Questie for v9.0. This will reset all Questie settings to default. Journey history has been preserved.")
+            Questie:Print("[Migration] Migrated Questie for Ashen Order. This will reset all Questie settings to default. Journey history has been preserved.")
         end
         -- theres no need to delete old settings, since we read/write to different addresses now;
         -- old settings can linger unused unless you roll back versions, no harm no foul
