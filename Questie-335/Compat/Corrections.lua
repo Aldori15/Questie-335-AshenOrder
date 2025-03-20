@@ -14,6 +14,12 @@ QuestieCompat.RegisterCorrection("questData", function()
             [questKeys.name] = "Report to Lord Afrasastrasz",
             [questKeys.objectivesText] = {"Speak with Lord Afrasastrasz at Wyrmrest Temple."},
         },
+        [24541] = {
+			[questKeys.objectives] = {nil,nil,nil,nil,nil,{{71539}}},
+        },
+        [24656] = {
+			[questKeys.objectives] = {nil,nil,nil,nil,nil,{{71522}}},
+        },
 	}
 end)
 

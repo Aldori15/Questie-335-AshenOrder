@@ -25,9 +25,16 @@ QuestieCompat.RegisterCorrection("npcData", function()
             [npcKeys.questStarts] = {900600},
             [npcKeys.questEnds] = {900600},
         },
+        [9997] = {
+            [npcKeys.questEnds] = {4491,4501,884501},
+        },
         [10299] = {
             [npcKeys.questStarts] = {4742,4743},
             [npcKeys.questEnds] = {4742,4743},
+        },
+        [18102] = {
+            [npcKeys.questStarts] = {881431},
+            [npcKeys.questEnds] = {881431},
         },
         [100139] = {
             [npcKeys.name] = "Aquila Empyrean",
@@ -388,6 +395,18 @@ QuestieCompat.RegisterCorrection("npcData", function()
             [npcKeys.zoneID] = zoneIDs.GILNEAS,
             [npcKeys.spawns] = {
                 [zoneIDs.GILNEAS] = {{62.5,93.5}},
+            },
+        },
+        [810010] = {
+            [npcKeys.name] = "Grizzle Snout",
+            [npcKeys.subName] = "Thunderhoof Boars",
+            [npcKeys.minLevel] = 33,
+            [npcKeys.maxLevel] = 33,
+            [npcKeys.questStarts] = {300000},
+            [npcKeys.questEnds] = {300000},
+            [npcKeys.zoneID] = zoneIDs.RAZORFEN_KRAUL,
+            [npcKeys.spawns] = {
+                [zoneIDs.RAZORFEN_KRAUL] = {{65.5,64.9}},
             },
         },
         [810119] = {

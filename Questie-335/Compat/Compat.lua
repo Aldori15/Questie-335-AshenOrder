@@ -376,7 +376,7 @@ end
 QuestieCompat.C_QuestLog = {
 	-- Returns info for the objectives of a quest. (https://wowpedia.fandom.com/wiki/API_C_QuestLog.GetQuestObjectives)
 	GetQuestObjectives = function(questID, questLogIndex)
-		local questObjectives = {}
+		local questObjectives, objectiveIndex = {}, 1
         if questLogIndex then
 		    local numObjectives = GetNumQuestLeaderBoards(questLogIndex);
 		    for i = 1, numObjectives do
@@ -387,18 +387,20 @@ QuestieCompat.C_QuestLog = {
                     -- GetQuestLogLeaderBoard randomly returns incorrect objective information.
                     -- Parsing the UI_INFO_MESSAGE event for the correct numFulfilled value seems like the solution.
                     local fulfilled = questObjectivesCache[objectiveName]
-                    if fulfilled then
+                    if fulfilled and (not isCompleted) then
                         numFulfilled = fulfilled
                         questObjectivesCache[objectiveName] = nil
                     end
 
-		    	    table.insert(questObjectives, {
+		    	    table.insert(questObjectives, objectiveIndex, {
 		    	    	text = description,
 		    	    	type = objectiveType,
 		    	    	finished = isCompleted and true or false,
 		    	    	numFulfilled = tonumber(numFulfilled) or (isCompleted and 1 or 0),
 		    	    	numRequired = tonumber(numRequired) or 1,
 		    	    })
+					-- "event" should always be last?
+					objectiveIndex = objectiveIndex + (objectiveType ~= "event" and 1 or 0)
                 end
 		    end
         end
@@ -1464,6 +1466,15 @@ function QuestieCompat.PopulateGlobals(self)
     end
 end
 
+QuestieCompat.isReloadingUi = false
+function QuestieCompat.OnReloadUi(command)
+	command = command or "reloadui"
+	if (command == "reloadui") then
+		Questie.db.profile.isInitialLogin = false
+		QuestieCompat.isReloadingUi = true
+	end
+end
+
 -- change sound files extension from .ogg to .wav
 function QuestieCompat.GetSelectedSoundFile(typeSelected)
     return QuestieCompat.orig_GetSelectedSoundFile(typeSelected):gsub("[^.]+$", "wav")
@@ -1475,7 +1486,14 @@ function QuestieCompat:ToggleQuestTrackingTooltips(event)
     SetCVar("showQuestTrackingTooltips", value)
 end
 QuestieCompat.PLAYER_LOGIN = QuestieCompat.ToggleQuestTrackingTooltips
-QuestieCompat.PLAYER_LOGOUT = QuestieCompat.ToggleQuestTrackingTooltips
+
+function QuestieCompat:PLAYER_LOGOUT(event)
+	if not QuestieCompat.isReloadingUi then
+		QuestieCompat:ToggleQuestTrackingTooltips(event)
+		
+		Questie.db.profile.isInitialLogin = true
+	end
+end
 
 local townsfolk_texturemap = {
     ["Ammo"] = "Interface\\Icons\\inv_ammo_arrow_02",
@@ -1658,6 +1676,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
 
     QuestieCompat.Merge(Questie.db, {
         profile = {
+            isInitialLogin = true,
             initDelay = 0.03,
             useWotlkMapData = false,
             resetDailyQuests = true,
@@ -1719,11 +1738,14 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     Sounds.GetSelectedSoundFile = QuestieCompat.GetSelectedSoundFile
     QuestieLink.GetQuestLinkString = rawget(QuestieLink, "GetQuestLinkString") or QuestieCompat.GetQuestLinkString
     QuestieLink.GetQuestLinkStringById = rawget(QuestieLink, "GetQuestLinkStringById") or QuestieCompat.GetQuestLinkStringById
+    QuestieLink.GetQuestHyperLink = rawget(QuestieLink, "GetQuestHyperLink") or QuestieCompat.GetQuestLinkStringById
 
     hooksecurefunc(QuestieEventHandler, "RegisterLateEvents", QuestieCompat.QuestieEventHandler_RegisterLateEvents)
     hooksecurefunc(QuestEventHandler, "RegisterEvents", QuestieCompat.QuestEventHandler_RegisterEvents)
     hooksecurefunc(TrackerLinePool, "Initialize", QuestieCompat.QuestieTracker_Initialize)
     hooksecurefunc(QuestieQuest, "ToggleNotes", QuestieCompat.HBDPins.UpdateWorldMap)
+    hooksecurefunc("ReloadUI", QuestieCompat.OnReloadUi)
+	hooksecurefunc("ConsoleExec", QuestieCompat.OnReloadUi)
 
     local Mapster = LibStub("AceAddon-3.0"):GetAddon("Mapster", true)
     if Mapster and Mapster.RefreshQuestObjectivesDisplay then

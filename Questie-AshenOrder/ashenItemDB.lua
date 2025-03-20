@@ -146,6 +146,14 @@ QuestieCompat.RegisterCorrection("itemData", function()
             [itemKeys.name] = "Rognar's Claw",
             [itemKeys.relatedQuests] = {50176},
         },
+        [822457] = {
+            [itemKeys.name] = "Tempest Lord's Essence",
+            [itemKeys.relatedQuests] = {881431},
+        },
+        [830798] = {
+            [itemKeys.name] = "Thundergut's Cracked Tooth",
+            [itemKeys.relatedQuests] = {884501},
+        },
         [883348] = {
             [itemKeys.name] = "Swallowed Clock",
             [itemKeys.relatedQuests] = {40471},

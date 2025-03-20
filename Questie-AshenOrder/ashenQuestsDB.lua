@@ -51,6 +51,9 @@ QuestieCompat.RegisterCorrection("questData", function()
         [471] = {
             [questKeys.nextQuestInChain] = 40471,
         },
+        [4501] = {
+            [questKeys.objectives] = {{{9166},{9167}}},
+        },
         [5722] = {
             [questKeys.startedBy] = {{11833,883296}},
         },
@@ -110,12 +113,6 @@ QuestieCompat.RegisterCorrection("questData", function()
         },
         [14356] = {
             [questKeys.startedBy] = {{36273,883296}},
-        },
-        [24541] = {
-            [questKeys.objectives] = {{{37172,nil,Questie.ICON_TYPE_EVENT}},nil,nil,nil,nil,{{71539}}},
-        },
-        [24656] = {
-            [questKeys.objectives] = {{{38066,nil,Questie.ICON_TYPE_EVENT}},nil,nil,nil,nil,{{71522}}},
         },
         [30000] = {
             [questKeys.name] = "Battle for Westfall",
@@ -1656,6 +1653,42 @@ QuestieCompat.RegisterCorrection("questData", function()
             [questKeys.objectives] = {nil,nil,{{22355},{22375},{12360},{20725}}},
             [questKeys.zoneOrSort] = zoneIDs.NAXXRAMAS,
             [questKeys.reputationReward] = {{529, 200}},
+        },
+        [300000] = {
+            [questKeys.name] = "Revenge of the Boar!",
+            [questKeys.startedBy] = {{810010}},
+            [questKeys.finishedBy] = {{810010}},
+            [questKeys.requiredLevel] = 22,
+            [questKeys.questLevel] = 32,
+            [questKeys.questFlags] = 2,
+            [questKeys.objectivesText] = {"Slay Overlord Ramtusk, Agathelos the Raging, and Charlga Razorflank to avenge his tribe and cleanse Razorfen Kraul."},
+            [questKeys.objectives] = {{{4420},{4422},{4421}}},
+            [questKeys.zoneOrSort] = zoneIDs.RAZORFEN_KRAUL,
+            -- To do: Need to add questKeys.reputationReward
+        },
+        [881431] = {
+            [questKeys.name] = "The Storm Rekindled",
+            [questKeys.startedBy] = {{18102}},
+            [questKeys.finishedBy] = {{18102}},
+            [questKeys.requiredLevel] = 60,
+            [questKeys.questLevel] = 70,
+            [questKeys.questFlags] = 64,
+            [questKeys.objectivesText] = {"Slay Prince Malchezaar, Return 30 Primal Air, 50 Hardened Adamantite Bar, 10 Tempest Lord's Essences, and bring Thunderfury, Blessed Blade of the WIndseeker back to Kalandrios at Throne of the Elements."},
+            [questKeys.objectives] = {{{15690}},nil,{{22451},{23573},{19019},{822457}}},
+            [questKeys.zoneOrSort] = sortKeys.LEGENDARY,
+            -- To do: Need to add questKeys.reputationReward
+        },
+        [884501] = {
+            [questKeys.name] = "WANTED: King of the Crater",
+            [questKeys.startedBy] = {nil,{174682}},
+            [questKeys.finishedBy] = {{9997}},
+            [questKeys.requiredLevel] = 49,
+            [questKeys.questLevel] = 55,
+            [questKeys.questFlags] = 8,
+            [questKeys.objectivesText] = {"Slay Thundergut, the mighty Devilsaur, and bring back his Cracked Fang as proof of your victory to Spraggle Frock at Marshal's Refuge."},
+            [questKeys.objectives] = {nil,nil,{{830798}}},
+            [questKeys.zoneOrSort] = zoneIDs.UN_GORO_CRATER,
+            -- To do: Need to add questKeys.reputationReward
         },
         [900600] = {
             [questKeys.name] = "Indalamar's Tribute",

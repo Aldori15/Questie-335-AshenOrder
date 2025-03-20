@@ -8,6 +8,9 @@ QuestieCompat.RegisterCorrection("objectData", function()
     local zoneIDs = ZoneDB.zoneIDs
  
     return {
+        [174682] = {
+            [objectKeys.questStarts] = {4501,884501},
+        },
         [888649] = {
             [objectKeys.name] = "Alliance Taskboard",
             [objectKeys.questStarts] = {39533,39534,39537,39538,41537,41538,41541,41542,41544,41546,41549},
