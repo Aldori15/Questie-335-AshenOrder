@@ -83,6 +83,9 @@ function QuestieWotlkQuestFixes:Load()
         [648] = {
             [questKeys.triggerEnd] = {"Escort OOX-17/TN to safety", {[zoneIDs.TANARIS]={{61,53}}}},
         },
+        [715] = { -- Liquid Stone https://www.wowhead.com/classic/quest=715/liquid-stone
+            [questKeys.preQuestGroup] = {712,714}, -- Study of the Elements: Rock https://www.wowhead.com/classic/quest=712/study-of-the-elements-rock & Gyro... What? https://www.wowhead.com/classic/quest=714/gyro-what
+        },
         [768] = {
             [questKeys.requiredSkill] = {393,1},
         },
@@ -235,6 +238,9 @@ function QuestieWotlkQuestFixes:Load()
         [4486] = {
             [questKeys.startedBy] = {{5149}},
         },
+        [4734] = { -- Egg Freezing
+            [questKeys.preQuestSingle] = {4907}, -- Tinkee Steamboil
+        },
         [4740] = {
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
@@ -250,7 +256,7 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.zoneOrSort] = sortKeys.SPECIAL,
         },
         [5057] = {
-            [questKeys.requiredRaces] = raceIDs.NONE,
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [5305]  ={
             [questKeys.requiredSpecialization] = 0,
@@ -357,6 +363,15 @@ function QuestieWotlkQuestFixes:Load()
         [8762] = {
             [questKeys.objectives] = {{{15664,"Find Metzen the Reindeer and rescue him"}},nil,{{21211}}},
         },
+        [8764] = {
+            [questKeys.specialFlags] = 1,
+        },
+        [8765] = {
+            [questKeys.specialFlags] = 1,
+        },
+        [8766] = {
+            [questKeys.specialFlags] = 1,
+        },
         [8767] = {
             [questKeys.requiredClasses] = classIDs.ROGUE + classIDs.WARRIOR + classIDs.HUNTER + classIDs.PALADIN + classIDs.DEATH_KNIGHT,
         },
@@ -426,6 +441,10 @@ function QuestieWotlkQuestFixes:Load()
         [9361] = {
             [questKeys.requiredSourceItems] = {23270},
         },
+        -- Changed in wotlkQuestDB.lua as this doesn't work, supposedly for all races
+        [9409] = { -- Urgent Delivery!
+            [questKeys.requiredRaces] = raceIDs.DRAENAI,
+        },
         [9425] = {
             [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
         },
@@ -454,6 +473,9 @@ function QuestieWotlkQuestFixes:Load()
         },
         [10180] = {
             [questKeys.nextQuestInChain] = 10097,
+        },
+        [10357] = {
+            [questKeys.preQuestGroup] = {7792,7798,10356},
         },
         [10445] = {
             [questKeys.exclusiveTo] = {13432},
@@ -5586,6 +5608,7 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.objectives] = {{{27990,"Ask Krasus about the hilt's origins"}}},
         },
         [14483] = {
+            [questKeys.preQuestSingle] = {24793}, -- Man on the Inside https://www.wowhead.com/wotlk/quest=24793/man-on-the-inside
             [questKeys.startedBy] = {{36296},nil,{49641}},
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
@@ -6151,6 +6174,7 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.nextQuestInChain] = 24547,
         },
         [24745] = {
+            [questKeys.preQuestSingle] = {24792}, -- Man on the Inside https://www.wowhead.com/wotlk/quest=24792/man-on-the-inside
             [questKeys.startedBy] = {{36296},nil,{50320}},
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
@@ -6394,8 +6418,6 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.exclusiveTo] = {24869,24870,24871,24873,24874},
         },
         [24873] = { -- 10man
-            [questKeys.startedBy] = {{38501}},
-            [questKeys.finishedBy] = {{38501}},
             [questKeys.objectives] = {{{38501,"Return with two strains of Blight"}}},
             [questKeys.extraObjectives] = {
                 {nil, Questie.ICON_TYPE_EVENT, l10n("Get hit by Slime Spray to get the Green Blight strain"), 0, {{"monster", 36627}}},
@@ -6426,8 +6448,6 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.exclusiveTo] = {24875,24878,24879,24880},
         },
         [24878] = { -- 25man
-            [questKeys.startedBy] = {{38501}},
-            [questKeys.finishedBy] = {{38501}},
             [questKeys.objectives] = {{{38501,"Return with two strains of Blight"}}},
             [questKeys.extraObjectives] = {
                 {nil, Questie.ICON_TYPE_EVENT, l10n("Get hit by Slime Spray to get the Green Blight strain"), 0, {{"monster", 36627}}},
