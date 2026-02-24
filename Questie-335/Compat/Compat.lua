@@ -1867,7 +1867,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     QuestieCompat.Merge(Questie.db, {
         profile = {
             isInitialLogin = true,
-            initDelay = 0.03,
+            initDelay = 0.01,
             useWotlkMapData = false,
             resetDailyQuests = true,
             weeklyResetDay = 4,
