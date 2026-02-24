@@ -60,7 +60,7 @@ local trackerMarginLeft = 14
 local lastAQW = GetTime()
 local lastTrackerUpdate = GetTime()
 local lastAchieveId = GetTime()
-local durabilityInitialPosition = { DurabilityFrame:GetPoint() }
+local durabilityInitialPosition
 
 local voiceOverInitialPosition
 if VoiceOverFrame then
@@ -128,6 +128,8 @@ function QuestieTracker.Initialize()
         return
     end
 
+    durabilityInitialPosition = { DurabilityFrame:GetPoint() }
+    
     -- Initialize tracker frames
     trackerBaseFrame = TrackerBaseFrame.Initialize()
     trackerHeaderFrame = TrackerHeaderFrame.Initialize(trackerBaseFrame)
