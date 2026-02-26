@@ -6415,6 +6415,8 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.exclusiveTo] = {24869,24870,24871,24873,24874},
         },
         [24873] = { -- 10man
+            [questKeys.startedBy] = {{38501}},
+            [questKeys.finishedBy] = {{38501}},
             [questKeys.objectives] = {{{38501,"Return with two strains of Blight"}}},
             [questKeys.extraObjectives] = {
                 {nil, Questie.ICON_TYPE_EVENT, l10n("Get hit by Slime Spray to get the Green Blight strain"), 0, {{"monster", 36627}}},
@@ -6445,6 +6447,8 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.exclusiveTo] = {24875,24878,24879,24880},
         },
         [24878] = { -- 25man
+            [questKeys.startedBy] = {{38501}},
+            [questKeys.finishedBy] = {{38501}},
             [questKeys.objectives] = {{{38501,"Return with two strains of Blight"}}},
             [questKeys.extraObjectives] = {
                 {nil, Questie.ICON_TYPE_EVENT, l10n("Get hit by Slime Spray to get the Green Blight strain"), 0, {{"monster", 36627}}},
