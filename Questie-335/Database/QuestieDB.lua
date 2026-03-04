@@ -1879,11 +1879,8 @@ function QuestieDB.GetQuestIDFromName(name, questgiverGUID, questStarter)
                         questID = id
                     end
                 end
-            elseif Questie.IsSoD == false then -- don't print these errors in SoD, as we expect missing data when new quests release; debug offers will handle these scenarios instead
-                Questie:Error("Database mismatch! No entries found that match quest name. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.")
-                Questie:Error("Queststarter is: " .. unit_type .. " " .. questgiverID)
-                Questie:Error("Quest name is: " .. name)
-                Questie:Error("Client info is: " .. GetBuildInfo() .. ";  Questie " .. QuestieLib:GetAddonVersionString())
+            else
+                Questie:Debug(Questie.DEBUG_ELEVATED, "Database mismatch! No entries found that match quest name. Queststarter is: " .. unit_type .. " " .. questgiverID .. ", quest name is: " .. name)
             end
         else
             if questsEnded then
@@ -1892,11 +1889,8 @@ function QuestieDB.GetQuestIDFromName(name, questgiverGUID, questStarter)
                         questID = id
                     end
                 end
-            elseif Questie.IsSoD == false then -- don't print these errors in SoD, as we expect missing data when new quests release; debug offers will handle these scenarios instead
-                Questie:Error("Database mismatch! No entries found that match quest name. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.")
-                Questie:Error("Questender is: " .. unit_type .. " " .. questgiverID)
-                Questie:Error("Quest name is: " .. name)
-                Questie:Error("Client info is: " .. GetBuildInfo() .. ";  Questie " .. QuestieLib:GetAddonVersionString())
+            else
+                Questie:Debug(Questie.DEBUG_ELEVATED, "Database mismatch! No entries found that match quest name. Questender is: " .. unit_type .. " " .. questgiverID .. ", quest name is: " .. name)
             end
         end
     end
