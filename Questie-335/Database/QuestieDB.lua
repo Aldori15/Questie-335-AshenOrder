@@ -1391,6 +1391,10 @@ function QuestieDB.GetQuest(questId) -- /dump QuestieDB.GetQuest(867)
                         Id = itemObjective[1],
                         Text = itemObjective[2]
                     }
+                    if QuestieCorrections.itemObjectiveFirst[questId] then
+                        tinsert(QO.ObjectiveData, 1, QO.ObjectiveData[#QO.ObjectiveData])
+                        tremove(QO.ObjectiveData)
+                    end
                 end
             end
         end
