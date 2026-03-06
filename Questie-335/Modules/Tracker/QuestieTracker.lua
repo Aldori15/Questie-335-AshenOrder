@@ -37,6 +37,8 @@ local QuestEventHandler = QuestieLoader:ImportModule("QuestEventHandler")
 local _QuestEventHandler = QuestEventHandler.private
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
+---@type QuestLogCache
+local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 ---@type QuestieDebugOffer
@@ -141,7 +143,7 @@ function QuestieTracker.Initialize()
 
     -- Insures all other data we're getting from other addons and WoW is loaded. There are edge
     -- cases where Questie loads too fast before everything else is available.
-    C_Timer.After(1.0, function()
+    C_Timer.After(0.5, function()
         -- Hide frames during startup
         if QuestieTracker.alreadyHooked then
             if Questie.db.profile.stickyDurabilityFrame then DurabilityFrame:Hide() end
@@ -623,6 +625,7 @@ function QuestieTracker:Update()
             if not questId then break end
 
             local quest = questDetails[questId].quest
+            local cachedObjectives = QuestLogCache.questLog_DO_NOT_MODIFY[questId] and QuestLogCache.questLog_DO_NOT_MODIFY[questId].objectives
             local complete = quest:IsComplete()
             local zoneName = questDetails[questId].zoneName
             local remainingSeconds = TrackerQuestTimers:GetRemainingTime(quest, nil, true)
@@ -744,11 +747,11 @@ function QuestieTracker:Update()
                         end
 
                         -- Completion Text should always be green
-                        completionText = "|cFF4CFF4C" .. completionText
+                        completionText = "|cFF28FF28" .. completionText
                     end
 
                     -- Set minimizable quest flag
-                    local isMinimizable = (complete == 1 or (#quest.Objectives == 0 and quest.isComplete == true)) and completionText == nil
+                    local isMinimizable = ((complete == 1 or complete == -1) or (#quest.Objectives == 0 and quest.isComplete == true)) and completionText == nil
 
                     -- Handles the collapseCompletedQuests option from the Questie Config --> Tracker options.
                     if Questie.db.profile.collapseCompletedQuests and isMinimizable and not timedQuest then
@@ -1041,13 +1044,15 @@ function QuestieTracker:Update()
                             -- Check and measure Timer text width and update tracker width
                             QuestieTracker:UpdateWidth(line.label:GetUnboundedStringWidth() + lineLabelWidthQBC)
 
-                            -- Set Timer Label and Line widthsl
-                            line.label:SetWidth(trackerBaseFrame:GetWidth() - lineLabelBaseFrameQBC)
+                            -- Set Timer Label and Line widths. We add 40 pixels, because timers start with "15 Minutes" and will then be "14 Minutes 59 Seconds" right after.
+                            line.label:SetWidth(trackerBaseFrame:GetWidth() - lineLabelBaseFrameQBC + 40)
                             line:SetWidth(line.label:GetWidth() + lineWidthQBC)
 
                             -- Compare largest text Label in the tracker with current Label, then save widest width
                             trackerLineWidth = math.max(trackerLineWidth, line.label:GetUnboundedStringWidth() + lineWidthQBC)
 
+                            line:SetHeight(line.label:GetHeight() + 1)
+                            
                             -- Set Timer states
                             line:Show()
                             line.label:Show()
@@ -1081,6 +1086,21 @@ function QuestieTracker:Update()
                                     local objDesc = objective.Description:gsub("%.", "")
 
                                     if (objective.Completed ~= true or (objective.Completed == true and #quest.Objectives > 1)) then
+                                        -- Quest objective objects can lag one update behind in 3.3.5 manual loot flow.
+                                        -- Prefer latest values from QuestLogCache when available.
+                                        if cachedObjectives and objective.Index and cachedObjectives[objective.Index] then
+                                            local cachedObjective = cachedObjectives[objective.Index]
+                                            if type(cachedObjective.numFulfilled) == "number" then
+                                                objective.Collected = cachedObjective.numFulfilled
+                                            end
+                                            if type(cachedObjective.numRequired) == "number" then
+                                                objective.Needed = cachedObjective.numRequired
+                                            end
+                                            if objective.Needed and objective.Collected then
+                                                objective.Completed = (objective.Needed == objective.Collected and objective.Needed > 0) or objective.Completed
+                                            end
+                                        end
+                                        
                                         local lineEnding
                                         lineEnding = tostring(objective.Collected) .. "/" .. tostring(objective.Needed)
 
@@ -1204,7 +1224,7 @@ function QuestieTracker:Update()
                                 end
                             else
                                 if complete == 1 or (#quest.Objectives == 0 and quest.isComplete == true and completionText == nil and complete ~= -1) then
-                                    line.label:SetText(Questie:Colorize(l10n("Quest Complete") .. "!", "green"))
+                                    line.label:SetText(Questie:Colorize(l10n("Quest Complete!"), "28FF28"))
                                 elseif complete == -1 then
                                     line.label:SetText(Questie:Colorize(l10n("Quest Failed") .. "!", "red"))
                                 end
@@ -1686,7 +1706,7 @@ function QuestieTracker:Update()
             end
         end
         isFirstRun = false
-        C_Timer.After(1.0, function()
+        C_Timer.After(0.3, function()
             QuestieCombatQueue:Queue(function()
                 allowFormattingUpdate = true
                 QuestieTracker:Update()

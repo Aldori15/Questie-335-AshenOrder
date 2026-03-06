@@ -42,7 +42,6 @@ local QUEST_LOG_STATES = {
     QUEST_ACCEPTED = "QUEST_ACCEPTED",
     QUEST_TURNED_IN = "QUEST_TURNED_IN",
     QUEST_REMOVED = "QUEST_REMOVED",
-    QUEST_ABANDONED = "QUEST_ABANDONED"
 }
 
 local eventFrame = CreateFrame("Frame", "QuestieQuestEventFrame")
@@ -317,7 +316,8 @@ end
 
 --- Fires when a quest is removed from the quest log. This includes turning it in and abandoning it.
 ---@param questId number
-function _QuestEventHandler:QuestRemoved(questId)
+---@param isImmediateAbandon boolean|nil
+function _QuestEventHandler:QuestRemoved(questId, isImmediateAbandon)
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] QUEST_REMOVED", questId)
     doFullQuestLogScan = false
 
@@ -335,16 +335,27 @@ function _QuestEventHandler:QuestRemoved(questId)
         return
     end
 
-    -- QUEST_REMOVED can fire before QUEST_TURNED_IN. If QUEST_TURNED_IN is not called after X seconds the quest
-    -- was abandoned
-    questLog[questId] = {
-        state = QUEST_LOG_STATES.QUEST_REMOVED,
-        timer = C_Timer.NewTicker(1, function()
-            _QuestEventHandler:MarkQuestAsAbandoned(questId)
-        end, 1)
-    }
+    -- Explicit abandon calls can skip the turn-in wait and process instantly.
+    if isImmediateAbandon then
+        questLog[questId] = {
+            state = QUEST_LOG_STATES.QUEST_REMOVED
+        }
+    else
+        -- QUEST_REMOVED can fire before QUEST_TURNED_IN. If QUEST_TURNED_IN is not called after X seconds the quest
+        -- was abandoned
+        questLog[questId] = {
+            state = QUEST_LOG_STATES.QUEST_REMOVED,
+            timer = C_Timer.NewTicker(1, function()
+                _QuestEventHandler:MarkQuestAsAbandoned(questId)
+            end, 1)
+        }
+    end
     skipNextUQLCEvent = true
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] QUEST_REMOVED - skipNextUQLCEvent - ", skipNextUQLCEvent)
+
+    if isImmediateAbandon then
+        _QuestEventHandler:MarkQuestAsAbandoned(questId)
+    end
 end
 
 ---@param questId number
@@ -352,7 +363,6 @@ function _QuestEventHandler:MarkQuestAsAbandoned(questId)
     Questie:Debug(Questie.DEBUG_DEVELOP, "QuestEventHandler:MarkQuestAsAbandoned")
     if questLog[questId].state == QUEST_LOG_STATES.QUEST_REMOVED then
         Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId, "was abandoned")
-        questLog[questId].state = QUEST_LOG_STATES.QUEST_ABANDONED
 
         QuestLogCache.RemoveQuest(questId)
         QuestieQuest:SetObjectivesDirty(questId) -- is this necessary? should whole quest.Objectives be cleared at some point of quest removal?
