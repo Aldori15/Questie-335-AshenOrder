@@ -61,7 +61,7 @@ function _MinimapIcon:CreateDataBrokerObject()
                 QuestieMenu:Show()
 
                 if QuestieJourney:IsShown() then
-                    QuestieJourney.ToggleJourneyWindow();
+                    QuestieJourney:ToggleJourneyWindow();
                 end
 
                 return;
@@ -105,4 +105,3 @@ function MinimapIcon:UpdateText(text)
     Questie.db.profile.ldbDisplayText = text
     _MinimapIcon.LDBDataObject.text = text
 end
-
