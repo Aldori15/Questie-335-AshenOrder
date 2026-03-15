@@ -26,6 +26,7 @@ local _Qframe = {}
 ---@return IconFrame
 function QuestieFramePool.Qframe:New(frameId, OnEnter)
     ---@class IconFrame : Button
+    ---@field isManualIcon boolean
     local newFrame = CreateFrame("Button", "QuestieFrame" .. frameId)
     newFrame.frameId = frameId;
 
@@ -191,7 +192,7 @@ function _Qframe:OnClick(button)
                     QuestieMap:UnloadManualFrames(self.data.id)
                 end
             else
-                ChatEdit_InsertLink(QuestieLink:GetQuestLinkString(self.data.QuestData.level, self.data.QuestData.name, self.data.Id))
+                ChatEdit_InsertLink(QuestieLink:GetQuestInsertString(self.data.QuestData.level, self.data.QuestData.name, self.data.Id))
             end
         end
     end
@@ -281,7 +282,9 @@ function _Qframe:UpdateTexture(texture)
     if (self.miniMapIcon) then
         globalScale = Questie.db.profile.globalMiniMapScale;
         objectiveColor = Questie.db.profile.questMinimapObjectiveColors;
-        alpha = 0;
+        -- Keep the current minimap alpha when only swapping icon texture.
+        -- This avoids waiting for movement/fade ticks after level-threshold icon updates.
+        alpha = (self.texture and self.texture.a) or 1;
     else
         globalScale = Questie.db.profile.globalScale;
         objectiveColor = Questie.db.profile.questObjectiveColors;
@@ -320,6 +323,7 @@ function _Qframe:Unload()
     self:SetScript("OnHide", nil)
     self:SetFrameStrata("FULLSCREEN");
     self:SetFrameLevel(0);
+    self.isManualIcon = false
 
     -- Reset questIdFrames so they won't be toggled again
     local frameName = self:GetName()
@@ -488,7 +492,7 @@ function _Qframe:ShouldBeHidden()
         -- i.e. (iconType == "available")  ==  (iconType ~= "monster" and iconType ~= "object" and iconType ~= "event" and iconType ~= "item" and iconType ~= "complete"):
         or (iconType == "available"
             and ((not DailyQuests:IsActiveDailyQuest(questId)) -- hide not-today-dailies
-                or ((not profile.enableAvailable) and normal)
+                or ((not profile.enableAvailable) and normal and data.Icon == Questie.ICON_TYPE_AVAILABLE)
                 or ((not profile.showRepeatableQuests) and repeatable)
                 or ((not profile.showEventQuests) and event)
                 or ((not profile.showDungeonQuests) and dungeon)

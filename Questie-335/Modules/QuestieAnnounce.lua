@@ -4,6 +4,8 @@ local QuestieAnnounce = QuestieLoader:CreateModule("QuestieAnnounce")
 local _QuestieAnnounce = {}
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
+---@type QuestieLib
+local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 ---@type QuestieLink
 local QuestieLink = QuestieLoader:ImportModule("QuestieLink")
 ---@type l10n
@@ -17,6 +19,52 @@ local LE_PARTY_CATEGORY_INSTANCE = QuestieCompat.LE_PARTY_CATEGORY_INSTANCE
 local itemCache = {} -- cache data since this happens on item looted it could happen a lot with auto loot
 
 local alreadySentBandaid = {} -- TODO: rewrite the entire thing its a lost cause
+
+-- === Below code borrowed from ShutUp to implement Questie logo swapping for chat messages ===
+
+-- Compatibility: 2.5.5+ uses ChatFrameUtil.AddMessageEventFilter/RemoveMessageEventFilter instead of ChatFrame_AddMessageEventFilter/RemoveMessageEventFilter
+local ChatFrameAddMessageEventFilter = ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter or ChatFrame_AddMessageEventFilter
+local ChatFrameRemoveMessageEventFilter = ChatFrameUtil and ChatFrameUtil.RemoveMessageEventFilter or ChatFrame_RemoveMessageEventFilter
+
+-- Safe wrapper for ChatFrameAddMessageEventFilter that handles initialization timing issues
+local function SafeAddMessageEventFilter(event, filter)
+    local success, err = pcall(function()
+        ChatFrameAddMessageEventFilter(event, filter)
+    end)
+    if not success then
+        -- If ChatFrameUtil isn't ready yet, retry after a short delay
+        if err and string.find(err, "CreateSecureFiltersArray") then
+            C_Timer.After(0.1, function()
+                SafeAddMessageEventFilter(event, filter)
+            end)
+        else
+            Questie:Error("Failed to register chat filter for", event, ":", err)
+        end
+    end
+end
+
+local pattern = ""
+local chatIconSize = 16
+local chatIconTag = "|T" .. QuestieLib.AddonPath .. "Icons\\questie.blp:" .. chatIconSize .. "|t "
+local chatMarkerPattern = "^%b{} Questie%s?:%s?"
+
+function QuestieAnnounce.LogoFilter(self, event, msg, author, ...)
+    if msg:find(pattern) then
+        return false, gsub(msg, pattern, chatIconTag, 1), author, ...
+    end
+end
+
+function QuestieAnnounce:InitializeLogoFilter()
+    pattern = chatMarkerPattern
+    SafeAddMessageEventFilter("CHAT_MSG_PARTY", QuestieAnnounce.LogoFilter)
+    SafeAddMessageEventFilter("CHAT_MSG_PARTY_LEADER", QuestieAnnounce.LogoFilter)
+    SafeAddMessageEventFilter("CHAT_MSG_RAID", QuestieAnnounce.LogoFilter)
+    SafeAddMessageEventFilter("CHAT_MSG_RAID_LEADER", QuestieAnnounce.LogoFilter)
+    SafeAddMessageEventFilter("CHAT_MSG_INSTANCE_CHAT", QuestieAnnounce.LogoFilter)
+    SafeAddMessageEventFilter("CHAT_MSG_INSTANCE_CHAT_LEADER", QuestieAnnounce.LogoFilter)
+end
+
+-- === End logo swapping code block ===
 
 local _GetAnnounceMarker
 
@@ -36,8 +84,9 @@ _GetAnnounceMarker = function()
     end
 end
 
-function QuestieAnnounce:AnnounceObjectiveToChannel(questId, itemId, objectiveText, objectiveProgress)
-    if _QuestieAnnounce:AnnounceEnabledAndPlayerInChannel() and Questie.db.profile.questAnnounceObjectives then
+function QuestieAnnounce:AnnounceObjectiveToChannel(questId, itemId, objectiveText, objectiveProgress, isProgressUpdate)
+    local announceToggle = isProgressUpdate and Questie.db.profile.questAnnounceObjectiveProgress or Questie.db.profile.questAnnounceObjectives
+    if _QuestieAnnounce:AnnounceEnabledAndPlayerInChannel() and announceToggle then
         -- no hyperlink required here
         local questLink = QuestieLink:GetQuestLinkStringById(questId);
 
@@ -56,15 +105,61 @@ end
 
 local _has_seen_incomplete = {}
 local _has_sent_announce = {}
+local _announced_progress = {}
+
+---@param questId number
+---@param text string
+---@param numRequired number
+---@return string
+local function _GetObjectiveStateKey(questId, text, numRequired)
+    return tostring(questId) .. "\001" .. tostring(text or "") .. "\001" .. tostring(numRequired or "")
+end
+
+---@param questId number
+local function _ClearObjectiveStateForQuest(questId)
+    local prefix = tostring(questId) .. "\001"
+
+    for key in pairs(_has_seen_incomplete) do
+        if string.find(key, prefix, 1, true) == 1 then
+            _has_seen_incomplete[key] = nil
+        end
+    end
+
+    for key in pairs(_has_sent_announce) do
+        if string.find(key, prefix, 1, true) == 1 then
+            _has_sent_announce[key] = nil
+        end
+    end
+
+    for key in pairs(_announced_progress) do
+        if string.find(key, prefix, 1, true) == 1 then
+            _announced_progress[key] = nil
+        end
+    end
+end
 
 function QuestieAnnounce:ObjectiveChanged(questId, text, numFulfilled, numRequired)
+    local objectiveStateKey = _GetObjectiveStateKey(questId, text, numRequired)
+    local objectiveProgress = tostring(numFulfilled) .. "/" .. tostring(numRequired)
+
+    -- Announce objective progress (1/10, 2/10, ...) without duplicate spam.
+    if numRequired ~= numFulfilled then
+        if numFulfilled > 0 and Questie.db.profile.questAnnounceObjectiveProgress then
+            if _announced_progress[objectiveStateKey] ~= numFulfilled then
+                _announced_progress[objectiveStateKey] = numFulfilled
+                QuestieAnnounce:AnnounceObjectiveToChannel(questId, nil, text, objectiveProgress, true)
+            end
+        end
+    end
+
     -- Announce completed objective
     if (numRequired ~= numFulfilled) then
-        _has_seen_incomplete[text] = true
-    elseif _has_seen_incomplete[text] and not _has_sent_announce[text] then
-        _has_seen_incomplete[text] = nil
-        _has_sent_announce[text] = true
-        QuestieAnnounce:AnnounceObjectiveToChannel(questId, nil, text, tostring(numFulfilled) .. "/" .. tostring(numRequired))
+        _has_seen_incomplete[objectiveStateKey] = true
+    elseif _has_seen_incomplete[objectiveStateKey] and not _has_sent_announce[objectiveStateKey] then
+        _has_seen_incomplete[objectiveStateKey] = nil
+        _has_sent_announce[objectiveStateKey] = true
+        _announced_progress[objectiveStateKey] = numFulfilled
+        QuestieAnnounce:AnnounceObjectiveToChannel(questId, nil, text, objectiveProgress)
     end
 end
 
@@ -160,6 +255,8 @@ function QuestieAnnounce:ItemLooted(text, notPlayerName, _, _, playerName)
 end
 
 function QuestieAnnounce:AcceptedQuest(questId)
+    _ClearObjectiveStateForQuest(questId)
+
     if (_QuestieAnnounce:AnnounceEnabledAndPlayerInChannel()) and Questie.db.profile.questAnnounceAccepted then
         local questLink = QuestieLink:GetQuestLinkStringById(questId)
 
@@ -169,6 +266,8 @@ function QuestieAnnounce:AcceptedQuest(questId)
 end
 
 function QuestieAnnounce:AbandonedQuest(questId)
+    _ClearObjectiveStateForQuest(questId)
+
     if (_QuestieAnnounce:AnnounceEnabledAndPlayerInChannel()) and Questie.db.profile.questAnnounceAbandoned then
         local questLink = QuestieLink:GetQuestLinkStringById(questId)
 
@@ -178,10 +277,22 @@ function QuestieAnnounce:AbandonedQuest(questId)
 end
 
 function QuestieAnnounce:CompletedQuest(questId)
+    _ClearObjectiveStateForQuest(questId)
+
     if (_QuestieAnnounce:AnnounceEnabledAndPlayerInChannel()) and Questie.db.profile.questAnnounceCompleted then
         local questLink = QuestieLink:GetQuestLinkStringById(questId)
 
         local message = _GetAnnounceMarker() .. l10n("Quest %s: %s", l10n('Completed'), questLink or "no quest name")
         _QuestieAnnounce:AnnounceToChannel(message)
     end
+end
+
+---@param questId QuestId
+---@param breadcrumbQuestId QuestId
+function QuestieAnnounce.IncompleteBreadcrumbQuest(questId, breadcrumbQuestId)
+    local questLink = QuestieLink:GetQuestHyperLink(questId)
+    local breadcrumbQuestLink = QuestieLink:GetQuestHyperLink(breadcrumbQuestId)
+
+    local message = l10n("You have accepted %s without completing its breadcrumb quest %s", questLink, breadcrumbQuestLink)
+    Questie:Print(message)
 end

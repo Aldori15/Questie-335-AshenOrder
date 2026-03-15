@@ -66,7 +66,67 @@ local migrationFunctions = {
     end,
     [5] = function()
         Questie.db.profile.enableTooltipsNextInChain = true
-    end
+    end,
+    [6] = function()
+        -- Migrate users from the old default (0.03) to the new default (0.01)
+        -- without overriding custom values.
+        if QuestieCompat.Is335 then
+            local initDelay = Questie.db.profile.initDelay
+            if (initDelay == nil) or (initDelay > 0.029 and initDelay < 0.031) then
+                Questie.db.profile.initDelay = 0.01
+            end
+        end
+    end,
+    [7] = function()
+        local alpha = Questie.db.profile.trackerBackdropAlpha or 1
+        Questie.db.profile.trackerBackdropColor = {r = 0, g = 0, b = 0, a = alpha}
+        Questie.db.profile.trackerBackdropAlpha = nil
+    end,
+    [8] = function()
+        Questie.db.profile.alwaysGlowMinimap = true
+    end,
+    [9] = function()
+        Questie.db.profile.trackerDisableHoverFade = false
+    end,
+    [10] = function()
+        Questie.db.global = Questie.db.global or {}
+        Questie.db.global.unavailableQuestsDeterminedByTalking = Questie.db.global.unavailableQuestsDeterminedByTalking or {}
+        ---@type table<string, number>
+        Questie.db.global.lastKnownDailyReset = {}
+    end,
+    [11] = function()
+        Questie.db.profile.questAnnounceIncompleteBreadcrumb = true
+    end,
+    [12] = function()
+        Questie.db.profile.trackerWidthRatio = 0.20
+    end,
+    [13] = function()
+        Questie.db.profile.enableTooltipDroprates = true
+    end,
+    [14] = function()
+        local _, playerClass = UnitClass("player")
+        if playerClass == "ROGUE" and Questie.db.profile.townsfolkConfig["Reagents"] then
+            Questie.db.profile.townsfolkConfig["Reagents"] = false
+            Questie.db.profile.townsfolkConfig["Poisons"] = true
+        else
+            Questie.db.profile.townsfolkConfig["Poisons"] = false
+        end
+    end,
+    [15] = function()
+        local previousVersion = Questie.db.profile.migrationVersion or 0
+        if previousVersion == 0 then return end
+
+        local previousHideInDungeons = Questie.db.profile.hideTrackerInDungeons
+
+        Questie.db.profile.minimizeTrackerInCombat = false
+        Questie.db.profile.minimizeTrackerInDungeons = previousHideInDungeons
+        Questie.db.profile.hideTrackerInCombat = false
+        Questie.db.profile.hideTrackerInDungeons = false
+    end,
+    [16] = function()
+        Questie.db.profile.globalTownsfolkScale = 0.6
+        Questie.db.profile.globalMiniMapTownsfolkScale = 0.7
+    end,
 }
 
 function Migration:Migrate()

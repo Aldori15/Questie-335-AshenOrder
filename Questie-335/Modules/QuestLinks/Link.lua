@@ -7,12 +7,16 @@ local QuestieLink = QuestieLoader:CreateModule("QuestieLink")
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestieLib
 local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
+---@type QuestieEvent
+local QuestieEvent = QuestieLoader:ImportModule("QuestieEvent")
 ---@type QuestiePlayer
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 ---@type TrackerUtils
 local TrackerUtils = QuestieLoader:ImportModule("TrackerUtils")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
+---@type ZoneDB
+local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
 
 --- COMPATIBILITY ---
 local GetQuestLink = QuestieCompat.GetQuestLink
@@ -20,13 +24,18 @@ local CALENDAR_WEEKDAY_NAMES = QuestieCompat.CALENDAR_WEEKDAY_NAMES
 local CALENDAR_FULLDATE_MONTH_NAMES = QuestieCompat.CALENDAR_FULLDATE_MONTH_NAMES
 
 QuestieLink.lastItemRefTooltip = ""
+local activeTooltip = ItemRefTooltip
 
 -- Forward declaration
-local _AddQuestTitle, _AddQuestStatus, _AddQuestDescription, _AddQuestRequirements, _GetQuestStarter, _GetQuestFinisher, _AddPlayerQuestProgress
+local _AddQuestTitle, _AddQuestStatus, _AddQuestDescription, _AddQuestRequirements, _AddDungeonInfo, _GetQuestStarter, _GetQuestFinisher, _AddPlayerQuestProgress
 local _AddTooltipLine, _AddColoredTooltipLine
+local _GetQuestIdFromLink
+local _ExtractQuestieLink, _ShowQuestieChatTooltip, _HideQuestieChatTooltip, _HookChatFrameHyperlinkScripts
+local _ShouldInsertQuestIdForChatCommand
 
 
 local oldItemSetHyperlink = ItemRefTooltip.SetHyperlink
+local oldGameTooltipSetHyperlink = GameTooltip.SetHyperlink
 --- Override of the default SetHyperlink function to filter Questie links
 ---@param link string
 function ItemRefTooltip:SetHyperlink(link, ...)
@@ -70,19 +79,36 @@ end
 
 ---@return string
 function QuestieLink:GetQuestLinkString(questLevel, questName, questId)
-    local questLink = GetQuestLink and GetQuestLink(questId)
-    local questString = "["..questName.." ("..tostring(questId)..")]"
+    return "[["..tostring(questLevel).."] "..questName.." ("..tostring(questId)..")]"
+end
 
-    if Questie.db.profile.trackerShowQuestLevel then
-        questString = questString:gsub("%[", "[["..tostring(questLevel).."] ")
+_ShouldInsertQuestIdForChatCommand = function()
+    local activeWindow = ChatEdit_GetActiveWindow()
+    if (not activeWindow) then
+        return false
     end
 
-    return questLink and questLink:gsub("%[(.-)%]", questString) or questString
+    local text = activeWindow:GetText()
+    return type(text) == "string" and string.match(text, "^%s*[./!]") ~= nil
+end
+
+---@return string
+function QuestieLink:GetQuestInsertString(questLevel, questName, questId)
+    if _ShouldInsertQuestIdForChatCommand() then
+        local nativeQuestLink = GetQuestLink(questId)
+        if nativeQuestLink then
+            return nativeQuestLink
+        end
+
+        return tostring(questId)
+    end
+
+    return QuestieLink:GetQuestLinkString(questLevel, questName, questId)
 end
 
 ---@return string
 function QuestieLink:GetQuestHyperLink(questId, senderGUID)
-    local coloredQuestName = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.trackerShowQuestLevel, true, false)
+    local coloredQuestName = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.trackerShowQuestLevel, true)
     local questLevel, _ = QuestieLib.GetTbcLevel(questId)
     local isRepeatable = QuestieDB.IsRepeatable(questId)
 
@@ -90,36 +116,122 @@ function QuestieLink:GetQuestHyperLink(questId, senderGUID)
         senderGUID = UnitGUID("player")
     end
 
-    return "|Hquestie:"..questId..":"..senderGUID.."|h"..QuestieLib:PrintDifficultyColor(questLevel, "[", isRepeatable, QuestieDB.IsActiveEventQuest(questId), QuestieDB.IsPvPQuest(questId))..coloredQuestName..QuestieLib:PrintDifficultyColor(questLevel, "]", isRepeatable, QuestieDB.IsActiveEventQuest(questId), QuestieDB.IsPvPQuest(questId)).."|h"
+    return "|Hquestie:"..questId..":"..senderGUID.."|h"..QuestieLib:PrintDifficultyColor(questLevel, "[", isRepeatable, QuestieEvent:IsEventQuest(questId), QuestieDB.IsPvPQuest(questId))..coloredQuestName..QuestieLib:PrintDifficultyColor(questLevel, "]", isRepeatable, QuestieEvent:IsEventQuest(questId), QuestieDB.IsPvPQuest(questId)).."|h"
 end
 
-function QuestieLink:CreateQuestTooltip(link)
-    local isQuestieLink, _, _ = string.match(link, "questie:(%d+):.*")
-    if isQuestieLink then
-        ---@type string
-        local questIdStr = select(2, strsplit(":", link))
-        local questId = tonumber(questIdStr)
-        local quest = QuestieDB.GetQuest(questId)
+_GetQuestIdFromLink = function(link)
+    if type(link) ~= "string" then
+        return nil
+    end
 
-        if quest then
-            _AddQuestTitle(quest)
-            _AddQuestStatus(quest)
+    local questIdStr = string.match(link, "questie:(%d+)")
+    if questIdStr then
+        return tonumber(questIdStr)
+    end
+end
 
-            _AddTooltipLine(" ")
-
-            _AddQuestDescription(quest)
-            _AddQuestRequirements(quest)
-            local starterName, starterZoneName = _GetQuestStarter(quest)
-            local finisherName, finisherZoneName = _GetQuestFinisher(quest)
-            _AddPlayerQuestProgress(quest, starterName, starterZoneName, finisherName, finisherZoneName)
+--- Override of the default SetHyperlink function to support Questie links on hover tooltips
+---@param link string
+function GameTooltip:SetHyperlink(link, ...)
+    if _GetQuestIdFromLink and _GetQuestIdFromLink(link) then
+        if QuestieLink:CreateQuestTooltip(link, self) then
+            self:Show()
+            return
         end
     end
+
+    oldGameTooltipSetHyperlink(self, link, ...)
+end
+
+_ExtractQuestieLink = function(...)
+    for i = 1, select("#", ...) do
+        local value = select(i, ...)
+        if type(value) == "string" and string.find(value, "questie:%d+") then
+            return value
+        end
+    end
+end
+
+_ShowQuestieChatTooltip = function(frame, ...)
+    local linkData = _ExtractQuestieLink(...)
+    if not linkData then
+        return false
+    end
+
+    local questId = _GetQuestIdFromLink(linkData)
+    if not questId then
+        return false
+    end
+
+    GameTooltip:Hide()
+    GameTooltip:SetOwner(frame, "ANCHOR_CURSOR")
+    if QuestieLink:CreateQuestTooltip(linkData, GameTooltip) then
+        GameTooltip:Show()
+        return true
+    end
+
+    return false
+end
+
+_HideQuestieChatTooltip = function(...)
+    local linkData = _ExtractQuestieLink(...)
+    if linkData and _GetQuestIdFromLink(linkData) then
+        GameTooltip:Hide()
+        return true
+    end
+
+    return false
+end
+
+_HookChatFrameHyperlinkScripts = function()
+    local maxChatWindows = NUM_CHAT_WINDOWS or 10
+    for chatFrameIndex = 1, maxChatWindows do
+        local chatFrame = _G["ChatFrame" .. chatFrameIndex]
+        if chatFrame and (not chatFrame.questieHyperlinkHooksAdded) then
+            chatFrame.questieHyperlinkHooksAdded = true
+            chatFrame:HookScript("OnHyperlinkEnter", function(self, ...)
+                _ShowQuestieChatTooltip(self, ...)
+            end)
+            chatFrame:HookScript("OnHyperlinkLeave", function(_, ...)
+                _HideQuestieChatTooltip(...)
+            end)
+        end
+    end
+end
+
+function QuestieLink:CreateQuestTooltip(link, tooltip)
+    local questId = _GetQuestIdFromLink(link)
+    if not questId then
+        return false
+    end
+
+    local quest = QuestieDB.GetQuest(questId)
+    if not quest then
+        return false
+    end
+
+    activeTooltip = tooltip or ItemRefTooltip
+    activeTooltip:ClearLines()
+
+    _AddQuestTitle(quest)
+    _AddQuestStatus(quest)
+
+    _AddTooltipLine(" ")
+
+    _AddQuestDescription(quest)
+    _AddDungeonInfo(quest)
+    _AddQuestRequirements(quest)
+    local starterName, starterZoneName = _GetQuestStarter(quest)
+    local finisherName, finisherZoneName = _GetQuestFinisher(quest)
+    _AddPlayerQuestProgress(quest, starterName, starterZoneName, finisherName, finisherZoneName)
+
+    return true
 end
 
 ---@param text string
 ---@param wrapText boolean?
 _AddTooltipLine = function (text, wrapText)
-    ItemRefTooltip:AddLine(text, 1, 1, 1, wrapText)
+    activeTooltip:AddLine(text, 1, 1, 1, wrapText)
 end
 
 ---@param text string
@@ -127,25 +239,26 @@ end
 ---@param wrapText boolean?
 _AddColoredTooltipLine = function (text, color, wrapText)
     text = Questie:Colorize(text, color)
-    ItemRefTooltip:AddLine(text, 1, 1, 1, wrapText)
+    activeTooltip:AddLine(text, 1, 1, 1, wrapText)
 end
 
+---@param quest Quest
 _AddQuestTitle = function(quest)
-    local questLevel = QuestieLib:GetLevelString(quest.Id, quest.name, quest.level, false)
+    local questId = quest.Id
+    local questName = quest.name
+    local questLevel = QuestieLib.GetTbcLevel(questId)
 
-    local titleColor = "gold"
-    if quest.specialFlags == 1 then
-        titleColor = "blue"
-    end
+    local questLevelString = QuestieLib:GetLevelString(questId, questName, questLevel, false)
+    local titleColor = string.sub(QuestieLib:PrintDifficultyColor(questLevel, "", QuestieDB.IsRepeatable(questId), QuestieEvent:IsEventQuest(questId), QuestieDB.IsPvPQuest(questId)), 5, 10)
 
     if Questie.db.profile.trackerShowQuestLevel and Questie.db.profile.enableTooltipsQuestID then
-        _AddColoredTooltipLine(questLevel .. quest.name .. " (" .. quest.Id .. ")", titleColor)
+        _AddColoredTooltipLine(questLevelString .. questName .. " (" .. questId .. ")", titleColor)
     elseif Questie.db.profile.trackerShowQuestLevel and (not Questie.db.profile.enableTooltipsQuestID) then
-        _AddColoredTooltipLine(questLevel .. quest.name, titleColor)
+        _AddColoredTooltipLine(questLevelString .. questName, titleColor)
     elseif Questie.db.profile.enableTooltipsQuestID and (not Questie.db.profile.trackerShowQuestLevel) then
-        _AddColoredTooltipLine(quest.name .. " (" .. quest.Id .. ")", titleColor)
+        _AddColoredTooltipLine(questName .. " (" .. questId .. ")", titleColor)
     else
-        _AddColoredTooltipLine(quest.name, titleColor)
+        _AddColoredTooltipLine(questName, titleColor)
     end
 end
 
@@ -187,6 +300,18 @@ _AddQuestDescription = function (quest)
         end
     else
         _AddColoredTooltipLine(l10n("This quest is an automatic completion quest and does not contain an objective."), "white", true)
+    end
+end
+
+---@param quest Quest
+_AddDungeonInfo = function(quest)
+    local zoneOrSort = quest.zoneOrSort
+    if zoneOrSort and zoneOrSort > 0 then
+        local localizedDungeonName = ZoneDB:GetLocalizedDungeonName(zoneOrSort)
+        if localizedDungeonName then
+            _AddTooltipLine(" ")
+            _AddColoredTooltipLine(l10n("Dungeon") .. l10n(": ") .. localizedDungeonName, "gray")
+        end
     end
 end
 
@@ -266,7 +391,7 @@ _GetQuestStarter = function (quest)
             end
         end
 
-        return starterName, starterZoneName
+        return starterName, l10n(starterZoneName)
     end
 
     return nil, nil
@@ -297,7 +422,7 @@ _GetQuestFinisher = function (quest)
             finisherZoneName = TrackerUtils:GetZoneNameByID(quest.zoneOrSort)
         end
 
-        return finisherName, finisherZoneName
+        return finisherName, l10n(finisherZoneName)
     end
 
     return nil, nil
@@ -319,12 +444,13 @@ _AddPlayerQuestProgress = function (quest, starterName, starterZoneName, finishe
             end
         -- Completed Quest (not turned in): display quest ended by npc and zone
         else
-            if finisherName then
+            if finisherName or finisherZoneName then
                 _AddTooltipLine(" ")
+            end
+            if finisherName then
                 _AddTooltipLine((l10n("Ended by")..": " .. Questie:Colorize(finisherName, "gray")))
             end
             if finisherZoneName then
-                _AddTooltipLine(" ")
                 _AddTooltipLine((l10n("Found in")..": " .. Questie:Colorize(finisherZoneName, "gray")))
             end
         end
@@ -368,14 +494,47 @@ hooksecurefunc("ChatFrame_OnHyperlinkShow", function(...)
             Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTooltips:OnHyperlinkShow] Relinking Quest Link to chat:", link)
             questId = tonumber(questId)
 
-            local quest = QuestieDB.GetQuest(questId)
-            if quest then
+            local questLevel = QuestieLib.GetTbcLevel(questId)
+            local questName = QuestieDB.QueryQuestSingle(questId, "name")
+            if questLevel and questName then
                 local msg = ChatFrame1EditBox:GetText()
                 if msg then
+                    local replacement = QuestieLink:GetQuestInsertString(questLevel, questName, questId)
                     ChatFrame1EditBox:SetText("")
-                    ChatEdit_InsertLink(QuestieLink:GetQuestLinkString(quest.level, quest.name, questId))
+                    ChatEdit_InsertLink(string.gsub(msg, "%|Hquestie:" .. questId .. ":.*%|h", function()
+                        return replacement
+                    end))
                 end
             end
         end
     end
 end)
+
+if type(ChatFrame_OnHyperlinkEnter) == "function" then
+    hooksecurefunc("ChatFrame_OnHyperlinkEnter", function(frame, ...)
+        _ShowQuestieChatTooltip(frame, ...)
+    end)
+end
+
+if type(ChatFrame_OnHyperlinkLeave) == "function" then
+    hooksecurefunc("ChatFrame_OnHyperlinkLeave", function(_, ...)
+        _HideQuestieChatTooltip(...)
+    end)
+end
+
+if type(FloatingChatFrame_OnHyperlinkEnter) == "function" then
+    hooksecurefunc("FloatingChatFrame_OnHyperlinkEnter", function(frame, ...)
+        _ShowQuestieChatTooltip(frame, ...)
+    end)
+end
+
+if type(FloatingChatFrame_OnHyperlinkLeave) == "function" then
+    hooksecurefunc("FloatingChatFrame_OnHyperlinkLeave", function(_, ...)
+        _HideQuestieChatTooltip(...)
+    end)
+end
+
+_HookChatFrameHyperlinkScripts()
+if type(FCF_OpenTemporaryWindow) == "function" then
+    hooksecurefunc("FCF_OpenTemporaryWindow", _HookChatFrameHyperlinkScripts)
+end

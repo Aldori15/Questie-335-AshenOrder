@@ -7,6 +7,8 @@ local tinsert = table.insert;
 local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
 ---@type QuestieReputation
 local QuestieReputation = QuestieLoader:ImportModule("QuestieReputation")
+---@type QuestieCorrections
+local QuestieCorrections = QuestieLoader:ImportModule("QuestieCorrections")
 ---@type QuestiePlayer
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 ---@type QuestieEvent
@@ -21,6 +23,8 @@ local QuestieComms = QuestieLoader:ImportModule("QuestieComms")
 local l10n = QuestieLoader:ImportModule("l10n")
 ---@type QuestXP
 local QuestXP = QuestieLoader:ImportModule("QuestXP")
+---@type ZoneDB
+local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
 
 --- COMPATIBILITY ---
 local C_Map = QuestieCompat.C_Map
@@ -41,6 +45,16 @@ local TRANSPARENT_ICON_TEXTURE = QuestieCompat.Is335 and "" or "|T" .. TRANSPARE
 local DEFAULT_WAYPOINT_HOVER_COLOR = { 0.93, 0.46, 0.13, 0.8 }
 
 local lastTooltipShowTimestamp = GetTime()
+
+-- helper function to format a label with a colon, respecting localization rules
+local function FormatLabelWithColon(label)
+    local locale = GetLocale()
+    if locale == "frFR" then
+        return label .. " :"
+    else
+        return label .. ":"
+    end
+end
 
 function MapIconTooltip:Show()
     local _, _, _, alpha = self.texture:GetVertexColor();
@@ -249,6 +263,16 @@ function MapIconTooltip:Show()
                             self:AddDoubleLine(TRANSPARENT_ICON_TEXTURE .. " " .. questData.title, rewardString, 1, 1, 1, 1, 1, 0);
                         end
                     end
+                    -- Add dungeon information if this is a dungeon quest
+                    if shift and quest then
+                        local zoneOrSort = quest.zoneOrSort
+                        if zoneOrSort and zoneOrSort > 0 then
+                            local localizedDungeonName = ZoneDB:GetLocalizedDungeonName(zoneOrSort)
+                            if localizedDungeonName then
+                                self:AddLine("  " .. FormatLabelWithColon(l10n("Dungeon")) .. " " .. localizedDungeonName, 0.7, 0.7, 0.7)
+                            end
+                        end
+                    end
                 end
                 if questData.subData and shift then
                     local dataType = type(questData.subData)
@@ -268,11 +292,11 @@ function MapIconTooltip:Show()
                 end
 
                 local nextQuestInChain = QuestieDB.QueryQuestSingle(questData.questId, "nextQuestInChain")
-                if shift and nextQuestInChain > 0 and Questie.db.profile.enableTooltipsNextInChain then
+                if shift and nextQuestInChain > 0 and Questie.db.profile.enableTooltipsNextInChain and (not QuestieCorrections.hiddenQuests[nextQuestInChain]) then
                     -- add quest chain info
                     local nextQuest = QuestieDB.GetQuest(nextQuestInChain)
                     local firstInChain = true;
-                    while nextQuest ~= nil do
+                    while nextQuest ~= nil and (not QuestieCorrections.hiddenQuests[nextQuest.Id]) do
 
                         local nextQuestTitleString;
                         local nextQuestXpRewardString = "";
@@ -311,7 +335,11 @@ function MapIconTooltip:Show()
 
                         local nextQuestString = string.format("      %s%s%s%s%s", nextQuestTitleString, nextQuestIdString, nextQuestXpRewardString, nextQuestMoneyRewardString, nextQuestTagString); -- we need an offset to align with description
                         self:AddLine(QuestieLib:PrintDifficultyColor(nextQuest.level, nextQuestString, QuestieDB.IsRepeatable(nextQuest.Id), QuestieDB.IsActiveEventQuest(nextQuest.Id), QuestieDB.IsPvPQuest(nextQuest.Id)), 1, 1, 1);
-                        nextQuest = QuestieDB.GetQuest(nextQuest.nextQuestInChain)
+                        local upcomingQuestId = nextQuest.nextQuestInChain
+                        if (not upcomingQuestId) or upcomingQuestId <= 0 then
+                            break
+                        end
+                        nextQuest = QuestieDB.GetQuest(upcomingQuestId)
                     end
                 end
 
@@ -414,6 +442,18 @@ function MapIconTooltip:Show()
 
             -- Used to get the white color for the quests which don't have anything to collect
             local defaultQuestColor = QuestieLib:GetRGBForObjective({})
+
+            -- Add what dungeon this is in if this is a dungeon quest
+            if shift and quest then
+                local zoneOrSort = quest.zoneOrSort
+                if zoneOrSort and zoneOrSort > 0 then
+                    local localizedDungeonName = ZoneDB:GetLocalizedDungeonName(zoneOrSort)
+                    if localizedDungeonName then
+                        self:AddLine("  " .. FormatLabelWithColon(l10n("Dungeon")) .. " " .. localizedDungeonName, 0.7, 0.7, 0.7)
+                    end
+                end
+            end
+
             if shift then
                 local creatureLevels = QuestieDB:GetCreatureLevels(quest) -- Data for min and max level
                 local addedCreatureNames = {}

@@ -1,12 +1,12 @@
 ## Interface: 30300
-## Title: Questie-335|cFF00FF00 v1.2.1|r
+## Title: Questie-335|cFF00FF00 v1.3.0|r
 ## Author: Aero/Logon/Muehe/TheCrux(BreakBB)/Drejjmit/Dyaxler/Schaka/Zoey/Everyone else
-## Notes: A standalone Classic QuestHelper updated for Wotlk 3.3.5 to work with Ashen Order.  It cannot be used independently from Questie-335-AshenOrder v1.2.1 and both need to be used together.
+## Notes: A standalone Classic QuestHelper updated for Wotlk 3.3.5 to work with Ashen Order.  It cannot be used independently from Questie-335-AshenOrder v1.3.0 and both need to be used together.
 ## Notes-esMX: Ayundante de misión
 ## Notes-esES: Ayundante de misión
 ## Notes-ptBR: Ajudante de missão
 ## Notes-frFR: Assistant de quête
-## Version: 1.2.1
+## Version: 1.3.0
 ## RequiredDeps:
 ## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu
 ## SavedVariables: QuestieConfig
@@ -84,6 +84,11 @@ Database\Corrections\wotlkNPCFixes.lua
 Database\Corrections\wotlkItemFixes.lua
 Database\Corrections\wotlkObjectFixes.lua
 
+# Item Drops
+Database\DropTables\dropDB.lua
+Database\DropTables\data\itemDropCorrections.lua
+Database\DropTables\data\wotlkItemDrops.lua
+
 # Compiler
 Database\compiler.lua
 
@@ -121,7 +126,6 @@ Modules\QuestieMenu\QuestieMenu.lua
 Modules\QuestieAnnounce.lua
 Modules\QuestieShutUp.lua
 Modules\Sounds.lua
-Modules\TaskQueue.lua
 Modules\QuestiePlayer.lua
 #Modules\QuestieDebugOffer.lua
 Modules\WorldMapButton\WorldMapButton.lua
@@ -173,6 +177,7 @@ Modules\Network\QuestieCommsData.lua
 Modules\Journey\QuestieJourney.lua
 Modules\Journey\QuestieJourneyPrivates.lua
 Modules\Journey\QuestieJourneyUtils.lua
+Modules\Journey\QuestieJourneyFactions.lua
 Modules\Journey\History.lua
 Modules\Journey\QuestDetailsFrame.lua
 Modules\Journey\tabs\MyJourney\Note.lua
@@ -180,6 +185,8 @@ Modules\Journey\tabs\MyJourney\MyJourney.lua
 Modules\Journey\tabs\MyJourney\MyJourneyTab.lua
 Modules\Journey\tabs\QuestsByZone\QuestsByZone.lua
 Modules\Journey\tabs\QuestsByZone\QuestsByZoneTab.lua
+Modules\Journey\tabs\QuestsByFaction\QuestsByFactions.lua
+Modules\Journey\tabs\QuestsByFaction\QuestsByFactionsTab.lua
 #Modules\Journey\tabs\Search\Search.lua
 #Modules\Journey\tabs\Search\SearchTab.lua
 Modules\Journey\QuestieSearch.lua

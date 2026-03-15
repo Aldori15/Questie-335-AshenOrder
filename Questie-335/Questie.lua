@@ -54,9 +54,10 @@ end
 --- Colorize a string with a color code
 ---@param str string @The string colorize
 --Name or string in the format "RRGGBB" i.e "FF0000" for red
----@param color "red"|"gray"|"purple"|"blue"|"lightBlue"|"reputationBlue"|"yellow"|"orange"|"green"|"white"|"gold"|string
+---@param color "red"|"gray"|"purple"|"blue"|"lightBlue"|"reputationBlue"|"repeatableBlue"|"yellow"|"orange"|"green"|"white"|"gold"|"lime"|"pvpRed"|string
 ---@return string
 function Questie:Colorize(str, color)
+    if not color then color = "yellow" end
     local c = "|cFF" .. color;
 
     if color == "red" then
@@ -66,11 +67,13 @@ function Questie:Colorize(str, color)
     elseif color == "purple" then
         c = "|cFFB900FF";
     elseif color == "blue" then
-        c = "|cB900FFFF";
+        c = "|cFF0000FF";
     elseif color == "lightBlue" then
-        c = "|cB900FFFF";
+        c = "|cFF00BBFF";
     elseif color == "reputationBlue" then
         c = "|cFF8080ff";
+    elseif color == "repeatableBlue" then
+        c = "|cFF21CCE7";
     elseif color == "yellow" then
         c = "|cFFffff00";
     elseif color == "orange" then
@@ -80,7 +83,11 @@ function Questie:Colorize(str, color)
     elseif color == "white" then
         c = "|cFFffffff";
     elseif color == "gold" then
-        c = "|cFFffd100" -- this is the default game font
+        c = "|cFFffd100"; -- this is the default game color
+    elseif color == "lime" then
+        c = "|cFF6ce314"; -- holiday green
+    elseif color == "pvpRed" then
+        c = "|cFFE35639";
     end
 
     return c .. str .. "|r"
@@ -161,6 +168,7 @@ Questie.icons = {
     ["complete"] = QuestieLib.AddonPath.."Icons\\complete.blp",
     ["incomplete"] = QuestieLib.AddonPath.."Icons\\incomplete.blp",
     ["interact"] = QuestieLib.AddonPath.."Icons\\interact.blp",
+    ["mount_up"] = QuestieLib.AddonPath.."Icons\\mount_up.blp",
     ["glow"] = QuestieLib.AddonPath.."Icons\\glow.blp",
     ["repeatable"] = QuestieLib.AddonPath.."Icons\\repeatable.blp",
     ["repeatable_complete"] = QuestieLib.AddonPath.."Icons\\repeatable_complete.blp",
@@ -171,6 +179,7 @@ Questie.icons = {
     ["node"] = QuestieLib.AddonPath.."Icons\\node.tga",
     ["player"] = "Interface\\WorldMap\\WorldMapPartyIcon",
     ["fav"] = QuestieLib.AddonPath.."Icons\\fav.tga",
+    ["hand"] = QuestieLib.AddonPath.."Icons\\hand.blp",
     ["faction_alliance"] = QuestieLib.AddonPath.."Icons\\icon_alliance.tga",
     ["faction_horde"] = QuestieLib.AddonPath.."Icons\\icon_horde.tga",
     ["loot_mono"] = QuestieLib.AddonPath.."Icons\\loot_mono.tga",
@@ -188,6 +197,10 @@ Questie.icons = {
     ["tracker_quests"] = QuestieLib.AddonPath.."Icons\\tracker_quests.tga",
     ["tracker_search"] = QuestieLib.AddonPath.."Icons\\tracker_search.tga",
     ["tracker_settings"] = QuestieLib.AddonPath.."Icons\\tracker_settings.tga",
+    ["node_fish"] = QuestieLib.AddonPath.."Icons\\node_fish.blp",
+    ["node_herb"] = QuestieLib.AddonPath.."Icons\\node_herb.blp",
+    ["node_ore"] = QuestieLib.AddonPath.."Icons\\node_ore.blp",
+    ["chest"] = QuestieLib.AddonPath.."Icons\\chest.blp",
 }
 
 Questie.usedIcons = {}
@@ -210,6 +223,11 @@ Questie.ICON_TYPE_PVPQUEST = 15
 Questie.ICON_TYPE_PVPQUEST_COMPLETE = 16
 Questie.ICON_TYPE_INTERACT = 17
 Questie.ICON_TYPE_SODRUNE = 18
+Questie.ICON_TYPE_MOUNT_UP = 19
+Questie.ICON_TYPE_NODE_FISH = 20
+Questie.ICON_TYPE_NODE_HERB = 21
+Questie.ICON_TYPE_NODE_ORE = 22
+Questie.ICON_TYPE_CHEST = 23
 
 -- Load icon pathes from SavedVariables or set the default ones
 function Questie:SetIcons()
@@ -224,13 +242,18 @@ function Questie:SetIcons()
     Questie.usedIcons[Questie.ICON_TYPE_INCOMPLETE] = Questie.db.profile.ICON_INCOMPLETE or Questie.icons["incomplete"]
     Questie.usedIcons[Questie.ICON_TYPE_GLOW] = Questie.db.profile.ICON_GLOW or Questie.icons["glow"]
     Questie.usedIcons[Questie.ICON_TYPE_REPEATABLE] = Questie.db.profile.ICON_REPEATABLE or Questie.icons["repeatable"]
-    Questie.usedIcons[Questie.ICON_TYPE_REPEATABLE_COMPLETE] = Questie.db.profile.ICON_REPEATABLE_COMPLETE or Questie.icons["complete"]
+    Questie.usedIcons[Questie.ICON_TYPE_REPEATABLE_COMPLETE] = Questie.db.profile.ICON_REPEATABLE_COMPLETE or Questie.icons["repeatable_complete"]
     Questie.usedIcons[Questie.ICON_TYPE_EVENTQUEST] = Questie.db.profile.ICON_EVENTQUEST or Questie.icons["eventquest"]
-    Questie.usedIcons[Questie.ICON_TYPE_EVENTQUEST_COMPLETE] = Questie.db.profile.ICON_EVENTQUEST_COMPLETE or Questie.icons["complete"]
+    Questie.usedIcons[Questie.ICON_TYPE_EVENTQUEST_COMPLETE] = Questie.db.profile.ICON_EVENTQUEST_COMPLETE or Questie.icons["eventquest_complete"]
     Questie.usedIcons[Questie.ICON_TYPE_PVPQUEST] = Questie.db.profile.ICON_PVPQUEST or Questie.icons["pvpquest"]
-    Questie.usedIcons[Questie.ICON_TYPE_PVPQUEST_COMPLETE] = Questie.db.profile.ICON_PVPQUEST_COMPLETE or Questie.icons["complete"]
+    Questie.usedIcons[Questie.ICON_TYPE_PVPQUEST_COMPLETE] = Questie.db.profile.ICON_PVPQUEST_COMPLETE or Questie.icons["pvpquest_complete"]
     Questie.usedIcons[Questie.ICON_TYPE_INTERACT] = Questie.db.profile.ICON_TYPE_INTERACT or Questie.icons["interact"]
     Questie.usedIcons[Questie.ICON_TYPE_SODRUNE] = Questie.icons["sod_rune"]
+    Questie.usedIcons[Questie.ICON_TYPE_MOUNT_UP] = Questie.icons["mount_up"]
+    Questie.usedIcons[Questie.ICON_TYPE_NODE_FISH] = Questie.icons["node_fish"]
+    Questie.usedIcons[Questie.ICON_TYPE_NODE_HERB] = Questie.icons["node_herb"]
+    Questie.usedIcons[Questie.ICON_TYPE_NODE_ORE] = Questie.icons["node_ore"]
+    Questie.usedIcons[Questie.ICON_TYPE_CHEST] = Questie.icons["chest"]
 end
 
 function Questie:GetIconNameFromPath(path)

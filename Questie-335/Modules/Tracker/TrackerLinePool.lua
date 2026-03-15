@@ -760,6 +760,24 @@ function TrackerLinePool.ResetButtonsForChange()
     buttonIndex = 0
 end
 
+---@param callback function
+function TrackerLinePool.UpdateObjectiveLines(callback)
+    for _, line in pairs(linePool) do
+        if line.mode == "objective" then
+            callback(line)
+        end
+    end
+end
+
+---@param callback function
+function TrackerLinePool.UpdateQuestTitleLines(callback)
+    for _, line in pairs(linePool) do
+        if line.mode == "quest" then
+            callback(line)
+        end
+    end
+end
+
 function TrackerLinePool.UpdateWrappedLineWidths(trackerLineWidth)
     local trackerFontSizeQuest = Questie.db.profile.trackerFontSizeQuest
     local trackerMarginLeft = 14
@@ -811,11 +829,6 @@ function TrackerLinePool.GetNextItemButton()
     return buttonPool[buttonIndex]
 end
 
----@return number lineIndex lineIndex == 1
-function TrackerLinePool.IsFirstLine()
-    return linePool[1]
-end
-
 ---@param index number
 ---@return table index linePool[index]
 function TrackerLinePool.GetLine(index)
@@ -830,16 +843,6 @@ end
 ---@return table buttonIndex buttonPool[buttonIndex]
 function TrackerLinePool.GetCurrentButton()
     return buttonPool[buttonIndex]
-end
-
----@return table|nil lineIndex linePool[lineIndex - 1]
-function TrackerLinePool.GetPreviousLine()
-    lineIndex = lineIndex - 1
-    if not linePool[lineIndex] then
-        return nil -- past the line limit
-    end
-
-    return linePool[lineIndex]
 end
 
 ---@return table linePool linePool[1]
@@ -874,6 +877,7 @@ function TrackerLinePool.HideUnusedLines()
             line.Objective = nil
             line.Button = nil
             line.altButton = nil
+            line.questHasSecondaryQIB = false
             line.trackTimedQuest = nil
             line.expandQuest.mode = nil
             line.expandQuest.questId = nil
@@ -1007,7 +1011,7 @@ TrackerLinePool.OnClickQuest = function(self, button)
         end
     elseif TrackerUtils:IsBindTrue(Questie.db.profile.trackerbindUntrack, button) then
         if (IsModifiedClick("CHATLINK") and ChatEdit_GetActiveWindow()) then
-            ChatEdit_InsertLink(QuestieLink:GetQuestLinkString(self.Quest.level, self.Quest.name, self.Quest.Id))
+            ChatEdit_InsertLink(QuestieLink:GetQuestInsertString(self.Quest.level, self.Quest.name, self.Quest.Id))
         else
             QuestieTracker:UntrackQuestId(self.Quest.Id)
             local questLogFrame = QuestLogExFrame or ClassicQuestLog or QuestLogFrame
@@ -1076,6 +1080,10 @@ TrackerLinePool.OnClickAchieve = function(self, button)
 end
 
 TrackerLinePool.OnHighlightEnter = function(self)
+    if Questie.db.profile.trackerDisableHoverFade then
+        return
+    end
+    
     local highestIndex = TrackerLinePool.GetHighestIndex()
     for i = 1, highestIndex do
         local line = linePool[i]

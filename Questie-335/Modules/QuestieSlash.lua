@@ -46,7 +46,7 @@ function QuestieSlash.HandleCommands(input)
         end)
 
         if QuestieJourney:IsShown() then
-            QuestieJourney.ToggleJourneyWindow();
+            QuestieJourney:ToggleJourneyWindow();
         end
         return ;
     end
@@ -95,7 +95,7 @@ function QuestieSlash.HandleCommands(input)
 
     -- /questie journey (or /questie journal, because of a typo)
     if mainCommand == "journey" or mainCommand == "journal" then
-        QuestieJourney.ToggleJourneyWindow();
+        QuestieJourney:ToggleJourneyWindow();
         QuestieOptions:HideFrame();
         return;
     end
@@ -183,6 +183,66 @@ function QuestieSlash.HandleCommands(input)
 
         Questie:Print("[Eligibility] " .. tostring(QuestieDB.IsDoableVerbose(tonumber(subCommand), false, true, false)))
 
+        return
+    end
+
+    if Questie.db.profile.debugEnabled and mainCommand == "itemdrop" then
+        -- This is a developer tool to output a list of item IDs based upon all quests' item objectives in the currently loaded DB at runtime.
+        -- It should not be documented for users.
+        -- It does perform a bruteforce operation on the DB, it's a bit laggy, and this is a hacky way of doing it... but we only do it manually.
+
+        local data = {}
+        for i=1,35000 do
+            -- if you're reading this and know if there's a way to just 'check every quest' cleanly feel free to rewrite)
+            local obj = QuestieDB.QueryQuestSingle(i, "objectives")
+            if obj and obj[3] then -- If there are itemoObjectives for that quest ID (aka if the quest is valid)
+                for x=1,table.getn(obj[3]) do
+                    if obj[3][x] then
+                        local item = obj[3][x][1]
+                        if item ~= nil and tContains(data,item) == false then
+                            table.insert(data,item)
+                        end
+                    end
+                end
+            end
+            local sourceItems = QuestieDB.QueryQuestSingle(i, "requiredSourceItems")
+            if sourceItems then
+                for x=1,table.getn(sourceItems) do
+                    if tContains(data,sourceItems[x]) == false then
+                        table.insert(data,sourceItems[x]) -- do the same for requiredSourceItems
+                    end
+                end
+            end
+        end
+
+        local output = table.concat(data, ",") -- generate a string list of the items, comma-separated (for json syntax)
+
+        StaticPopupDialogs["QUESTIE_ITEMDROPOUTPUT"] = {
+            text = "Questie Item Drop Output",
+            button2 = CLOSE,
+            hasEditBox = true,
+            editBoxWidth = 280,
+
+            EditBoxOnEnterPressed = function(self)
+                self:GetParent():Hide()
+            end,
+
+            EditBoxOnEscapePressed = function(self)
+                self:GetParent():Hide()
+            end,
+
+            OnShow = function(self)
+                local editBox = _G[self:GetName() .. "WideEditBox"] or _G[self:GetName() .. "EditBox"] -- this is new as of midnight??? editBox isn't instantiated anymore for some reason
+                editBox:SetText(output);
+                editBox:SetFocus();
+                editBox:HighlightText();
+            end,
+
+            whileDead = true,
+            hideOnEscape = true
+        }
+
+        StaticPopup_Show("QUESTIE_ITEMDROPOUTPUT") -- display a popup with a copyable text field so we can get the list out of the game
         return
     end
 

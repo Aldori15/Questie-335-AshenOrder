@@ -18,6 +18,11 @@ local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer");
 local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips");
 ---@type QuestieMenu
 local QuestieMenu = QuestieLoader:ImportModule("QuestieMenu");
+---@type AvailableQuests
+local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests");
+
+--- COMPATIBILITY ---
+local C_Timer = QuestieCompat.C_Timer
 
 QuestieOptions.tabs.icons = {...}
 local optionsDefaults = QuestieOptionsDefaults:Load()
@@ -26,6 +31,48 @@ local _GetIconTypes
 local _GetIconTypesSort
 local _GetIconThemes
 local _GetIconThemesSort
+local _availableRefreshTicker
+
+local function _FlushDrawQueue()
+    local queueSize = math.max(#QuestieMap._mapDrawQueue, #QuestieMap._minimapDrawQueue)
+    local iterations = 1
+
+    if queueSize > 800 then
+        iterations = 6
+    elseif queueSize > 400 then
+        iterations = 4
+    elseif queueSize > 150 then
+        iterations = 3
+    elseif queueSize > 0 then
+        iterations = 2
+    end
+
+    for _ = 1, iterations do
+        if (#QuestieMap._mapDrawQueue == 0) and (#QuestieMap._minimapDrawQueue == 0) then
+            break
+        end
+        QuestieMap.ProcessQueue()
+    end
+end
+
+local function _RunFastAvailableRefresh()
+    if _availableRefreshTicker then
+        _availableRefreshTicker:Cancel()
+        _availableRefreshTicker = nil
+    end
+
+    _availableRefreshTicker = C_Timer.NewTicker(0.02, function()
+        _FlushDrawQueue()
+    end)
+
+    AvailableQuests.CalculateAndDrawAll(function()
+        _FlushDrawQueue()
+        if _availableRefreshTicker then
+            _availableRefreshTicker:Cancel()
+            _availableRefreshTicker = nil
+        end
+    end, true)
+end
 
 function QuestieOptions.tabs.icons:Initialize()
     return {
@@ -185,6 +232,20 @@ function QuestieOptions.tabs.icons:Initialize()
                         set = function(info, value)
                             Questie.db.profile.showRepeatableQuests = value
                             QuestieQuest:ToggleNotes(value)
+                            _RunFastAvailableRefresh()
+                        end,
+                    },
+                    showTrivialRepeatableQuests = {
+                        type = "toggle",
+                        order = 2.031,
+                        name = function() return l10n('Trivial Repeatable Quests'); end,
+                        desc = function() return l10n('When this is enabled, trivial repeatable quests will be shown on the map/minimap.'); end,
+                        width = 1.595,
+                        disabled = function() return (not Questie.db.profile.enabled) or (not Questie.db.profile.showRepeatableQuests); end,
+                        get = function(info) return Questie.db.profile.showTrivialRepeatableQuests ~= false end,
+                        set = function(info, value)
+                            Questie.db.profile.showTrivialRepeatableQuests = value
+                            _RunFastAvailableRefresh()
                         end,
                     },
                     showPvPQuests = {
@@ -595,6 +656,36 @@ function QuestieOptions.tabs.icons:Initialize()
                             QuestieOptions:SetProfileValue(info, value)
                         end,
                     },
+                    globalTownsfolkScale = {
+                        type = "range",
+                        order = 5.3,
+                        name = function() return l10n('Townsfolk Icons'); end,
+                        desc = function() return l10n('How large the townsfolk map icons are.\n(Default: %s)', optionsDefaults.profile.globalTownsfolkScale); end,
+                        width = 1.55,
+                        min = 0.01,
+                        max = 4,
+                        step = 0.01,
+                        get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                        set = function (info, value)
+                            QuestieMap:RescaleTownsfolkIcons()
+                            QuestieOptions:SetProfileValue(info, value)
+                        end,
+                    },
+                    globalMiniMapTownsfolkScale = {
+                        type = "range",
+                        order = 5.31,
+                        name = function() return l10n('Minimap Townsfolk Icons'); end,
+                        desc = function() return l10n('How large the townsfolk minimap icons are.\n(Default: %s)', optionsDefaults.profile.globalMiniMapTownsfolkScale); end,
+                        width = 1.55,
+                        min = 0.01,
+                        max = 4,
+                        step = 0.01,
+                        get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                        set = function (info, value)
+                            QuestieMap:RescaleTownsfolkIcons()
+                            QuestieOptions:SetProfileValue(info, value)
+                        end,
+                    },
                     spacer_scale = QuestieOptionsUtils:Spacer(5.3),
                     availableScale = {
                         type = "range",
@@ -974,7 +1065,7 @@ function QuestieOptions.tabs.icons:Initialize()
                         width = 1.295,
                         name = function() return l10n('Complete repeatable quests') end,
                         desc = function() return l10n('The icon that is displayed for repeatable quests that can be handed in'); end,
-                        get = function() return Questie:GetIconNameFromPath(Questie.db.profile.ICON_REPEATABLE_COMPLETE) or "complete"; end,
+                        get = function() return Questie:GetIconNameFromPath(Questie.db.profile.ICON_REPEATABLE_COMPLETE) or "repeatable_complete"; end,
                         disabled = function() return (not Questie.db.profile.enabled); end,
                         set = function(input, key)
                             Questie.db.profile.ICON_REPEATABLE_COMPLETE = Questie.icons[key]
@@ -1029,7 +1120,7 @@ function QuestieOptions.tabs.icons:Initialize()
                         width = 1.295,
                         name = function() return l10n('Complete event quests') end,
                         desc = function() return l10n('The icon that is displayed for event quests that can be handed in'); end,
-                        get = function() return Questie:GetIconNameFromPath(Questie.db.profile.ICON_EVENTQUEST_COMPLETE) or "complete"; end,
+                        get = function() return Questie:GetIconNameFromPath(Questie.db.profile.ICON_EVENTQUEST_COMPLETE) or "eventquest_complete"; end,
                         disabled = function() return (not Questie.db.profile.enabled); end,
                         set = function(input, key)
                             Questie.db.profile.ICON_EVENTQUEST_COMPLETE = Questie.icons[key]
@@ -1084,7 +1175,7 @@ function QuestieOptions.tabs.icons:Initialize()
                         width = 1.295,
                         name = function() return l10n('Complete PvP quests') end,
                         desc = function() return l10n('The icon that is displayed for PvP quests that can be handed in'); end,
-                        get = function() return Questie:GetIconNameFromPath(Questie.db.profile.ICON_PVPQUEST_COMPLETE) or "complete"; end,
+                        get = function() return Questie:GetIconNameFromPath(Questie.db.profile.ICON_PVPQUEST_COMPLETE) or "pvpquest_complete"; end,
                         disabled = function() return (not Questie.db.profile.enabled); end,
                         set = function(input, key)
                             Questie.db.profile.ICON_PVPQUEST_COMPLETE = Questie.icons[key]

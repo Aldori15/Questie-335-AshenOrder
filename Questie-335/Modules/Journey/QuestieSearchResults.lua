@@ -555,7 +555,7 @@ function QuestieSearchResults:ItemDetailsFrame(f, itemId)
         for _, npcId in pairs(vendors) do
             local spawns = QuestieDB.QueryNPCSingle(npcId, "spawns")
 
-            if spawns then
+            if spawns and QuestieDB.IsFriendlyToPlayer(friendlyToFaction) then
                 vendorIdsWithSpawns[#vendorIdsWithSpawns + 1] = npcId
             end
         end
@@ -639,7 +639,7 @@ _HandleOnGroupSelected = function (resultType)
         local questName = QuestieDB.QueryQuestSingle(selectedId, "name")
         local questLevel, _ = QuestieLib.GetTbcLevel(selectedId);
 
-        ChatEdit_InsertLink(QuestieLink:GetQuestLinkString(questLevel, questName, selectedId))
+        ChatEdit_InsertLink(QuestieLink:GetQuestInsertString(questLevel, questName, selectedId))
     end
 
     -- get master frame and create scroll frame inside

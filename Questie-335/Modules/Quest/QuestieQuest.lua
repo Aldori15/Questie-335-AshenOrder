@@ -25,8 +25,6 @@ local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
 local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 ---@type QuestiePlayer
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
----@type TaskQueue
-local TaskQueue = QuestieLoader:ImportModule("TaskQueue")
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type ZoneDB
@@ -98,17 +96,23 @@ function QuestieQuest:ToggleNotes(showIcons)
     if showIcons then
         _QuestieQuest:ShowQuestIcons()
         _QuestieQuest:ShowManualIcons()
+        AvailableQuests.CalculateAndDrawAll()
     else
         _QuestieQuest:HideQuestIcons()
         _QuestieQuest:HideManualIcons()
     end
 end
 
+function QuestieQuest:RefreshQuestIconVisibility()
+    _QuestieQuest:HideQuestIcons()
+    _QuestieQuest:ShowQuestIcons()
+end
+
 function _QuestieQuest:ShowQuestIcons()
     local trackerHiddenQuests = Questie.db.char.TrackerHiddenQuests
     for questId, frameList in pairs(QuestieMap.questIdFrames) do
         if (not trackerHiddenQuests) or (not trackerHiddenQuests[questId]) then -- Skip quests which are completely hidden from the Tracker menu
-            for _, frameName in pairs(frameList) do                             -- this may seem a bit expensive, but its actually really fast due to the order things are checked
+            for _, frameName in pairs(frameList) do -- this may seem a bit expensive, but its actually really fast due to the order things are checked
                 ---@type IconFrame
                 local icon = _G[frameName];
                 if not icon.data then
@@ -138,11 +142,13 @@ function _QuestieQuest:ShowQuestIcons()
 end
 
 function _QuestieQuest:ShowManualIcons()
-    for _, frameList in pairs(QuestieMap.manualFrames) do
-        for _, frameName in pairs(frameList) do
-            local icon = _G[frameName];
-            if icon ~= nil and icon.hidden and (not icon:ShouldBeHidden()) then -- check for function to make sure its a frame
-                icon:FakeShow()
+    for _, townsfolk in pairs(QuestieMap.manualFrames) do
+        for _, frameList in pairs(townsfolk) do
+            for _, frameName in pairs(frameList) do
+                local icon = _G[frameName];
+                if icon ~= nil and icon.hidden then
+                    icon:FakeShow()
+                end
             end
         end
     end
@@ -150,14 +156,11 @@ end
 
 function _QuestieQuest:HideQuestIcons()
     for _, frameList in pairs(QuestieMap.questIdFrames) do
-        for _, frameName in pairs(frameList) do                                 -- this may seem a bit expensive, but its actually really fast due to the order things are checked
+        for _, frameName in pairs(frameList) do -- this may seem a bit expensive, but its actually really fast due to the order things are checked
             local icon = _G[frameName];
             if icon ~= nil and (not icon.hidden) and icon:ShouldBeHidden() then -- check for function to make sure its a frame
                 -- Hides Objective Icons
                 icon:FakeHide()
-
-                -- Hides Objective Tooltips
-                QuestieTooltips:RemoveQuest(icon.data.Id)
 
                 if icon.data.lineFrames then
                     for _, lineIcon in pairs(icon.data.lineFrames) do
@@ -175,11 +178,13 @@ function _QuestieQuest:HideQuestIcons()
 end
 
 function _QuestieQuest:HideManualIcons()
-    for _, frameList in pairs(QuestieMap.manualFrames) do
-        for _, frameName in pairs(frameList) do
-            local icon = _G[frameName];
-            if icon ~= nil and (not icon.hidden) and icon:ShouldBeHidden() then -- check for function to make sure its a frame
-                icon:FakeHide()
+    for _, townsfolk in pairs(QuestieMap.manualFrames) do
+        for _, frameList in pairs(townsfolk) do
+            for _, frameName in pairs(frameList) do
+                local icon = _G[frameName];
+                if icon ~= nil and (not icon.hidden) then
+                    icon:FakeHide()
+                end
             end
         end
     end
@@ -398,8 +403,7 @@ end
 
 function QuestieQuest:HideQuest(id)
     Questie.db.char.hidden[id] = true
-    QuestieMap:UnloadQuestFrames(id)
-    QuestieTooltips:RemoveQuest(id)
+    AvailableQuests.RemoveQuest(id)
 end
 
 function QuestieQuest:UnhideQuest(id)
@@ -445,34 +449,31 @@ function QuestieQuest:AcceptQuest(questId)
                 Questie.db.char.complete[13687] = true -- Horde Tournament Eligibility Marker
             end
 
-            TaskQueue:Queue(
-            -- Get all the Frames for the quest and unload them, the available quest icon for example.
-                function() QuestieMap:UnloadQuestFrames(questId) end,
-                -- Make sure there isn't any lingering tooltip data hanging around in the quest table.
-                function() QuestieTooltips:RemoveQuest(questId) end,
-                function()
-                    -- Re-accepted quest can be collapsed. Expand it. Especially dailies.
-                    if Questie.db.char.collapsedQuests then
-                        Questie.db.char.collapsedQuests[questId] = nil
-                    end
-                    -- Re-accepted quest can be untracked. Clear it. Especially timed quests.
-                    if Questie.db.char.AutoUntrackedQuests[questId] then
-                        Questie.db.char.AutoUntrackedQuests[questId] = nil
-                    end
-                end,
-                function() QuestieQuest:PopulateQuestLogInfo(quest) end,
-                function()
-                    -- This needs to happen after QuestieQuest:PopulateQuestLogInfo because that is the place where quest.Objectives is generated
-                    Questie:SendMessage("QC_ID_BROADCAST_QUEST_UPDATE", questId)
-                end,
-                function() QuestieQuest:PopulateObjectiveNotes(quest) end,
-                function() AvailableQuests.CalculateAndDrawAll() end,
-                function()
-                    QuestieCombatQueue:Queue(function()
-                        QuestieTracker:Update()
-                    end)
-                end
-            )
+            AvailableQuests.RemoveQuest(questId)
+
+            -- Re-accepted quest can be collapsed. Expand it. Especially dailies.
+            if Questie.db.char.collapsedQuests then
+                Questie.db.char.collapsedQuests[questId] = nil
+            end
+            -- Re-accepted quest can be untracked. Clear it. Especially timed quests.
+            if Questie.db.char.AutoUntrackedQuests[questId] then
+                Questie.db.char.AutoUntrackedQuests[questId] = nil
+            end
+
+            QuestieQuest:PopulateQuestLogInfo(quest)
+            -- This needs to happen after QuestieQuest:PopulateQuestLogInfo because that is the place where quest.Objectives is generated
+            Questie:SendMessage("QC_ID_BROADCAST_QUEST_UPDATE", questId)
+            QuestieQuest:PopulateObjectiveNotes(quest)
+
+            -- Run a delayed refresh so newly accepted quests are
+            -- guaranteed visible without manual collapse/expand.
+            C_Timer.After(0.30, function()
+                QuestieCombatQueue:Queue(function()
+                    QuestieTracker:Update()
+                end)
+            end)
+
+            AvailableQuests.CalculateAndDrawAll()
         else
             Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest] Accepted Quest:", questId, " Warning: Quest already exists, not adding")
         end
@@ -507,16 +508,16 @@ function QuestieQuest:CompleteQuest(questId)
         Questie.db.char.complete[13701] = true -- Horde Champion Marker
         Questie.db.char.complete[13687] = nil -- Horde Tournament Eligibility Marker
     end
-    QuestieMap:UnloadQuestFrames(questId)
 
-    if (QuestieMap.questIdFrames[questId]) then
-        Questie:Error("Just removed all frames but the framelist seems to still be there!", questId)
-    end
-
-    QuestieTooltips:RemoveQuest(questId)
+    AvailableQuests.RemoveQuest(questId)
     QuestieTracker:RemoveQuest(questId)
-    QuestieCombatQueue:Queue(function()
-        QuestieTracker:Update()
+
+    -- Turn-in flow can update tracker before quest log header counters settle.
+    -- Run a short delayed refresh to keep the header/count in sync.
+    C_Timer.After(0.30, function()
+        QuestieCombatQueue:Queue(function()
+            QuestieTracker:Update()
+        end)
     end)
 
     -- TODO: Should this be done first? Because CalculateAndDrawAll looks at QuestieMap.questIdFrames[QuestId] to add available
@@ -529,7 +530,7 @@ end
 function QuestieQuest:AbandonedQuest(questId)
     if (QuestiePlayer.currentQuestlog[questId]) then
         QuestiePlayer.currentQuestlog[questId] = nil
-        QuestieMap:UnloadQuestFrames(questId)
+        AvailableQuests.RemoveQuest(questId)
         local quest = QuestieDB.GetQuest(questId)
 
         if quest then
@@ -555,12 +556,14 @@ function QuestieQuest:AbandonedQuest(questId)
             end
         end
 
-        AvailableQuests.UnloadUndoable()
-
         QuestieTracker:RemoveQuest(questId)
-        QuestieTooltips:RemoveQuest(questId)
-        QuestieCombatQueue:Queue(function()
-            QuestieTracker:Update()
+
+        -- Abandon flow can update tracker before quest log header counters settle.
+        -- Run a short delayed refresh to keep the header/count in sync.
+        C_Timer.After(0.30, function()
+            QuestieCombatQueue:Queue(function()
+                QuestieTracker:Update()
+            end)
         end)
 
         AvailableQuests.CalculateAndDrawAll()
@@ -593,6 +596,7 @@ function QuestieQuest:UpdateQuest(questId)
             -- Quest is complete
             Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:UpdateQuest] Quest is: Complete!")
 
+            -- Only remove the map icons, but keep the tooltips
             QuestieMap:UnloadQuestFrames(questId)
             QuestieQuest:AddFinisher(quest)
             quest.WasComplete = true
@@ -600,8 +604,7 @@ function QuestieQuest:UpdateQuest(questId)
             -- Failed quests should be shown as available again
             Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:UpdateQuest] Quest has: Failed!")
 
-            QuestieMap:UnloadQuestFrames(questId)
-            QuestieTooltips:RemoveQuest(questId)
+            AvailableQuests.RemoveQuest(questId)
             AvailableQuests.DrawAvailableQuest(quest)
 
             -- Reset any collapsed quest flags
@@ -623,10 +626,9 @@ function QuestieQuest:UpdateQuest(questId)
                 quest.isComplete = nil
 
                 -- Reset tooltips
-                QuestieTooltips:RemoveQuest(questId)
+                AvailableQuests.RemoveQuest(questId)
 
                 QuestieQuest:CheckQuestSourceItem(questId, true)
-                QuestieMap:UnloadQuestFrames(questId)
 
                 -- Reset any collapsed quest flags
                 if Questie.db.char.collapsedQuests then
@@ -651,6 +653,7 @@ function QuestieQuest:UpdateQuest(questId)
 
                     if numCompleteObjectives == #quest.Objectives then
                         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:UpdateQuest] All Quest Objective(s) are Complete! Manually setting quest to Complete!")
+                        -- Only remove the map icons, but keep the tooltips
                         QuestieMap:UnloadQuestFrames(questId)
                         QuestieQuest:AddFinisher(quest)
                         quest.WasComplete = true
@@ -996,7 +999,7 @@ function QuestieQuest:AddFinisher(quest)
                 end
             end
 
-            QuestieTooltips:RegisterQuestStartTooltip(questId, finisher.name, finisher.id, key)
+            QuestieTooltips:RegisterQuestStartTooltip(quest.Id, finisher.name, finisher.id, key, "Finisher")
 
             local finisherIcons = {}
             local finisherLocs = {}
@@ -1146,7 +1149,14 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
 
         if zoneCount == 1 then -- this objective happens in 1 zone, clustering should be relative to that zone
             local x, y = HBD:GetWorldCoordinatesFromZone(0.5, 0.5, ZoneDB:GetUiMapIdByAreaId(objectiveZone))
-            objectiveCenter = { x = x, y = y }
+            objectiveCenter = {x = x, y = y}
+        end
+
+        if (not objectiveCenter) or (not objectiveCenter.x) or (not objectiveCenter.y) then
+            -- When an NPC doesn't have any spawns objectiveCenter will be nil.
+            -- Also for some areas HBD will return nil for the world coordinates.
+            -- This will create a distance of 0 but it doesn't matter.
+            objectiveCenter = {x = 0, y = 0}
         end
 
         local iconsToDraw, _ = _DetermineIconsToDraw(quest, objective, objectiveIndex, objectiveCenter)
@@ -1275,7 +1285,7 @@ _DetermineIconsToDraw = function(quest, objective, objectiveIndex, objectiveCent
                         if iconList then
                             iconList[#iconList + 1] = drawIcon
                         else
-                            iconsToDraw[distance] = { drawIcon }
+                            iconsToDraw[distance] = {drawIcon}
                         end
                     end
                 end
@@ -1298,7 +1308,7 @@ _DrawObjectiveIcons = function(questId, iconsToDraw, objective, maxPerType)
     local iconCount, orderedList = _GetIconsSortedByDistance(iconsToDraw)
 
     if orderedList[1] and orderedList[1].Icon == Questie.ICON_TYPE_OBJECT then -- new clustering / limit code should prevent problems, always show all object notes
-        range = range * 0.2;                                                   -- Only use 20% of the default range.
+        range = range * 0.2; -- Only use 20% of the default range.
     end
 
     local hotzones = QuestieMap.utils:CalcHotzones(orderedList, range, iconCount);
@@ -1331,7 +1341,7 @@ _DrawObjectiveIcons = function(questId, iconsToDraw, objective, maxPerType)
                 local iconMap, iconMini = QuestieMap:DrawWorldIcon(icon.data, icon.zone, centerX, centerY) -- clustering code takes care of duplicates as long as min-dist is more than 0
 
                 if iconMap and iconMini then
-                    iconPerZone[icon.zone] = { iconMap, centerX, centerY }
+                    iconPerZone[icon.zone] = {iconMap, centerX, centerY}
                     spawnsMapRefs[#spawnsMapRefs + 1] = iconMap
                     spawnsMinimapRefs[#spawnsMinimapRefs + 1] = iconMini
                 end
@@ -1348,7 +1358,7 @@ _DrawObjectiveIcons = function(questId, iconsToDraw, objective, maxPerType)
         local iconMap, iconMini = QuestieMap:DrawWorldIcon(icon.data, icon.zone, centerX, centerY) -- clustering code takes care of duplicates as long as min-dist is more than 0
 
         if iconMap and iconMini then
-            iconPerZone[icon.zone] = { iconMap, centerX, centerY }
+            iconPerZone[icon.zone] = {iconMap, centerX, centerY}
             spawnsMapRefs[#spawnsMapRefs + 1] = iconMap
             spawnsMinimapRefs[#spawnsMinimapRefs + 1] = iconMini
         end
@@ -1394,11 +1404,11 @@ _DrawObjectiveWaypoints = function(objective, icon, iconPerZone)
             for zone, waypoints in pairs(spawnData.Waypoints) do
                 local firstWaypoint = waypoints[1][1]
 
-                if (not iconPerZone[zone]) and icon and firstWaypoint[1] ~= -1 and firstWaypoint[2] ~= -1 then              -- spawn an icon in this zone for the mob
+                if (not iconPerZone[zone]) and icon and firstWaypoint[1] ~= -1 and firstWaypoint[2] ~= -1 then -- spawn an icon in this zone for the mob
                     local iconMap, iconMini = QuestieMap:DrawWorldIcon(icon.data, zone, firstWaypoint[1], firstWaypoint[2]) -- clustering code takes care of duplicates as long as min-dist is more than 0
 
                     if iconMap and iconMini then
-                        iconPerZone[zone] = { iconMap, firstWaypoint[1], firstWaypoint[2] }
+                        iconPerZone[zone] = {iconMap, firstWaypoint[1], firstWaypoint[2]}
                         tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].mapRefs, iconMap);
                         tinsert(objective.AlreadySpawned[icon.AlreadySpawnedId].minimapRefs, iconMini);
                     end
@@ -1407,7 +1417,7 @@ _DrawObjectiveWaypoints = function(objective, icon, iconPerZone)
                 local ipz = iconPerZone[zone]
 
                 if ipz then
-                    QuestieMap:DrawWaypoints(ipz[1], waypoints, zone, spawnData.Hostile and { 1, 0.2, 0, 0.7 } or nil)
+                    QuestieMap:DrawWaypoints(ipz[1], waypoints, zone, spawnData.Hostile and {1, 0.2, 0, 0.7} or nil)
                 end
             end
 
@@ -1523,7 +1533,7 @@ function QuestieQuest:PopulateQuestLogInfo(quest)
         -- Some quests when picked up will be flagged isComplete == 0 but the quest.Objective table or quest.SpecialObjectives table is nil. This
         -- check assumes the Quest should have been flagged questLogEngtry.isComplete == 1. We're specifically looking for a quest.triggerEnd or
         -- a quest.Finisher.Id because this might throw an error if there is nothing to populate when we call QuestieQuest:AddFinisher().
-        QuestieMap:UnloadQuestFrames(quest.Id)
+        AvailableQuests.RemoveQuest(quest.Id)
         QuestieQuest:AddFinisher(quest)
         quest.isComplete = true
     end

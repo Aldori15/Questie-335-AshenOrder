@@ -22,12 +22,16 @@ local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestieAnnounce
 local QuestieAnnounce = QuestieLoader:ImportModule("QuestieAnnounce")
+---@type QuestiePlayer
+local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 ---@type IsleOfQuelDanas
 local IsleOfQuelDanas = QuestieLoader:ImportModule("IsleOfQuelDanas")
 ---@type QuestieCombatQueue
 local QuestieCombatQueue = QuestieLoader:ImportModule("QuestieCombatQueue")
 ---@type QuestieTracker
 local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
+---@type QuestgiverFrame
+local QuestgiverFrame = QuestieLoader:ImportModule("QuestgiverFrame")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
@@ -42,7 +46,6 @@ local QUEST_LOG_STATES = {
     QUEST_ACCEPTED = "QUEST_ACCEPTED",
     QUEST_TURNED_IN = "QUEST_TURNED_IN",
     QUEST_REMOVED = "QUEST_REMOVED",
-    QUEST_ABANDONED = "QUEST_ABANDONED"
 }
 
 local eventFrame = CreateFrame("Frame", "QuestieQuestEventFrame")
@@ -230,6 +233,34 @@ function _QuestEventHandler:QuestAccepted(questLogIndex, questId)
         _QuestEventHandler:HandleQuestAccepted(questId)
     end)
 
+    if Questie.db.profile.questAnnounceIncompleteBreadcrumb then
+        local breadcrumbs = QuestieDB.QueryQuestSingle(questId, "breadcrumbs")
+        if breadcrumbs then
+            for _, breadcrumbQuestId in pairs(breadcrumbs) do
+                -- We want to let users know when they picked up a quest without finishing its breadcrumb
+                if (not Questie.db.char.complete[breadcrumbQuestId]) and (not QuestiePlayer.currentQuestlog[breadcrumbQuestId]) then
+                    local requiredRaces = QuestieDB.QueryQuestSingle(breadcrumbQuestId, "requiredRaces")
+                    local requiredClasses = QuestieDB.QueryQuestSingle(breadcrumbQuestId, "requiredClasses")
+
+                    local exclusiveQuests = QuestieDB.QueryQuestSingle(breadcrumbQuestId, "exclusiveTo")
+                    local exclusiveQuestCompleted = false
+                    if exclusiveQuests then
+                        for _, exclusiveQuestId in pairs(exclusiveQuests) do
+                            if Questie.db.char.complete[exclusiveQuestId] or QuestiePlayer.currentQuestlog[exclusiveQuestId] then
+                                exclusiveQuestCompleted = true
+                                break
+                            end
+                        end
+                    end
+
+                    if QuestiePlayer.HasRequiredRace(requiredRaces) and QuestiePlayer.HasRequiredClass(requiredClasses) and (not exclusiveQuestCompleted) then
+                        QuestieAnnounce.IncompleteBreadcrumbQuest(questId, breadcrumbQuestId)
+                    end
+                end
+            end
+        end
+    end
+
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] QUEST_ACCEPTED - skipNextUQLCEvent - ", skipNextUQLCEvent)
 end
 
@@ -317,7 +348,8 @@ end
 
 --- Fires when a quest is removed from the quest log. This includes turning it in and abandoning it.
 ---@param questId number
-function _QuestEventHandler:QuestRemoved(questId)
+---@param isImmediateAbandon boolean|nil
+function _QuestEventHandler:QuestRemoved(questId, isImmediateAbandon)
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] QUEST_REMOVED", questId)
     doFullQuestLogScan = false
 
@@ -335,16 +367,27 @@ function _QuestEventHandler:QuestRemoved(questId)
         return
     end
 
-    -- QUEST_REMOVED can fire before QUEST_TURNED_IN. If QUEST_TURNED_IN is not called after X seconds the quest
-    -- was abandoned
-    questLog[questId] = {
-        state = QUEST_LOG_STATES.QUEST_REMOVED,
-        timer = C_Timer.NewTicker(1, function()
-            _QuestEventHandler:MarkQuestAsAbandoned(questId)
-        end, 1)
-    }
+    -- Explicit abandon calls can skip the turn-in wait and process instantly.
+    if isImmediateAbandon then
+        questLog[questId] = {
+            state = QUEST_LOG_STATES.QUEST_REMOVED
+        }
+    else
+        -- QUEST_REMOVED can fire before QUEST_TURNED_IN. If QUEST_TURNED_IN is not called after X seconds the quest
+        -- was abandoned
+        questLog[questId] = {
+            state = QUEST_LOG_STATES.QUEST_REMOVED,
+            timer = C_Timer.NewTicker(1, function()
+                _QuestEventHandler:MarkQuestAsAbandoned(questId)
+            end, 1)
+        }
+    end
     skipNextUQLCEvent = true
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] QUEST_REMOVED - skipNextUQLCEvent - ", skipNextUQLCEvent)
+
+    if isImmediateAbandon then
+        _QuestEventHandler:MarkQuestAsAbandoned(questId)
+    end
 end
 
 ---@param questId number
@@ -352,7 +395,6 @@ function _QuestEventHandler:MarkQuestAsAbandoned(questId)
     Questie:Debug(Questie.DEBUG_DEVELOP, "QuestEventHandler:MarkQuestAsAbandoned")
     if questLog[questId].state == QUEST_LOG_STATES.QUEST_REMOVED then
         Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId, "was abandoned")
-        questLog[questId].state = QUEST_LOG_STATES.QUEST_ABANDONED
 
         QuestLogCache.RemoveQuest(questId)
         QuestieQuest:SetObjectivesDirty(questId) -- is this necessary? should whole quest.Objectives be cleared at some point of quest removal?
@@ -500,6 +542,7 @@ function _QuestLogUpdateQueue:GetFirst()
 end
 
 local trackerMinimizedByDungeon = false
+local trackerHiddenByDungeon = false
 function _QuestEventHandler:ZoneChangedNewArea()
     Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] ZONE_CHANGED_NEW_AREA")
     -- By my tests it takes a full 6-7 seconds for the world to load. There are a lot of
@@ -510,27 +553,46 @@ function _QuestEventHandler:ZoneChangedNewArea()
     if isInInstance then
         C_Timer.After(8, function()
             Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] ZONE_CHANGED_NEW_AREA: Entering Instance")
-            if Questie.db.profile.hideTrackerInDungeons then
+            if Questie.db.profile.minimizeTrackerInDungeons then
                 trackerMinimizedByDungeon = true
 
                 QuestieCombatQueue:Queue(function()
                     QuestieTracker:Collapse()
                 end)
             end
-        end)
 
-    -- We only want this to fire outside of an instance if the player isn't dead and we need to reset the Tracker
-    elseif (not Questie.db.char.isTrackerExpanded and not UnitIsGhost("player")) and trackerMinimizedByDungeon == true then
-        C_Timer.After(8, function()
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] ZONE_CHANGED_NEW_AREA: Exiting Instance")
+            -- Handle complete hiding in dungeons
             if Questie.db.profile.hideTrackerInDungeons then
-                trackerMinimizedByDungeon = false
-
-                QuestieCombatQueue:Queue(function()
-                    QuestieTracker:Expand()
-                end)
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] ZONE_CHANGED_NEW_AREA: Hiding tracker completely in dungeon")
+                trackerHiddenByDungeon = true
+                QuestieTracker:Hide()
             end
         end)
+    else
+        -- Handle exiting instances for both minimize and hide
+        if trackerMinimizedByDungeon == true then
+            C_Timer.After(8, function()
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] ZONE_CHANGED_NEW_AREA: Exiting Instance - Minimize")
+                if Questie.db.profile.minimizeTrackerInDungeons and (not Questie.db.char.isTrackerExpanded and not UnitIsGhost("player")) then
+                    trackerMinimizedByDungeon = false
+
+                    QuestieCombatQueue:Queue(function()
+                        QuestieTracker:Expand()
+                    end)
+                end
+            end)
+        end
+
+        -- Handle complete hiding when exiting dungeons
+        if trackerHiddenByDungeon == true then
+            C_Timer.After(8, function()
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] ZONE_CHANGED_NEW_AREA: Exiting Instance - Complete Hide")
+                if Questie.db.profile.hideTrackerInDungeons then
+                    trackerHiddenByDungeon = false
+                    QuestieTracker:Show()
+                end
+            end)
+        end
     end
 end
 
@@ -545,6 +607,7 @@ function _QuestEventHandler:OnEvent(event, ...)
         _QuestEventHandler:QuestRemoved(...)
     elseif event == "QUEST_LOG_UPDATE" then
         _QuestEventHandler:QuestLogUpdate()
+        QuestgiverFrame.RecheckGreeting()
     elseif event == "QUEST_WATCH_UPDATE" then
         _QuestEventHandler:QuestWatchUpdate(...)
     elseif event == "UNIT_QUEST_LOG_CHANGED" and select(1, ...) == "player" then

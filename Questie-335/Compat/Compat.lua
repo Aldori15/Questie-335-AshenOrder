@@ -12,14 +12,20 @@ local QuestieEventHandler = QuestieLoader:ImportModule("QuestieEventHandler")
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 ---@type QuestEventHandler
 local QuestEventHandler = QuestieLoader:ImportModule("QuestEventHandler")
+---@type QuestLogCache
+local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
 ---@class AvailableQuests
 local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
 ---@type ZoneDB
 local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
+---@type l10n
+local l10n = QuestieLoader:ImportModule("l10n")
 ---@type MinimapIcon
 local MinimapIcon = QuestieLoader:ImportModule("MinimapIcon")
 ---@type TrackerLinePool
 local TrackerLinePool = QuestieLoader:ImportModule("TrackerLinePool")
+---@type QuestieTracker
+local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
 ---@type QuestiePlayer
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 ---@type QuestXP
@@ -192,16 +198,139 @@ QuestieCompat.C_Timer = {
 }
 
 local mapIdToUiMapId = {}
+local zoneNameToUiMapId = {}
+local zoneNameToAreaId = {}
+local lastKnownUiMapID = nil
+local lastKnownZoneLikeUiMapID = nil
+local lastUiMapFallbackDebugTimestamp = 0
+local lastUiMapFallbackMapKey = nil
+
+local function NormalizeMapKey(mapID, mapLevel)
+    return math.floor((mapID + (mapLevel or 0) / 10) * 10 + 0.5) / 10
+end
+
+local function GetRawMapContext()
+    local mapID = GetCurrentMapAreaID()
+    if mapID == 0 then -- both the "Cosmic" and "Azeroth" maps return a mapID of 0
+        mapID = GetCurrentMapContinent()
+    end
+    local mapLevel = GetCurrentMapDungeonLevel() or 0
+    return mapID, mapLevel
+end
+
+local function ResolveDirectUiMapID(mapID, mapLevel)
+    return mapIdToUiMapId[NormalizeMapKey(mapID, mapLevel)] or mapIdToUiMapId[mapID]
+end
+local function IsContinentalOrCosmicUiMap(uiMapID)
+    local uiData = uiMapID and QuestieCompat.UiMapData and QuestieCompat.UiMapData[uiMapID]
+    return uiData and uiData.mapType and uiData.mapType < 3
+end
+
+local function IsZoneLikeUiMap(uiMapID)
+    local uiData = uiMapID and QuestieCompat.UiMapData and QuestieCompat.UiMapData[uiMapID]
+    return uiData and uiData.mapType and uiData.mapType >= 3
+end
+
+
+local genericWaterSubzones = {
+    ["The North Sea"] = true,
+    ["The Great Sea"] = true,
+    ["The Forbidding Sea"] = true,
+    ["The Veiled Sea"] = true,
+    ["The Frozen Sea"] = true,
+}
+local function ResolveUiMapIDByZoneTexts()
+    local zoneCandidates = {
+        {name = GetRealZoneText and GetRealZoneText(), source = "real"},
+        {name = GetZoneText and GetZoneText(), source = "zone"},
+        {name = GetSubZoneText and GetSubZoneText(), source = "sub"},
+        {name = GetMinimapZoneText and GetMinimapZoneText(), source = "minimap"},
+    }
+    local fallbackUiMapID, fallbackZoneName = nil, nil
+    for _, candidate in ipairs(zoneCandidates) do
+        local zoneName = candidate.name
+        if zoneName and zoneName ~= "" then
+            local zoneUiMapID = zoneNameToUiMapId[zoneName]
+            if not zoneUiMapID then
+                local areaId = zoneNameToAreaId[zoneName]
+                if areaId then
+                    local parentAreaId = ZoneDB.GetParentZoneId and ZoneDB:GetParentZoneId(areaId) or nil
+                    zoneUiMapID = (parentAreaId and ZoneDB.GetUiMapIdByAreaId and ZoneDB:GetUiMapIdByAreaId(parentAreaId))
+                        or (ZoneDB.GetUiMapIdByAreaId and ZoneDB:GetUiMapIdByAreaId(areaId))
+                end
+            end
+            if zoneUiMapID then
+                local uiData = QuestieCompat.UiMapData and QuestieCompat.UiMapData[zoneUiMapID]
+                local mapType = uiData and uiData.mapType
+                local isZoneLikeMap = mapType and mapType >= 3
+                local isGenericWaterSubzone = (candidate.source == "sub") and genericWaterSubzones[zoneName]
+                if isZoneLikeMap and (not isGenericWaterSubzone) then
+                    return zoneUiMapID, zoneName
+                end
+                if not fallbackUiMapID then
+                    fallbackUiMapID = zoneUiMapID
+                    fallbackZoneName = zoneName
+                end
+            end
+        end
+    end
+    return fallbackUiMapID, fallbackZoneName
+end
+
 -- convert current mapAreaID and mapLevel to UiMapId
 -- https://wowpedia.fandom.com/wiki/API_GetCurrentMapAreaID
 -- https://wowwiki-archive.fandom.com/wiki/API_GetCurrentMapDungeonLevel
 -- https://wowpedia.fandom.com/wiki/UiMapID#Classic
 function QuestieCompat.GetCurrentUiMapID()
-    local mapID = GetCurrentMapAreaID()
-    if mapID == 0 then -- both the "Cosmic" and "Azeroth" maps return a mapID of 0
-        mapID = GetCurrentMapContinent()
+    local mapID, mapLevel = GetRawMapContext()
+    local uiMapID = ResolveDirectUiMapID(mapID, mapLevel)
+    if uiMapID then
+        if (not WorldMapFrame or not WorldMapFrame:IsVisible()) and IsContinentalOrCosmicUiMap(uiMapID) then
+            local zoneUiMapID = ResolveUiMapIDByZoneTexts()
+            if zoneUiMapID and IsZoneLikeUiMap(zoneUiMapID) then
+                uiMapID = zoneUiMapID
+            elseif lastKnownZoneLikeUiMapID then
+                uiMapID = lastKnownZoneLikeUiMapID
+            end
+        end
+        if IsZoneLikeUiMap(uiMapID) then
+            lastKnownZoneLikeUiMapID = uiMapID
+        end
+        lastKnownUiMapID = uiMapID
+        lastUiMapFallbackMapKey = nil
+        return uiMapID
     end
-    return mapIdToUiMapId[mapID + GetCurrentMapDungeonLevel()/10] or 946
+    if (not WorldMapFrame) or (not WorldMapFrame:IsVisible()) then
+        local zoneUiMapID = ResolveUiMapIDByZoneTexts()
+        if zoneUiMapID then
+            if IsContinentalOrCosmicUiMap(zoneUiMapID) and lastKnownZoneLikeUiMapID then
+                zoneUiMapID = lastKnownZoneLikeUiMapID
+            end
+            if IsZoneLikeUiMap(zoneUiMapID) then
+                lastKnownZoneLikeUiMapID = zoneUiMapID
+            end
+            lastKnownUiMapID = zoneUiMapID
+            lastUiMapFallbackMapKey = nil
+            return zoneUiMapID
+        end
+    end
+    if WorldMapFrame and WorldMapFrame:IsVisible() then
+        -- Avoid drawing parent/continent pins on unresolved subzone maps (e.g. Northshire Valley mapAreaID 865).
+        return 946
+    end
+    if lastKnownUiMapID then
+        local mapKey = NormalizeMapKey(mapID, mapLevel)
+        if Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugEnabled and mapKey ~= lastUiMapFallbackMapKey and (GetTime() - lastUiMapFallbackDebugTimestamp > 0.5) then
+            lastUiMapFallbackDebugTimestamp = GetTime()
+            print(string.format("[Questie/Compat] UiMap fallback mapID=%s level=%s -> %s", tostring(mapID), tostring(mapLevel), tostring(lastKnownUiMapID)))
+        end
+        lastUiMapFallbackMapKey = mapKey
+        return lastKnownUiMapID
+    end
+    if lastKnownZoneLikeUiMapID then
+        return lastKnownZoneLikeUiMapID
+    end
+    return 946
 end
 
 -- maps mapAreaID to Zone and Continent index
@@ -219,6 +348,7 @@ end
 
 function QuestieCompat.TomTom_AddWaypoint(title, zone, x, y)
     local CZ = mapIdToCZ[QuestieCompat.UiMapData[zone].mapID]
+    if (zone == 125) or (zone == 126) then CZ = 3.4 end
     return TomTom:AddZWaypoint(QuestieCompat.Round(CZ%1 * 10), math.floor(CZ), x, y, title)
 end
 
@@ -251,7 +381,92 @@ function QuestieCompat.GetCurrentPlayerPosition()
 			end
 		end
 	end
-	return QuestieCompat.GetCurrentUiMapID(), x, y;
+    local mapID, mapLevel = GetRawMapContext();
+	local uiMapID = ResolveDirectUiMapID(mapID, mapLevel);
+    if uiMapID and (not WorldMapFrame:IsVisible()) and IsContinentalOrCosmicUiMap(uiMapID) then
+        -- Continental/cosmic map contexts can produce distorted local coordinates for minimap math.
+        -- Re-anchor to the player's actual zone map first.
+        SetMapToCurrentZone()
+        local zx, zy = GetPlayerMapPosition("player")
+        if (zx > 0 or zy > 0) then
+            x, y = zx, zy
+        end
+        mapID, mapLevel = GetRawMapContext()
+        uiMapID = ResolveDirectUiMapID(mapID, mapLevel) or uiMapID
+    end
+	if not uiMapID and not WorldMapFrame:IsVisible() then
+		-- Some starter subzones expose a mapAreaID that does not exist in UiMapData.
+		-- Force map context to the parent zone map first (not continent), so coordinates stay in local zone space.
+		local continent = GetCurrentMapContinent();
+		local zone = GetCurrentMapZone();
+		if continent and continent > 0 and zone and zone > 0 then
+			SetMapZoom(continent, zone);
+		else
+			SetMapToCurrentZone();
+		end
+
+		local zx, zy = GetPlayerMapPosition("player");
+		if ( zx > 0 or zy > 0 ) then
+			x, y = zx, zy;
+		end
+
+		mapID, mapLevel = GetRawMapContext();
+		uiMapID = ResolveDirectUiMapID(mapID, mapLevel);
+
+		if not uiMapID then
+			if ( ZoomOut() ) then
+				local ox, oy = GetPlayerMapPosition("player");
+				if ( ox > 0 or oy > 0 ) then
+					x, y = ox, oy;
+				end
+			elseif ( GetCurrentMapZone() ~= WORLDMAP_WORLD_ID ) then
+				SetMapZoom(GetCurrentMapContinent());
+				local ox, oy = GetPlayerMapPosition("player");
+				if ( ox > 0 or oy > 0 ) then
+					x, y = ox, oy;
+				end
+			end
+
+			mapID, mapLevel = GetRawMapContext();
+			uiMapID = ResolveDirectUiMapID(mapID, mapLevel);
+		end
+	end
+
+	if not uiMapID then
+		uiMapID = QuestieCompat.GetCurrentUiMapID();
+	end
+
+	local zoneUiMapID = ResolveUiMapIDByZoneTexts()
+    if zoneUiMapID and IsZoneLikeUiMap(zoneUiMapID) then
+        uiMapID = zoneUiMapID
+    elseif uiMapID and IsContinentalOrCosmicUiMap(uiMapID) and lastKnownZoneLikeUiMapID then
+        uiMapID = lastKnownZoneLikeUiMapID
+    end
+
+    if uiMapID and IsZoneLikeUiMap(uiMapID) then
+        lastKnownZoneLikeUiMapID = uiMapID
+    end
+
+	if uiMapID and uiMapID ~= 946 and not WorldMapFrame:IsVisible() then
+		local uiData = QuestieCompat.UiMapData[uiMapID];
+		if uiData and uiData.mapID and uiData.mapID >= 0 then
+			local currentMapID, currentMapLevel = GetRawMapContext();
+			local targetMapID = uiData.mapID;
+			local targetMapLevel = QuestieCompat.Round((targetMapID % 1) * 10);
+			if NormalizeMapKey(currentMapID, currentMapLevel) ~= NormalizeMapKey(targetMapID, targetMapLevel) then
+				SetMapByID(math.floor(targetMapID) - 1);
+				if targetMapLevel > 0 then
+					SetDungeonMapLevel(targetMapLevel);
+				end
+				local ax, ay = GetPlayerMapPosition("player");
+				if (ax > 0 or ay > 0) then
+					x, y = ax, ay;
+				end
+			end
+		end
+	end
+
+	return uiMapID, x, y;
 end
 
 -- wrapper used by QuestieCoords
@@ -368,9 +583,89 @@ function QuestieCompat.GetServerTime()
 end
 
 local questObjectivesCache = {}
+local QUEST_OBJECTIVE_CACHE_TTL_SECONDS = 3
 
 local function parseQuestObjective(text)
     return string.match(string.gsub(text, "\239\188\154", ":"), "(.*):%s*([%d]+)%s*/%s*([%d]+)")
+end
+
+local function normalizeObjectiveName(objectiveName)
+    if type(objectiveName) ~= "string" then
+        return objectiveName
+    end
+
+    -- Remove coloring codes and trim whitespace to keep lookup keys stable.
+    objectiveName = objectiveName:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    return objectiveName:match("^%s*(.-)%s*$")
+end
+
+local function setObjectiveProgressCache(objectiveName, numFulfilled)
+    numFulfilled = tonumber(numFulfilled)
+    if (not objectiveName) or (not numFulfilled) then
+        return
+    end
+
+    questObjectivesCache[objectiveName] = {
+        fulfilled = numFulfilled,
+        expiresAt = GetTime() + QUEST_OBJECTIVE_CACHE_TTL_SECONDS
+    }
+end
+
+local function getObjectiveProgressCache(objectiveName)
+    local cached = questObjectivesCache[objectiveName]
+    if not cached then
+        return nil
+    end
+
+    if (type(cached) ~= "table") or (type(cached.fulfilled) ~= "number") then
+        questObjectivesCache[objectiveName] = nil
+        return nil
+    end
+
+    if cached.expiresAt and (GetTime() > cached.expiresAt) then
+        questObjectivesCache[objectiveName] = nil
+        return nil
+    end
+
+    return cached.fulfilled
+end
+
+local function applyObjectiveProgressToQuestieCache(objectiveName, numFulfilled)
+    numFulfilled = tonumber(numFulfilled)
+    if (not objectiveName) or (not numFulfilled) then
+        return false
+    end
+
+    local changedQuestIds = {}
+    for questId, questData in pairs(QuestLogCache.questLog_DO_NOT_MODIFY or {}) do
+        local objectives = questData and questData.objectives
+        if objectives and #objectives > 0 then
+            for _, objective in ipairs(objectives) do
+                if objective and objective.type == "item" and normalizeObjectiveName(objective.text) == objectiveName then
+                    local oldFulfilled = tonumber(objective.numFulfilled) or 0
+                    if numFulfilled > oldFulfilled then
+                        objective.numFulfilled = numFulfilled
+                        objective.raw_numFulfilled = math.max(tonumber(objective.raw_numFulfilled) or 0, numFulfilled)
+                        if objective.numRequired then
+                            local isFinished = numFulfilled >= objective.numRequired
+                            objective.finished = isFinished
+                            objective.raw_finished = objective.raw_finished or isFinished
+                        end
+                        changedQuestIds[questId] = true
+                    end
+                end
+            end
+        end
+    end
+
+    local hasChanges = false
+    for questId in pairs(changedQuestIds) do
+        hasChanges = true
+        QuestieQuest:SetObjectivesDirty(questId)
+        QuestieQuest:UpdateQuest(questId)
+    end
+
+    return hasChanges
 end
 
 QuestieCompat.C_QuestLog = {
@@ -384,12 +679,26 @@ QuestieCompat.C_QuestLog = {
 		    	local description, objectiveType, isCompleted = GetQuestLogLeaderBoard(i, questLogIndex);
                 if objectiveType ~= "log" then
 		    	    local objectiveName, numFulfilled, numRequired = parseQuestObjective(description)
+                    objectiveName = normalizeObjectiveName(objectiveName)
                     -- GetQuestLogLeaderBoard randomly returns incorrect objective information.
                     -- Parsing the UI_INFO_MESSAGE event for the correct numFulfilled value seems like the solution.
-                    local fulfilled = questObjectivesCache[objectiveName]
-                    if fulfilled and (not isCompleted) then
-                        numFulfilled = fulfilled
-                        questObjectivesCache[objectiveName] = nil
+                    local fulfilled = getObjectiveProgressCache(objectiveName)
+                    if fulfilled then
+                        if not isCompleted then
+                            -- GetQuestLogLeaderBoard can lag behind UI_INFO_MESSAGE.
+                            -- Never let cached fallback reduce an already newer value.
+                            local questLogFulfilled = tonumber(numFulfilled)
+                            if questLogFulfilled then
+                                numFulfilled = math.max(questLogFulfilled, fulfilled)
+                                if questLogFulfilled >= fulfilled then
+                                    questObjectivesCache[objectiveName] = nil
+                                end
+                            else
+                                numFulfilled = fulfilled
+                            end
+                        else
+                            questObjectivesCache[objectiveName] = nil
+                        end
                     end
 
 		    	    table.insert(questObjectives, objectiveIndex, {
@@ -465,7 +774,18 @@ function QuestieCompat.GetQuestLink(questId)
 end
 
 function QuestieCompat:GetQuestLinkString(questLevel, questName, questId)
-	return QuestieCompat.GetQuestLink(questId) or "[["..tostring(questLevel).."] "..questName.." ("..tostring(questId)..")]"
+	local questLink = QuestieCompat.GetQuestLink(questId)
+	if questLink then
+		return questLink
+	end
+
+	local numericQuestId = tonumber(questId)
+	if numericQuestId and questName then
+		local numericQuestLevel = tonumber(questLevel) or -1
+		return string.format("|cffffff00|Hquest:%d:%d|h[%s]|h|r", numericQuestId, numericQuestLevel, questName)
+	end
+
+	return "[["..tostring(questLevel).."] "..tostring(questName).." ("..tostring(questId)..")]"
 end
 
 function QuestieCompat:GetQuestLinkStringById(questId)
@@ -679,6 +999,8 @@ local questTagToName = {
 -- Retrieves tag information about the quest.
 -- https://wowpedia.fandom.com/wiki/API_GetQuestTagInfo
 function QuestieCompat.GetQuestTagInfo(questId)
+    if not questId then return nil, nil end
+
     local tagId = QuestieCompat.QuestTag[questId]
 	if tagId then
 		return tagId, questTagToName[tagId]
@@ -849,7 +1171,7 @@ end
 QuestieCompat.IsSpellKnownOrOverridesKnown = IsSpellKnown
 QuestieCompat.IsPlayerSpell = IsSpellKnown
 
-local LARGE_NUMBER_SEPERATOR = ".";
+local LARGE_NUMBER_SEPERATOR = ",";
 function QuestieCompat.FormatLargeNumber(amount)
 	amount = tostring(amount);
 	local newDisplay = "";
@@ -1276,17 +1598,100 @@ local chatMessagePattern = {
         LOOT_ITEM_SELF_MULTIPLE,
     }
 }
+local uiInfoObjectiveProgressPending = false
+local uiInfoObjectiveSyncQueued = false
+local uiInfoObjectiveLateSyncQueued = false
+
+local function syncObjectiveProgressFromUiInfoMessage()
+    local questEventHandlerPrivate = QuestEventHandler.private
+    if questEventHandlerPrivate and questEventHandlerPrivate.UpdateAllQuests then
+        questEventHandlerPrivate:UpdateAllQuests()
+    end
+
+    if QuestieTracker and QuestieTracker.Update then
+        QuestieTracker:Update()
+    end
+end
+
+local function queueObjectiveProgressSync(delay)
+    if uiInfoObjectiveSyncQueued then
+        return
+    end
+
+    uiInfoObjectiveSyncQueued = true
+    QuestieCompat.C_Timer.After(delay or 0, function()
+        uiInfoObjectiveSyncQueued = false
+        if not uiInfoObjectiveProgressPending then
+            return
+        end
+
+        uiInfoObjectiveProgressPending = false
+        syncObjectiveProgressFromUiInfoMessage()
+    end)
+end
+
+local function queueLateObjectiveProgressSync()
+    if uiInfoObjectiveLateSyncQueued then
+        return
+    end
+
+    uiInfoObjectiveLateSyncQueued = true
+    QuestieCompat.C_Timer.After(0.35, function()
+        uiInfoObjectiveLateSyncQueued = false
+        syncObjectiveProgressFromUiInfoMessage()
+    end)
+end
+
+function QuestieCompat.LOOT_SLOT_CLEARED(event)
+    if uiInfoObjectiveProgressPending then
+        queueObjectiveProgressSync(0.10)
+        queueLateObjectiveProgressSync()
+    end
+end
+
+function QuestieCompat.LOOT_CLOSED(event)
+    if uiInfoObjectiveProgressPending then
+        queueObjectiveProgressSync(0.20)
+        queueLateObjectiveProgressSync()
+    end
+end
 
 -- parse chat message for quest related info
-function QuestieCompat.UiInfoMessage(event, message)
-    for _, pattern in pairs(chatMessagePattern.questInfo) do
-        if string.find(message, pattern) then
-            local objectiveName, numFulfilled = parseQuestObjective(message)
-            if objectiveName and numFulfilled then
-                questObjectivesCache[objectiveName] = numFulfilled
+function QuestieCompat.UiInfoMessage(event, ...)
+    local arg1, arg2 = ...
+    local message
+    if type(arg1) == "string" then
+        message = arg1
+    elseif type(arg2) == "string" then
+        message = arg2
+    else
+        return
+    end
+
+    local hasObjectiveProgressUpdate = false
+    local objectiveName, numFulfilled = parseQuestObjective(message)
+    objectiveName = normalizeObjectiveName(objectiveName)
+
+    -- Parse and cache objective progress from the message itself, independent of pattern matching.
+    if objectiveName and numFulfilled then
+        setObjectiveProgressCache(objectiveName, numFulfilled)
+        hasObjectiveProgressUpdate = true
+        uiInfoObjectiveProgressPending = true
+        applyObjectiveProgressToQuestieCache(objectiveName, numFulfilled)
+        MinimapIcon:UpdateText(message)
+    else
+        for _, pattern in pairs(chatMessagePattern.questInfo) do
+            if string.find(message, pattern) then
+                MinimapIcon:UpdateText(message)
+                break
             end
-            MinimapIcon:UpdateText(message)
         end
+    end
+
+    if hasObjectiveProgressUpdate then
+        -- Keep a generic delayed sync for non-loot objective progress updates.
+        queueObjectiveProgressSync(0.05)
+        queueLateObjectiveProgressSync()
     end
 end
 
@@ -1354,6 +1759,10 @@ function QuestieCompat.QuestieEventHandler_RegisterLateEvents()
     -- Nameplate / Target Frame Objective Events
     Questie:UnregisterEvent("NAME_PLATE_UNIT_ADDED") -- https://wowpedia.fandom.com/wiki/NAME_PLATE_UNIT_ADDED
     Questie:UnregisterEvent("NAME_PLATE_UNIT_REMOVED") -- https://wowpedia.fandom.com/wiki/NAME_PLATE_UNIT_REMOVED
+
+    -- Use loot events as additional sync points for tracker refreshes.
+    Questie:RegisterEvent("LOOT_SLOT_CLEARED", QuestieCompat.LOOT_SLOT_CLEARED)
+    Questie:RegisterEvent("LOOT_CLOSED", QuestieCompat.LOOT_CLOSED)
 
     if Questie.db.profile.nameplateEnabled then
         QuestieNameplate.UpdateNameplate = QuestieCompat.UpdateNameplate
@@ -1433,7 +1842,10 @@ function QuestieCompat.QuestEventHandler_RegisterEvents()
     QuestieQuestEventFrame:UnregisterEvent("QUEST_REMOVED")
     hooksecurefunc("AbandonQuest", function()
         local questId = QuestieCompat.abandonQuestID or select(9, GetQuestLogTitle(GetQuestLogSelection()))
-        _QuestEventHandler:QuestRemoved(QuestieCompat.abandonQuestID)
+        if questId and questId > 0 then
+            _QuestEventHandler:QuestRemoved(questId, true)
+        end
+        QuestieCompat.abandonQuestID = nil
     end)
 end
 
@@ -1467,6 +1879,11 @@ function QuestieCompat.PopulateGlobals(self)
     end
 end
 
+-- change sound files extension from .ogg to .wav
+function QuestieCompat.GetSelectedSoundFile(typeSelected)
+    return QuestieCompat.orig_GetSelectedSoundFile(typeSelected):gsub("[^.]+$", "wav")
+end
+
 QuestieCompat.isReloadingUi = false
 function QuestieCompat.OnReloadUi(command)
 	command = command or "reloadui"
@@ -1474,11 +1891,6 @@ function QuestieCompat.OnReloadUi(command)
 		Questie.db.profile.isInitialLogin = false
 		QuestieCompat.isReloadingUi = true
 	end
-end
-
--- change sound files extension from .ogg to .wav
-function QuestieCompat.GetSelectedSoundFile(typeSelected)
-    return QuestieCompat.orig_GetSelectedSoundFile(typeSelected):gsub("[^.]+$", "wav")
 end
 
 -- disable builtin quest progress tooltips, re-enable on logout
@@ -1678,7 +2090,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     QuestieCompat.Merge(Questie.db, {
         profile = {
             isInitialLogin = true,
-            initDelay = 0.03,
+            initDelay = 0.01,
             useWotlkMapData = false,
             resetDailyQuests = true,
             weeklyResetDay = 4,
@@ -1694,6 +2106,51 @@ function QuestieCompat:ADDON_LOADED(event, addon)
 
     for uiMapId, data in pairs(QuestieCompat.UiMapData) do
         mapIdToUiMapId[data.mapID] = uiMapId
+        mapIdToUiMapId[NormalizeMapKey(data.mapID, 0)] = uiMapId
+
+        -- Map outdoor/city zone names to uiMap so player position can stay in the correct map space
+        -- even when the hidden map context drifts after browsing other maps.
+        if data.name and (data.mapType == 3 or data.mapType == 5) then
+            zoneNameToUiMapId[data.name] = uiMapId
+        end
+    end
+
+    local areaIdToUiMapId = ZoneDB.private and ZoneDB.private.areaIdToUiMapId
+
+    -- Build zone-name -> areaId and zone-name -> uiMap using all lookup categories.
+    if l10n and l10n.zoneLookup then
+        for _, lookupTable in pairs(l10n.zoneLookup) do
+            if type(lookupTable) == "table" then
+                for areaId, zoneName in pairs(lookupTable) do
+                    if zoneName and zoneName ~= "" then
+                        zoneNameToAreaId[zoneName] = zoneNameToAreaId[zoneName] or areaId
+                        if areaIdToUiMapId and areaIdToUiMapId[areaId] then
+                            zoneNameToUiMapId[zoneName] = areaIdToUiMapId[areaId]
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Also map subzone names (e.g. Sunstrider Isle) to their parent zone uiMap (e.g. Eversong Woods).
+    local subZoneToParentZone = ZoneDB.private and ZoneDB.private.subZoneToParentZone
+    if subZoneToParentZone and areaIdToUiMapId then
+        for subZoneId, parentZoneId in pairs(subZoneToParentZone) do
+            local parentUiMapId = areaIdToUiMapId[parentZoneId]
+            local subZoneName = nil
+            if l10n and l10n.zoneLookup then
+                for _, lookupTable in pairs(l10n.zoneLookup) do
+                    if type(lookupTable) == "table" and lookupTable[subZoneId] then
+                        subZoneName = lookupTable[subZoneId]
+                        break
+                    end
+                end
+            end
+            if subZoneName and parentUiMapId then
+                zoneNameToUiMapId[subZoneName] = parentUiMapId
+            end
+        end
     end
 
     for k, patterns in pairs(chatMessagePattern) do
@@ -1705,7 +2162,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     for name, path in pairs(townsfolk_texturemap) do
         QuestieMenu.private.townsfolk_texturemap[name] = path
     end
-
+	
     local DISABLED_MODULES = {
         "HBDHooks",
         "QuestieDebugOffer",
@@ -1747,6 +2204,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     hooksecurefunc(QuestieQuest, "ToggleNotes", QuestieCompat.HBDPins.UpdateWorldMap)
     hooksecurefunc("ReloadUI", QuestieCompat.OnReloadUi)
 	hooksecurefunc("ConsoleExec", QuestieCompat.OnReloadUi)
+
 
     local Mapster = LibStub("AceAddon-3.0"):GetAddon("Mapster", true)
     if Mapster and Mapster.RefreshQuestObjectivesDisplay then
