@@ -618,21 +618,9 @@ function QuestieLib:MathRandom(low_or_high_arg, high_arg)
     return low + math.floor(rand * high)
 end
 
--- function QuestieLib:UnpackBinary(val)
---     local ret = {}
---     for q = 0, 16 do
---         if bit.band(bit.rshift(val, q), 1) == 1 then
---             tinsert(ret, true)
---         else
---             tinsert(ret, false)
---         end
---     end
---     return ret
--- end
-
 function QuestieLib:UnpackBinary(val)
     local ret = {}
-    for q = 0, 20 do  -- Increased to 20 to cover bits 0–20 (up to 1048576)
+    for q = 0, 25 do
         if bit.band(bit.rshift(val, q), 1) == 1 then
             tinsert(ret, true)
         else
