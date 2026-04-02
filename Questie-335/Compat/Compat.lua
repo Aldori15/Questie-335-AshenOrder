@@ -3433,8 +3433,8 @@ function QuestieCompat.QuestieOptions_Initialize()
         order = 6,
         name = "3.3.5 Compatibility Settings",
     }
-
-    optionsTable.args.advanced_tab.args.initDelay = {
+	
+	optionsTable.args.advanced_tab.args.initDelay = {
         type = "range",
         order = 6.1,
         name = "Init rate delay",
@@ -3463,8 +3463,8 @@ function QuestieCompat.QuestieOptions_Initialize()
             StaticPopup_Show("QUESTIE_RELOAD")
         end,
     }
-
-    optionsTable.args.advanced_tab.args.useQuestieLinks = {
+	
+	optionsTable.args.advanced_tab.args.useQuestieLinks = {
         type = "toggle",
         order = 6.3,
         name = "Use Questie Links",
@@ -3557,12 +3557,12 @@ function QuestieCompat:ADDON_LOADED(event, addon)
 
     QuestieCompat.Merge(Questie.db, {
         profile = {
-            isInitialLogin = true,
+			isInitialLogin = true,
             initDelay = 0.01,
             useWotlkMapData = false,
             resetDailyQuests = true,
             weeklyResetDay = 4,
-            useQuestieLinks = false,
+			useQuestieLinks = false,
         },
         char = {
             daily = {},
@@ -3633,7 +3633,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
         QuestieMenu.private.townsfolk_texturemap[name] = path
     end
 	
-    local DISABLED_MODULES = {
+	local DISABLED_MODULES = {
         "HBDHooks",
         "QuestieDebugOffer",
         "SeasonOfDiscovery",
@@ -3664,15 +3664,15 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     QuestieOptions.Initialize = QuestieCompat.QuestieOptions_Initialize
     QuestieCompat.orig_GetSelectedSoundFile = Sounds.GetSelectedSoundFile
     Sounds.GetSelectedSoundFile = QuestieCompat.GetSelectedSoundFile
-    QuestieLink.GetQuestLinkString = rawget(QuestieLink, "GetQuestLinkString") or QuestieCompat.GetQuestLinkString
-    QuestieLink.GetQuestLinkStringById = rawget(QuestieLink, "GetQuestLinkStringById") or QuestieCompat.GetQuestLinkStringById
-    QuestieLink.GetQuestHyperLink = rawget(QuestieLink, "GetQuestHyperLink") or QuestieCompat.GetQuestLinkStringById
+	QuestieLink.GetQuestLinkString = rawget(QuestieLink, "GetQuestLinkString") or QuestieCompat.GetQuestLinkString
+	QuestieLink.GetQuestLinkStringById = rawget(QuestieLink, "GetQuestLinkStringById") or QuestieCompat.GetQuestLinkStringById
+	QuestieLink.GetQuestHyperLink = rawget(QuestieLink, "GetQuestHyperLink") or QuestieCompat.GetQuestLinkStringById
 
     hooksecurefunc(QuestieEventHandler, "RegisterLateEvents", QuestieCompat.QuestieEventHandler_RegisterLateEvents)
     hooksecurefunc(QuestEventHandler, "RegisterEvents", QuestieCompat.QuestEventHandler_RegisterEvents)
     hooksecurefunc(TrackerLinePool, "Initialize", QuestieCompat.QuestieTracker_Initialize)
     hooksecurefunc(QuestieQuest, "ToggleNotes", QuestieCompat.HBDPins.UpdateWorldMap)
-    hooksecurefunc("ReloadUI", QuestieCompat.OnReloadUi)
+	hooksecurefunc("ReloadUI", QuestieCompat.OnReloadUi)
 	hooksecurefunc("ConsoleExec", QuestieCompat.OnReloadUi)
 
 
