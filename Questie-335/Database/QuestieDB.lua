@@ -269,9 +269,7 @@ QuestieDB.specialFlags = {
 }
 
 _QuestieDB.questCache = {}; -- stores quest objects so they dont need to be regenerated
-_QuestieDB.itemCache = {};
 _QuestieDB.npcCache = {};
-_QuestieDB.objectCache = {};
 _QuestieDB.zoneCache = {};
 
 ---A Memoized table for function Quest:CheckRace
@@ -378,9 +376,7 @@ function QuestieDB:Initialize()
 
     -- data has been corrected, ensure cache is empty (something might have accessed the api before questie initialized)
     _QuestieDB.questCache = {};
-    _QuestieDB.itemCache = {};
     _QuestieDB.npcCache = {};
-    _QuestieDB.objectCache = {};
     _QuestieDB.zoneCache = {};
 
     --? This improves performance a lot, the regular functions still work but this is much faster because i caches
@@ -394,9 +390,6 @@ end
 function QuestieDB:GetObject(objectId)
     if not objectId then
         return nil
-    end
-    if _QuestieDB.objectCache[objectId] then
-        return _QuestieDB.objectCache[objectId];
     end
 
     --local rawdata = QuestieDB.objectData[objectId];
@@ -415,16 +408,12 @@ function QuestieDB:GetObject(objectId)
     for stringKey, intKey in pairs(QuestieDB.objectKeys) do
         obj[stringKey] = rawdata[intKey]
     end
-    --_QuestieDB.objectCache[objectId] = obj;
     return obj;
 end
 
 function QuestieDB:GetItem(itemId)
     if (not itemId) or (itemId == 0) then
         return nil
-    end
-    if _QuestieDB.itemCache[itemId] then
-        return _QuestieDB.itemCache[itemId];
     end
 
     local rawdata = QuestieDB.QueryItem(itemId, QuestieDB._itemAdapterQueryOrder)
