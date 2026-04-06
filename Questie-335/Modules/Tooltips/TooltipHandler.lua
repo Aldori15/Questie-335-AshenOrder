@@ -4,14 +4,20 @@ local _QuestieTooltips = QuestieTooltips.private
 
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
+---@type QuestieDB
+local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 
 --- COMPATIBILITY ---
 local UnitGUID = QuestieCompat.UnitGUID
 
 local lastGuid
 
+local function _AreQuestieTooltipsEnabled()
+    return Questie.db.profile.enabled and Questie.db.profile.enableTooltips
+end
+
 function _QuestieTooltips:AddUnitDataToTooltip()
-    if (self.IsForbidden and self:IsForbidden()) or (not Questie.db.profile.enableTooltips) then
+    if (self.IsForbidden and self:IsForbidden()) or (not _AreQuestieTooltipsEnabled()) then
         return
     end
 
@@ -47,9 +53,10 @@ function _QuestieTooltips:AddUnitDataToTooltip()
     QuestieTooltips.lastGametooltipType = "monster";
 end
 
+local checkedQuestStartItems = {} -- cache item IDs that were already checked if they start a quest
 local lastItemId = 0;
 function _QuestieTooltips:AddItemDataToTooltip()
-    if (self.IsForbidden and self:IsForbidden()) or (not Questie.db.profile.enableTooltips) then
+    if (self.IsForbidden and self:IsForbidden()) or (not _AreQuestieTooltipsEnabled()) then
         return
     end
 
@@ -72,6 +79,19 @@ function _QuestieTooltips:AddItemDataToTooltip()
             if Questie.db.profile.enableTooltipsItemID == true then
                 GameTooltip:AddDoubleLine("Item ID", "|cFFFFFFFF" .. itemId .. "|r")
             end
+
+            if (not checkedQuestStartItems[itemId]) then
+                checkedQuestStartItems[itemId] = true
+                local itemIdAsNumber = tonumber(itemId)
+                if itemIdAsNumber then
+                    local startQuestId = QuestieDB.QueryItemSingle(itemIdAsNumber, "startQuest")
+                    local itemName = QuestieDB.QueryItemSingle(itemIdAsNumber, "name")
+                    if startQuestId and startQuestId ~= 0 and itemName then
+                        QuestieTooltips:RegisterQuestStartTooltip(startQuestId, itemName, itemIdAsNumber, "i_"..itemId, "itemFromMonster")
+                    end
+                end
+            end
+
             for _, v in pairs (tooltipData) do
                 self:AddLine(v)
             end
@@ -84,24 +104,24 @@ function _QuestieTooltips:AddItemDataToTooltip()
 end
 
 function _QuestieTooltips:AddObjectDataToTooltip(name)
-    if (not Questie.db.profile.enableTooltips) then
+    if (not _AreQuestieTooltipsEnabled()) then
         return
     end
     if name then
         local titleAdded = false
-        local lookup = l10n.objectNameLookup[name] or {}
-        local count = table.getn(lookup)
+        local lookup = l10n:GetObjectNameLookup(name)
+        local count = type(lookup) == "table" and table.getn(lookup) or (lookup and 1 or 0)
 
         if Questie.db.profile.enableTooltipsObjectID == true and count ~= 0 then
             if count == 1 then
-                GameTooltip:AddDoubleLine("Object ID", "|cFFFFFFFF" .. lookup[1] .. "|r")
+                GameTooltip:AddDoubleLine("Object ID", "|cFFFFFFFF" .. (type(lookup) == "table" and lookup[1] or lookup) .. "|r")
             else
                 GameTooltip:AddDoubleLine("Object ID", "|cFFFFFFFF" .. lookup[1] .. " (" .. count .. ")|r")
             end
         end
 
         local alreadyAddedObjectiveLines = {}
-        for _, gameObjectId in pairs(lookup) do
+        local function _AddTooltipData(gameObjectId)
             local tooltipData = QuestieTooltips:GetTooltip("o_" .. gameObjectId);
 
             if type(gameObjectId) == "number" and tooltipData then
@@ -126,6 +146,14 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
                     end
                 end
             end
+        end
+
+        if type(lookup) == "table" then
+            for _, gameObjectId in pairs(lookup) do
+                _AddTooltipData(gameObjectId)
+            end
+        elseif lookup then
+            _AddTooltipData(lookup)
         end
         GameTooltip:Show()
     end

@@ -29,6 +29,8 @@ local AceGUI = LibStub("AceGUI-3.0")
 local isWindowShown = false
 _QuestieJourney.lastOpenWindow = "journey"
 _QuestieJourney.lastZoneSelection = {}
+_QuestieJourney.lastFactionSelection = {}
+_QuestieJourney.questsByZone = {}
 
 local notesPopupWin
 local notesPopupWinIsOpen = false
@@ -61,11 +63,10 @@ function QuestieJourney:Initialize()
     self.zoneMap = ZoneDB:GetZonesWithQuests(true)
     self.zones = ZoneDB:GetRelevantZones()
     coroutine.yield()
-    self:BuildMainFrame()
 end
 
 function QuestieJourney:BuildMainFrame()
-    if not QuestieJourneyFrame then
+    if (not QuestieJourneyFrame) then
         local journeyFrame = AceGUI:Create("Frame")
         journeyFrame:SetCallback("OnClose", function()
             isWindowShown = false
@@ -85,15 +86,19 @@ function QuestieJourney:BuildMainFrame()
         tabGroup:SetTabs({
             {
                 text = l10n('My Journey'),
-                value="journey"
+                value = "journey"
             },
             {
                 text = l10n('Quests by Zone'),
-                value="zone"
+                value = "zone"
+            },
+                        {
+            text = l10n("Quests by Faction"),
+                value = "faction"
             },
             {
                 text = l10n('Advanced Search'),
-                value="search"
+                value = "search"
             }
         })
         tabGroup:SetCallback("OnGroupSelected", function(widget, _, group) _QuestieJourney:HandleTabChange(widget, group) end)
@@ -124,25 +129,30 @@ function QuestieJourney:IsShown()
     return isWindowShown
 end
 
+-- There are ways to toggle this function before the frame has been created
 function QuestieJourney:ToggleJourneyWindow()
-    -- There are ways to toggle this function before the frame has been created
-    if QuestieJourneyFrame then
-        if (not isWindowShown) then
-            PlaySound(882)
+    if (not Questie.started) then
+        print(Questie:Colorize(l10n("Please wait a moment for Questie to finish loading")))
+        return
+    end
 
-            local treeGroup = _QuestieJourney:HandleTabChange(_QuestieJourney.containerCache, _QuestieJourney.lastOpenWindow)
-            if treeGroup then
-                _QuestieJourney.treeCache = treeGroup
-            end
+    if (not QuestieJourneyFrame) then
+        self:BuildMainFrame()
+    end
 
-            QuestieJourneyFrame:Show()
-            isWindowShown = true
-        else
-            QuestieJourneyFrame:Hide()
-            isWindowShown = false
+    if (not isWindowShown) then
+        PlaySound(882)
+
+        local treeGroup = _QuestieJourney:HandleTabChange(_QuestieJourney.containerCache, _QuestieJourney.lastOpenWindow)
+        if treeGroup then
+            _QuestieJourney.treeCache = treeGroup
         end
+
+        QuestieJourneyFrame:Show()
+        isWindowShown = true
     else
-        Questie:Error("QuestieJourney:ToggleJourneyWindow() called before QuestieJourneyFrame was initialized!")
+        QuestieJourneyFrame:Hide()
+        isWindowShown = false
     end
 end
 

@@ -16,11 +16,23 @@ local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID
 local type = type
 local abs, min, floor = math.abs, math.min, math.floor
 local lshift = bit.lshift
+local bitband = bit.band
+local tableSort = table.sort
 
+local InCombatLockdown = InCombatLockdown
 
 -- how fast to run operations (lower = slower but less lag)
 local TICKS_PER_YIELD = 48
-local TICKS_PER_YIELD_DEBUG = TICKS_PER_YIELD * 3
+local TICKS_PER_YIELD_DEBUG = 24
+local VALIDATION_TICKS_PER_YIELD = 24
+local PREPASS_TICKS_PER_YIELD = 4096
+local POINTERMAP_TICKS_PER_YIELD = 4096
+
+local coYield = coroutine.yield
+local coRunning = coroutine.running
+
+-- Bump when compiler field types/order change to invalidate cached binary DB blobs.
+QuestieDBCompiler.compiledSchemaVersion = 11
 
 ---@alias CompilerTypes
 ---| "u8"
@@ -101,6 +113,27 @@ QuestieDBCompiler.refTypesReversed = {
     item = 2,
     object = 3
 }
+
+local function _UseAssertCompilerStream()
+    local profile = Questie.db and Questie.db.profile
+    if not profile then
+        return false
+    end
+
+    if (not profile.debugEnabled) or (not profile.debugEnabledPrint) then
+        return false
+    end
+
+    -- Keep strict assert-stream behavior for explicit SPAM-level debugging only.
+    local debugSpamFlag = Questie.DEBUG_SPAM or 0
+    return bitband(profile.debugLevel or 0, debugSpamFlag) ~= 0
+end
+
+local function _MaybeYield()
+    if coRunning() then
+        coYield()
+    end
+end
 
 local readers = {}
 local skippers = {}
@@ -255,10 +288,13 @@ readers["spawnlist"] = function(stream)
         local list = {}
         for i = 1, spawnCount do
             local x, y = stream:ReadInt12Pair()
+            local phase = stream:ReadShort()
             if x == 0 and y == 0 then
                 list[i] = {-1, -1}
-            else
+            elseif phase == 0 then
                 list[i] = {x / 40.90, y / 40.90}
+            else
+                list[i] = {x / 40.90, y / 40.90, phase}
             end
         end
         spawnlist[zone] = list
@@ -287,7 +323,7 @@ readers["objective"] = function(stream)
 
     local ret = {}
     for i = 1, count do
-        ret[i] = {stream:ReadInt24(), stream:ReadTinyStringNil()}
+        ret[i] = {stream:ReadInt24(), stream:ReadTinyStringNil(), stream:ReadByte()}
     end
     return ret
 end
@@ -321,7 +357,7 @@ readers["objectives"] = function(stream)
             for j=1, creditCount do
                 creditList[j] = stream:ReadInt24()
             end
-            killobjectives[i] = {creditList, stream:ReadInt24(), stream:ReadTinyStringNil()}
+            killobjectives[i] = {creditList, stream:ReadInt24(), stream:ReadTinyStringNil(), stream:ReadByte()}
         end
         ret[5] = killobjectives
     end
@@ -538,6 +574,8 @@ QuestieDBCompiler.writers = {
             stream:WriteByte(0)
         elseif "H" == value then
             stream:WriteByte(1)
+        elseif "" == value then
+            stream:WriteByte(3)
         else
             stream:WriteByte(2)
         end
@@ -556,6 +594,7 @@ QuestieDBCompiler.writers = {
                     else
                         stream:WriteInt12Pair(floor(spawn[1] * 40.90), floor(spawn[2] * 40.90))
                     end
+                    stream:WriteShort(spawn[3] or 0)
                 end
             end
         else
@@ -591,6 +630,7 @@ QuestieDBCompiler.writers = {
             for _, pair in pairs(value) do
                 stream:WriteInt24(pair[1])
                 stream:WriteTinyString(pair[2] or "")
+                stream:WriteByte(pair[3] or 0)
             end
         else
             stream:WriteByte(0)
@@ -630,6 +670,7 @@ QuestieDBCompiler.writers = {
                     end
                     stream:WriteInt24(killobjective[2]) -- write baseCreatureID
                     stream:WriteTinyString(killobjective[3] or "") -- write baseCreatureText
+                    stream:WriteByte(killobjective[4] or 0) -- write icon override index
                 end
             else
                 stream:WriteByte(0)
@@ -734,7 +775,7 @@ skippers["spawnlist"] = function(stream)
     local count = stream:ReadByte()
     for _ = 1, count do
         stream._pointer = stream._pointer + 2
-        stream._pointer = stream:ReadShort() * 3 + stream._pointer
+        stream._pointer = stream:ReadShort() * 5 + stream._pointer
     end
 end
 local spawnlistSkipper = skippers["spawnlist"]
@@ -753,6 +794,7 @@ skippers["objective"] = function(stream)
     for _=1,count do
         stream._pointer = stream._pointer + 3
         stream._pointer = stream:ReadByte() + stream._pointer
+        stream._pointer = stream._pointer + 1
     end
 end
 skippers["spellobjective"] = function(stream)
@@ -776,6 +818,7 @@ skippers["objectives"] = function(stream)
         for _=1, count do
             stream._pointer = stream:ReadByte() * 3 + 3 + stream._pointer
             stream._pointer = stream:ReadByte() + stream._pointer
+            stream._pointer = stream._pointer + 1
         end
     end
     spellObjectiveSkipper(stream)
@@ -878,10 +921,16 @@ function QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
     stream:reset()
     stream:WriteShort(0) -- placeholder
     local count = 0
+    local yieldCounter = 0
     for id, ptrs in pairs(pointerMap) do
         stream:WriteInt24(id)
         stream:WriteInt24(ptrs)
         count = count + 1
+        yieldCounter = yieldCounter + 1
+        if yieldCounter >= POINTERMAP_TICKS_PER_YIELD then
+            yieldCounter = 0
+            _MaybeYield()
+        end
     end
     stream._pointer = 1
     stream:WriteShort(count)
@@ -915,29 +964,28 @@ function QuestieDBCompiler:CompileTable(tbl, types, order, lookup)
 end
 
 function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, databaseKey, kind, entriesPerTick)
-    local count = 0
     local indexLookup = {};
+    local yieldCounter = 0
 
-    local max_id = 0
+    local entryCount = 0
     for id in pairs(tbl) do
         assert(type(id) == "number", "CompileTableCoroutine: tbl id is not a number")
-        if id > max_id then
-            max_id = id
+        entryCount = entryCount + 1
+        indexLookup[entryCount] = id
+        yieldCounter = yieldCounter + 1
+        if yieldCounter >= PREPASS_TICKS_PER_YIELD then
+            yieldCounter = 0
+            coYield()
         end
     end
-    -- iterate table tbl in numerical order to get ids in order to indexLoopup list. iterating over pairs(tbl) gives ids in non determined order
-    for id=0,max_id do
-        if tbl[id] then
-            count = count + 1
-            indexLookup[count] = id
-        end
-    end
-    count = count + 1
+    -- Keep deterministic ascending id order without scanning sparse id gaps.
+    tableSort(indexLookup)
+    local count = entryCount + 1
 
     local index = 0
 
     local pointerMap = {}
-    local stream = Questie.db.profile.debugEnabled and QuestieStream:GetStream("raw_assert") or QuestieStream:GetStream("raw")
+    local stream = _UseAssertCompilerStream() and QuestieStream:GetStream("raw_assert") or QuestieStream:GetStream("raw")
 
     -- Localize functions
     local pcall, type = pcall, type
@@ -946,7 +994,18 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
 
     while true do
         coroutine.yield()
-        for _=0,Questie.db.profile.debugEnabled and TICKS_PER_YIELD_DEBUG or (entriesPerTick or TICKS_PER_YIELD) do
+
+        local ticks = entriesPerTick or TICKS_PER_YIELD
+        if Questie.db.profile.debugEnabled then
+            ticks = min(ticks, TICKS_PER_YIELD_DEBUG)
+        end
+
+        for _ = 0, ticks do
+            -- Pause compilation while in combat
+            while InCombatLockdown() do
+                coroutine.yield()
+            end
+
             index = index + 1
             if index == count then
                 if Questie.IsSoD then
@@ -966,6 +1025,11 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
 
             pointerMap[id] = stream._pointer--pointerStart
             for i=1, #order do
+                -- If combat starts mid-entry, pause before processing next field
+                while InCombatLockdown() do
+                    coroutine.yield()
+                end
+                
                 local key = order[i]
                 local v = entry[lookup[key]]
                 local t = types[key]
@@ -1035,13 +1099,21 @@ function QuestieDBCompiler:Compile()
     QuestieDBCompiler.totalSize = 0
 
     print("\124cFF4DDBFF [6/9] " .. l10n("Updating NPCs") .. "...")
+    _MaybeYield()
     QuestieDBCompiler:CompileNPCs()
+    _MaybeYield()
     print("\124cFF4DDBFF [7/9] " .. l10n("Updating objects") .. "...")
+    _MaybeYield()
     QuestieDBCompiler:CompileObjects()
+    _MaybeYield()
     print("\124cFF4DDBFF [8/9] " .. l10n("Updating quests") .. "...")
+    _MaybeYield()
     QuestieDBCompiler:CompileQuests()
+    _MaybeYield()
     print("\124cFF4DDBFF [9/9] " .. l10n("Updating items") .. "...")
+    _MaybeYield()
     QuestieDBCompiler:CompileItems()
+    _MaybeYield()
     print("\124cFFAAEEFF"..l10n("Questie DB update complete!"))
 
     Questie.db.global.dbCompiledExpansion = WOW_PROJECT_ID
@@ -1049,11 +1121,13 @@ function QuestieDBCompiler:Compile()
     if Questie.IsSoD then
         Questie.db.global.sod.dbCompiledOnVersion = QuestieLib:GetAddonVersionString()
         Questie.db.global.sod.dbCompiledLang = l10n:GetUILocale()
+        Questie.db.global.sod.dbCompiledSchemaVersion = QuestieDBCompiler.compiledSchemaVersion
         Questie.db.global.sod.dbIsCompiled = true
         Questie.db.global.sod.dbCompiledCount = (Questie.db.global.sod.dbCompiledCount or 0) + 1
     else
         Questie.db.global.dbCompiledOnVersion = QuestieLib:GetAddonVersionString()
         Questie.db.global.dbCompiledLang = l10n:GetUILocale()
+        Questie.db.global.dbCompiledSchemaVersion = QuestieDBCompiler.compiledSchemaVersion
         Questie.db.global.dbIsCompiled = true
         Questie.db.global.dbCompiledCount = (Questie.db.global.dbCompiledCount or 0) + 1
     end
@@ -1096,7 +1170,7 @@ function QuestieDBCompiler:ValidateNPCs()
             end
         end
 
-        if count == TICKS_PER_YIELD_DEBUG then
+        if count >= VALIDATION_TICKS_PER_YIELD then
             count = 0
             coroutine.yield()
         end
@@ -1144,7 +1218,7 @@ function QuestieDBCompiler:ValidateObjects()
             end
         end
 
-    if count == TICKS_PER_YIELD_DEBUG then
+    if count >= VALIDATION_TICKS_PER_YIELD then
         count = 0
         coroutine.yield()
         end
@@ -1229,7 +1303,7 @@ function QuestieDBCompiler:ValidateItems()
         --        end
         --    end
         --end
-        if count == TICKS_PER_YIELD_DEBUG then
+        if count >= VALIDATION_TICKS_PER_YIELD then
             count = 0
             coroutine.yield()
         end
@@ -1261,7 +1335,7 @@ function QuestieDBCompiler:ValidateItems()
             end
         end
 
-        if count == TICKS_PER_YIELD_DEBUG then
+        if count >= VALIDATION_TICKS_PER_YIELD then
             count = 0
             coroutine.yield()
         end
@@ -1358,7 +1432,7 @@ function QuestieDBCompiler:ValidateQuests()
             end
         end
 
-        if count == TICKS_PER_YIELD_DEBUG then
+        if count >= VALIDATION_TICKS_PER_YIELD then
             count = 0
             coroutine.yield()
         end

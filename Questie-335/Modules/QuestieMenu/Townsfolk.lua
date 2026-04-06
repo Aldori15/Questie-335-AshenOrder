@@ -13,6 +13,17 @@ local tinsert = tinsert
 local sub, bitband, strlen = string.sub, bit.band, string.len
 
 local professionKeys = QuestieProfessions.professionKeys
+local playerVendorKeys = {
+    ["Ammo"] = true,
+    ["Bags"] = true,
+    ["Drink"] = true,
+    ["Food"] = true,
+    ["Pet Food"] = true,
+    ["Poisons"] = true,
+    ["Potions"] = true,
+    ["Reagents"] = true,
+    ["Trade Goods"] = true,
+}
 
 
 local function _reformatVendors(lst, existingTable)
@@ -30,7 +41,7 @@ local function _PopulateTownsfolkTypes(folkTypes) -- populate the table with all
     for id, npcData in pairs(QuestieDB.npcData) do
         local flags = npcData[QuestieDB.npcKeys.npcFlags]
         for name, folkType in pairs(folkTypes) do
-            if flags and bitband(flags, folkType.mask) == folkType.mask then
+            if flags and folkType.mask and bitband(flags, folkType.mask) == folkType.mask then
                 local npcName = npcData[QuestieDB.npcKeys.name]
                 local subName = npcData[QuestieDB.npcKeys.subName]
                 if npcName and sub(npcName, 1, 5) ~= "[DND]" then
@@ -57,7 +68,7 @@ function Townsfolk.Initialize()
     local townsfolkData = {
         ["Repair"] = {
             mask = QuestieDB.npcFlags.REPAIR,
-            requireSubname = true,
+            requireSubname = false,
             data = {}
         },
         ["Auctioneer"] = {
@@ -82,7 +93,7 @@ function Townsfolk.Initialize()
         },
         ["Innkeeper"] = {
             mask = QuestieDB.npcFlags.INNKEEPER,
-            requireSubname = true,
+            requireSubname = false,
             data = {}
         },
         ["Stable Master"] = { -- Used further down by hunters.
@@ -192,10 +203,7 @@ function Townsfolk.Initialize()
         local newTrainers = {}
         for _, trainer in pairs(trainers) do
             if QuestieDB.npcData[trainer] then
-                local subName = QuestieDB.npcData[trainer][QuestieDB.npcKeys.subName]
-                if subName and string.len(subName) > 0 then
-                    tinsert(newTrainers, trainer)
-                end
+                tinsert(newTrainers, trainer)
             end
         end
         classSpecificTownsfolk[class] = {}
@@ -209,33 +217,9 @@ function Townsfolk.Initialize()
     factionSpecificTownsfolk["Horde"]["Spirit Healer"]  = townsfolkData["Spirit Healer"].data
     factionSpecificTownsfolk["Alliance"]["Spirit Healer"]  = townsfolkData["Spirit Healer"].data
 
-    factionSpecificTownsfolk["Horde"]["Mailbox"] = {}
-    factionSpecificTownsfolk["Alliance"]["Mailbox"] = {}
-
-    local mailboxes = Townsfolk.GetMailboxes()
-    for i=1, #mailboxes do
-        local id = mailboxes[i]
-        if QuestieDB.objectData[id] then
-            local factionID = QuestieDB.objectData[id][QuestieDB.objectKeys.factionID]
-
-            if factionID == 0 then
-                tinsert(factionSpecificTownsfolk["Horde"]["Mailbox"], id)
-                tinsert(factionSpecificTownsfolk["Alliance"]["Mailbox"], id)
-            elseif QuestieDB.factionTemplate[factionID] and bitband(QuestieDB.factionTemplate[factionID], 12) == 0 and bitband(QuestieDB.factionTemplate[factionID], 10) == 0 then
-                tinsert(factionSpecificTownsfolk["Horde"]["Mailbox"], id)
-                tinsert(factionSpecificTownsfolk["Alliance"]["Mailbox"], id)
-            elseif QuestieDB.factionTemplate[factionID] and bitband(QuestieDB.factionTemplate[factionID], 12) == 0 then
-                tinsert(factionSpecificTownsfolk["Horde"]["Mailbox"], id)
-            elseif QuestieDB.factionTemplate[factionID] and bitband(QuestieDB.factionTemplate[factionID], 10) == 0 then
-                tinsert(factionSpecificTownsfolk["Alliance"]["Mailbox"], id)
-            else
-                tinsert(factionSpecificTownsfolk["Horde"]["Mailbox"], id)
-                tinsert(factionSpecificTownsfolk["Alliance"]["Mailbox"], id)
-            end
-        else
-            Questie:Debug(Questie.DEBUG_DEVELOP, "Missing mailbox:", tostring(id))
-        end
-    end
+    local allianceMailBoxes, hordeMailBoxes = Townsfolk.GetFactionSpecificMailboxes()
+    factionSpecificTownsfolk["Horde"]["Mailbox"] = hordeMailBoxes
+    factionSpecificTownsfolk["Alliance"]["Mailbox"] = allianceMailBoxes
 
     local petFoodVendorTypes = {["Meat"] = {},["Fish"]={},["Cheese"]={},["Bread"]={},["Fungus"]={},["Fruit"]={},["Raw Meat"]={},["Raw Fish"]={}}
     local petFoodIndexes = {"Meat","Fish","Cheese","Bread","Fungus","Fruit","Raw Meat","Raw Fish"}
@@ -266,7 +250,6 @@ function Townsfolk.Initialize()
 end
 
 function Townsfolk.PostBoot() -- post DB boot (use queries here)
-
     if Questie.db.global.townsfolkNeedsUpdatedGlobalVendors then
         Questie.db.global.townsfolkNeedsUpdatedGlobalVendors = nil
         -- insert item-based profession vendors
@@ -275,21 +258,16 @@ function Townsfolk.PostBoot() -- post DB boot (use queries here)
         _reformatVendors(Townsfolk:PopulateVendors({27736, 16072, 16073}), Questie.db.global.professionTrainers[professionKeys.COOKING])
     end
 
-    -- item ids for class-specific reagents
     local reagents = {
-        ["MAGE"] = {17031, 17032, 17020},
-        ["SHAMAN"] = {17030},
-        ["PRIEST"] = {17029,17028},
-        ["PALADIN"] = {21177,17033},
-        ["WARRIOR"] = {},
-        ["HUNTER"] = {},
-        ["DEATHKNIGHT"] = {37201},
-        ["WARLOCK"] = {5565,16583},
-        ["ROGUE"] = Questie.IsWotlk and {2892} -- All poison vendors sell all ranks of poison, so Rank 1 of one poison is enough here
-            or {5140,2928,8924,5173,2930,8923},
-        ["DRUID"] = {17034,17026,17035,17021,17038,17036,17037}
+        17031, 17032, 17020, -- MAGE
+        17030, -- SHAMAN
+        17029, 17028, -- PRIEST
+        21177, 17033, -- PALADIN
+        37201, -- DEATHKNIGHT
+        5565, 16583, -- WARLOCK
+        17034, 17026, 17035, 17021, 17038, 17036, 17037, -- DRUID
     }
-    reagents = reagents[playerClass]
+    
     if Questie.IsSoD then
         table.insert(reagents, 212160) -- In SoD the Chronoboon Displacer is sold by reagent vendors
     end
@@ -298,6 +276,11 @@ function Townsfolk.PostBoot() -- post DB boot (use queries here)
     if #reagents > 0 then
         Questie.db.char.vendorList["Reagents"] = _reformatVendors(Townsfolk:PopulateVendors(reagents))
     end
+
+    -- Beginning with WotLK, all poison vendors sell all ranks of poison, so Rank 1 of one poison is enough here
+    local poisons = (Questie.IsWotlk or QuestieCompat.Is335) and {2892} or {5140,2928,8924,5173,2930,8923}
+    Questie.db.char.vendorList["Poisons"] = _reformatVendors(Townsfolk:PopulateVendors(poisons))
+
     Questie.db.char.vendorList["Trade Goods"] = _reformatVendors(Townsfolk:PopulateVendors({ -- item ids from wowhead for trade goods   (temporarily disabled)
         14256,12810,13463,8845,8846,4234,3713,8170,14341,4389,3357,2453,13464,
         3355,3356,3358,4371,4304,5060,2319,18256,8925,3857,10940,2321,785,4404,2692,
@@ -311,11 +294,13 @@ function Townsfolk.PostBoot() -- post DB boot (use queries here)
         2455, 3385, 3827, 6149, 13443, 13444, 18841, (Questie.IsTBC or Questie.IsWotlk) and 22832 or nil, (Questie.IsTBC or Questie.IsWotlk) and 32948 or nil, (Questie.IsWotlk) and 33448 or nil, -- Mana Potions
     }))
     Townsfolk:UpdatePlayerVendors()
+    Questie.db.char.vendorListInitialized = true
 end
 
 function Townsfolk:BuildCharacterTownsfolk()
     Questie.db.char.townsfolk = {}
     Questie.db.char.vendorList = {}
+    Questie.db.char.vendorListInitialized = nil
     Questie.db.char.townsfolkClass = UnitClass("player")
 
     for key, npcs in pairs(Questie.db.global.factionSpecificTownsfolk[playerFaction]) do
@@ -356,13 +341,28 @@ local function _UpdateFoodDrink()
 end
 
 function Townsfolk:UpdatePlayerVendors() -- call on levelup
+    if not Questie.db.char.vendorListInitialized then
+        return
+    end
+
     _UpdateFoodDrink()
+    _UpdateAmmoVendors()
+
     if playerClass == "HUNTER" then
         _UpdatePetFood()
-        _UpdateAmmoVendors()
-    elseif playerClass == "ROGUE" or playerClass == "WARRIOR" then
-        _UpdateAmmoVendors()
     end
+end
+
+function Townsfolk:IsVendorCategory(key)
+    return playerVendorKeys[key] == true
+end
+
+function Townsfolk:EnsureVendorDataInitialized()
+    if Questie.db.char.vendorListInitialized then
+        return
+    end
+
+    Townsfolk.PostBoot()
 end
 
 function Townsfolk:PopulateVendors(itemList, existingTable, restrictLevel)
@@ -404,4 +404,37 @@ function Townsfolk:PopulateVendors(itemList, existingTable, restrictLevel)
         end
     end
     return tbl
+end
+
+---@return number[], number[] -- Returns two lists of mailbox IDs, one for Alliance and one for Horde
+function Townsfolk.GetFactionSpecificMailboxes()
+    local allianceMailBoxes = {}
+    local hordeMailBoxes = {}
+
+    local mailboxes = Townsfolk.GetMailboxes()
+    for i=1, #mailboxes do
+        local id = mailboxes[i]
+        if QuestieDB.objectData[id] then
+            local factionID = QuestieDB.objectData[id][QuestieDB.objectKeys.factionID]
+
+            if factionID == 0 then
+                tinsert(hordeMailBoxes, id)
+                tinsert(allianceMailBoxes, id)
+            elseif QuestieDB.factionTemplate[factionID] and bitband(QuestieDB.factionTemplate[factionID], 12) == 0 and bitband(QuestieDB.factionTemplate[factionID], 10) == 0 then
+                tinsert(hordeMailBoxes, id)
+                tinsert(allianceMailBoxes, id)
+            elseif QuestieDB.factionTemplate[factionID] and bitband(QuestieDB.factionTemplate[factionID], 12) == 0 then
+                tinsert(hordeMailBoxes, id)
+            elseif QuestieDB.factionTemplate[factionID] and bitband(QuestieDB.factionTemplate[factionID], 10) == 0 then
+                tinsert(allianceMailBoxes, id)
+            else
+                tinsert(hordeMailBoxes, id)
+                tinsert(allianceMailBoxes, id)
+            end
+        else
+            Questie:Debug(Questie.DEBUG_DEVELOP, "Missing mailbox:", tostring(id))
+        end
+    end
+
+    return allianceMailBoxes, hordeMailBoxes
 end

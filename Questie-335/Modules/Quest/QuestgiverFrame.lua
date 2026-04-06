@@ -22,7 +22,7 @@ local MAX_NUM_QUESTS = MAX_NUM_QUESTS
 local function determineAppropriateQuestIcon(questID, isActive)
     if questID == 0 then -- if we were fed a questID of 0, the ID bruteforce failed, abort
         if isActive == true then
-            return Questie.icons["complete"]
+            return Questie.icons["incomplete"]
         else
             return Questie.icons["available"]
         end
@@ -94,7 +94,6 @@ end
 local function updateGreetingFrame()
     local titleLines = {}
     local questIconTextures = {}
-    local questgiver = UnitGUID("npc")
     for i = 1, MAX_NUM_QUESTS do
         local titleLine = _G["QuestTitleButton" .. i]
         if titleLine then
@@ -102,7 +101,7 @@ local function updateGreetingFrame()
             tinsert(questIconTextures, _G[titleLine:GetName() .. "QuestIcon"])
         else
             Questie:Error("Frame error! Could not obtain Greeting's QuestTitleButton object. Please report this on Github or Discord!")
-            Questie:Error("Questgiver is: " .. questgiver)
+            Questie:Error("Questgiver is: " .. UnitGUID("npc"))
             Questie:Error("Client info is: " .. GetBuildInfo() .. "; " .. QuestieLib:GetAddonVersionString())
             return
         end
@@ -112,20 +111,35 @@ local function updateGreetingFrame()
             local lineIcon = questIconTextures[i]
             -- determining if the current line is a "Current" quest or "Available" quest is important
             -- because we have to use different API calls to obtain their quest titles
-            if (titleLine.isActive == 1) then
+            local isActive = titleLine.isActive == 1
+            if isActive then
                 lineIcon:SetTexture(Questie.icons["incomplete"]) -- fallback icon in case any of the logic below fails
                 local title = GetActiveTitle(titleLine:GetID()) -- obtain plaintext name of quest
-                local questID = QuestieDB.GetQuestIDFromName(title, questgiver, false)
+                local questID = QuestieDB.GetQuestIDFromName(title, UnitGUID("npc"), false)
                 local icon = determineAppropriateQuestIcon(questID, true)
                 lineIcon:SetTexture(icon)
             else
                 lineIcon:SetTexture(Questie.icons["available"]) -- fallback icon in case any of the logic below fails
                 local title = GetAvailableTitle(titleLine:GetID())
-                local questID = QuestieDB.GetQuestIDFromName(title, questgiver, true)
+                local questID = QuestieDB.GetQuestIDFromName(title, UnitGUID("npc"), true)
                 local icon = determineAppropriateQuestIcon(questID, false)
                 lineIcon:SetTexture(icon)
             end
         end
+    end
+end
+
+-- This function is called for QUEST_LOG_UPDATE events.
+-- If that event fires, this function checks to see if a greeting dialog is currently open,
+-- and if so it runs our icon pass again. This is because the greeting dialog may open
+-- showing we've accepted a quest before Questie is even aware we're on it.
+-- This also fixes race conditions with server lag delaying events.
+function QuestgiverFrame.RecheckGreeting()
+    local activeTitle, _ = GetActiveTitle(1)
+    local availableTitle, _ = GetAvailableTitle(1)
+    if activeTitle or availableTitle then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "Greeting Panel Refreshing. Active: " .. tostring(activeTitle) .. " Available: " .. tostring(availableTitle))
+        QuestgiverFrame.GreetingMark()
     end
 end
 

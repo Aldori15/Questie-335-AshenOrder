@@ -23,8 +23,12 @@ local l10n = QuestieLoader:ImportModule("l10n")
 
 --- COMPATIBILITY ---
 local C_Map = QuestieCompat.C_Map
+local UI_MAP_TYPE_COSMIC = 0
+local UI_MAP_TYPE_WORLD = 1
+local UI_MAP_TYPE_CONTINENT = 2
 
 local areaIdToUiMapId = ZoneDB.private.areaIdToUiMapId or {}
+local specialZoneIdToUiMapId = ZoneDB.private.specialZoneIdToUiMapId or {}
 local uiMapIdToAreaId = ZoneDB.private.uiMapIdToAreaId or {}
 local dungeons = ZoneDB.private.dungeons or {}
 local dungeonLocations = ZoneDB.private.dungeonLocations or {}
@@ -34,10 +38,21 @@ local subZoneToParentZone = ZoneDB.private.subZoneToParentZone or {}
 ---Zone ids enum
 ZoneDB.zoneIDs = ZoneDB.private.zoneIDs or {}
 
+-- Generated from alternativeAreaId in dungeons
+-- [alternativeDungeonAreaId] = dungeonZone
+---@type table<AreaId, AreaId>
+local alternativeDungeonAreaIdToDungeonAreaId = {}
+
 
 -- Overrides for UiMapId to AreaId
 local UiMapIdOverrides = {
-    [246] = 3713
+    [246] = 3713,
+    -- Continent maps are not real NPC/object zones, but the client can return them
+    -- from C_Map.GetBestMapForUnit("player") while inside caves or similar sub-areas.
+    [113] = 0, -- Northrend
+    [1414] = 0, -- Kalimdor
+    [1415] = 0, -- Eastern Kingdom
+    [1945] = 0, -- Outland
 }
 local parentZoneToSubZone = {} -- Generated
 local zoneMap = {} -- Generated
@@ -49,6 +64,13 @@ function ZoneDB:Initialize()
     -- Run tests if debug enabled
     if Questie.db.profile.debugEnabled then
         _ZoneDB:RunTests()
+    end
+
+    for areaId, dungeonZoneEntry in pairs(dungeons) do
+        local alternativeDungeonZone = dungeonZoneEntry[2]
+        if alternativeDungeonZone then
+            alternativeDungeonAreaIdToDungeonAreaId[alternativeDungeonZone] = areaId
+        end
     end
 end
 
@@ -65,7 +87,7 @@ end
 ---@param areaId AreaId
 ---@return UiMapId
 function ZoneDB:GetUiMapIdByAreaId(areaId)
-    return areaIdToUiMapId[areaId]
+    return areaIdToUiMapId[areaId] or specialZoneIdToUiMapId[areaId]
 end
 
 --- Use with care, kind of slow.
@@ -119,8 +141,41 @@ end
 
 
 ---@param areaId AreaId
+---@return AreaCoordinate?
 function ZoneDB:GetDungeonLocation(areaId)
-    return dungeonLocations[areaId]
+    local dungeonLocation = dungeonLocations[areaId]
+    if dungeonLocation then
+        return dungeonLocation
+    end
+
+    local alternativeDungeonAreaId = alternativeDungeonAreaIdToDungeonAreaId[areaId]
+    if alternativeDungeonAreaId then
+        return dungeonLocations[alternativeDungeonAreaId]
+    end
+
+    return nil
+end
+
+---@param areaId AreaId
+---@return string?
+function ZoneDB:GetLocalizedDungeonName(areaId)
+    local dungeon = dungeons[areaId]
+    local dungeonName
+    if dungeon then
+        dungeonName = dungeon[1]
+    else
+        local alternativeDungeonAreaId = alternativeDungeonAreaIdToDungeonAreaId[areaId]
+        if alternativeDungeonAreaId then
+            areaId = alternativeDungeonAreaId
+            dungeonName = dungeons[alternativeDungeonAreaId][1]
+        end
+    end
+
+    if dungeonName then
+        -- The Questie DB has an entry for the area being a dungeon. We still prefer the Blizzard name if found.
+        return C_Map.GetAreaInfo(areaId) or dungeonName
+    end
+    return nil
 end
 
 ---@param areaId AreaId
@@ -356,7 +411,7 @@ function _ZoneDB:RunTests()
     }
     for _, map in pairs(maps) do
         --- We don't care about World, Continent or Cosmic
-        if map.mapType ~= Enum.UIMapType.World and map.mapType ~= Enum.UIMapType.Continent and map.mapType ~= Enum.UIMapType.Cosmic then
+        if map.mapType ~= UI_MAP_TYPE_WORLD and map.mapType ~= UI_MAP_TYPE_CONTINENT and map.mapType ~= UI_MAP_TYPE_COSMIC then
             local success, result = pcall(ZoneDB.GetAreaIdByUiMapId, ZoneDB, map.mapID)
             if not success and not buggedMaps[map.mapID] then
                 Questie:Error("[ZoneDBTests] ZoneDB.GetAreaIdByUiMapId fails for " .. map.name .. " (" .. map.mapID .. "). Result: " .. result)

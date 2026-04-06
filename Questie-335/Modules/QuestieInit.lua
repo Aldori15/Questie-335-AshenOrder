@@ -39,6 +39,8 @@ local Townsfolk = QuestieLoader:ImportModule("Townsfolk")
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 ---@type IsleOfQuelDanas
 local IsleOfQuelDanas = QuestieLoader:ImportModule("IsleOfQuelDanas")
+---@type DailyQuests
+local DailyQuests = QuestieLoader:ImportModule("DailyQuests")
 ---@type QuestieEventHandler
 local QuestieEventHandler = QuestieLoader:ImportModule("QuestieEventHandler")
 ---@type QuestieJourney
@@ -57,6 +59,8 @@ local QuestieValidateGameCache = QuestieLoader:ImportModule("QuestieValidateGame
 local MinimapIcon = QuestieLoader:ImportModule("MinimapIcon")
 ---@type QuestieComms
 local QuestieComms = QuestieLoader:ImportModule("QuestieComms");
+---@type Comms
+local Comms = QuestieLoader:ImportModule("Comms")
 ---@type QuestieOptions
 local QuestieOptions = QuestieLoader:ImportModule("QuestieOptions");
 ---@type QuestieCoords
@@ -81,6 +85,12 @@ local WorldMapButton = QuestieLoader:ImportModule("WorldMapButton")
 local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
 ---@type SeasonOfDiscovery
 local SeasonOfDiscovery = QuestieLoader:ImportModule("SeasonOfDiscovery")
+---@type QuestieAnnounce
+local QuestieAnnounce = QuestieLoader:ImportModule("QuestieAnnounce")
+---@type DropDB
+local DropDB = QuestieLoader:ImportModule("DropDB")
+---@type QuestLogCache
+local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
 
 --- COMPATIBILITY ---
 local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID
@@ -187,15 +197,17 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
 
     local dbCompiled = false
 
-    local dbIsCompiled, dbCompiledOnVersion, dbCompiledLang
+    local dbIsCompiled, dbCompiledOnVersion, dbCompiledLang, dbCompiledSchemaVersion
     if Questie.IsSoD then
         dbIsCompiled = Questie.db.global.sod.dbIsCompiled or false
         dbCompiledOnVersion = Questie.db.global.sod.dbCompiledOnVersion
         dbCompiledLang = Questie.db.global.sod.dbCompiledLang
+        dbCompiledSchemaVersion = Questie.db.global.sod.dbCompiledSchemaVersion
     else
         dbIsCompiled = Questie.db.global.dbIsCompiled or false
         dbCompiledOnVersion = Questie.db.global.dbCompiledOnVersion
         dbCompiledLang = Questie.db.global.dbCompiledLang
+        dbCompiledSchemaVersion = Questie.db.global.dbCompiledSchemaVersion
     end
 
     if Questie.IsSoD then
@@ -204,7 +216,7 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     end
 
     -- Check if the DB needs to be recompiled
-    if (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID) then
+    if (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (dbCompiledSchemaVersion ~= QuestieDBCompiler.compiledSchemaVersion) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID) then
         print("\124cFFAAEEFF" .. l10n("Questie DB has updated!") .. "\124r\124cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
         loadFullDatabase()
         QuestieDBCompiler:Compile()
@@ -244,8 +256,6 @@ end
 
 QuestieInit.Stages[2] = function()
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieInit:Stage2] Stage 2 start.")
-    -- We do this while we wait for the Quest Cache anyway.
-    l10n:PostBoot()
     QuestiePlayer:Initialize()
     coYield()
     QuestieJourney:Initialize()
@@ -275,11 +285,15 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
 
     -- ** OLD ** Questie:ContinueInit() ** START **
     QuestieTooltips:Initialize()
+    DropDB:Initialize()
     QuestieCoords:Initialize()
     TrackerQuestTimers:Initialize()
+    Comms.Initialize()
     QuestieComms:Initialize()
 
     QuestieSlash.RegisterSlashCommands()
+
+    QuestieAnnounce:InitializeLogoFilter()
 
     coYield()
 
@@ -288,10 +302,6 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
     end
     -- ** OLD ** Questie:ContinueInit() ** END **
 
-    coYield()
-    QuestEventHandler:RegisterEvents()
-    coYield()
-    ChatFilter:RegisterEvents()
     QuestieMap:InitializeQueue()
 
     coYield()
@@ -299,9 +309,14 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
     coYield()
     WorldMapButton.Initialize()
     coYield()
-    QuestieQuest:GetAllQuestIdsNoObjectives()
+    -- Seed the quest log baseline before live quest events are registered.
+    local _, changes = QuestLogCache.CheckForChanges(nil)
+    QuestEventHandler.InitQuestLogStates(changes)
     coYield()
-    Townsfolk.PostBoot()
+    QuestEventHandler:RegisterEvents()
+    ChatFilter:RegisterEvents()
+    coYield()
+    QuestieQuest:GetAllQuestIdsNoObjectives()
     coYield()
     QuestieQuest:GetAllQuestIds()
 
@@ -332,11 +347,42 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
     QuestieMenu:OnLogin()
 
     coYield()
+    DailyQuests.Initialize()
+
+    coYield()
     if Questie.db.profile.debugEnabled then
         QuestieLoader:PopulateGlobals()
     end
 
     Questie.started = true
+
+    if QuestieCompat.Is335 then
+        -- 3.3.5 can miss the emulated group join sync on login/reload while already in a party.
+        -- Request a fresh quest log sync only after Questie is fully initialized.
+        local syncTicker
+        local attempts = 0
+        syncTicker = C_Timer.NewTicker(0.5, function()
+            attempts = attempts + 1
+
+            local currentMembers = 0
+            if QuestieCompat.IsInRaid() then
+                currentMembers = GetNumRaidMembers()
+            elseif QuestieCompat.IsInGroup() then
+                currentMembers = GetNumPartyMembers()
+            end
+
+            if currentMembers > 0 then
+                QuestiePlayer.numberOfGroupMembers = currentMembers
+                Questie:SendMessage("QC_ID_REQUEST_FULL_QUESTLIST")
+                syncTicker:Cancel()
+            elseif attempts >= 10 then
+                syncTicker:Cancel()
+            end
+        end)
+    end
+
+    -- We only update this if Questie fully loads to make sure we don't update it on crashes/fast reloads
+    QuestieLib.UpdateLastKnownDailyReset()
 
     if (Questie.IsWotlk or Questie.IsTBC) and QuestiePlayer.IsMaxLevel() then
         local lastRequestWasYesterday = Questie.db.global.lastDailyRequestDate ~= date("%d-%m-%y"); -- Yesterday or some day before

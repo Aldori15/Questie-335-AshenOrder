@@ -20,6 +20,11 @@ local DebugInformation = {} -- stores text of debug data dump per session
 local debugIndex = 0 -- current debug index, used so we can still retrieve info from previous offers
 local openDebugWindows = {} -- determines if existing debug window is already open, prevents duplicates
 
+--- COMPATIBILITY ---
+local C_Timer = QuestieCompat.C_Timer
+local C_Map = QuestieCompat.C_Map
+
+local GetQuestID = QuestieCompat.GetQuestID
 local GetBestMapForUnit = C_Map.GetBestMapForUnit
 local GetPlayerMapPosition = C_Map.GetPlayerMapPosition
 local PosX = 0
@@ -457,7 +462,7 @@ end
 
 -- Missing questID when conversing
 function QuestieDebugOffer.QuestDialog()
-    local questID = GetQuestID() -- obtain quest ID from dialog
+    local questID = GetQuestID(true) -- obtain quest ID from dialog
     if questID <= 0 or questID == nil then
         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieDebugOffer] - QuestDialog - Invalid quest ID from API, ignoring")
         return -- invalid data from API, abandon offer attempt
@@ -500,7 +505,7 @@ function QuestieDebugOffer.QuestTracking(questID) -- ID supplied by tracker duri
     end
     if QuestieDB.QueryQuestSingle(questID, "name") == nil then -- if ID not in our DB
         for i=1, GetNumQuestLogEntries() do
-            local questTitle, questLevel, suggestedGroup, _, _, _, frequency, questLogId = GetQuestLogTitle(i)
+            local questTitle, _, _, _, _, _, _, questLogId = GetQuestLogTitle(i)
             local questText, objectiveText = GetQuestLogQuestText(i)
 
             if questText then questText = questText:gsub(GetUnitName(player), "<playername>") end -- strip out player name from quest text
@@ -574,9 +579,9 @@ function QuestieDebugOffer.NPCTarget()
                 Questie:Print(l10n("The NPC you just targeted is missing from the Questie database.") .. " " .. l10n("Would you like to help us fix it?") .. " |cff71d5ff|Haddon:questie:offer:" .. debugIndex .. "|h[" .. l10n("More Info") .. "]|h|r")
             end
             if inInstance == false then
-                C_Timer.NewTimer (timeoutDurationOverworld, function() targetTimeout[npcID] = false end)
+                C_Timer.After(timeoutDurationOverworld, function() targetTimeout[npcID] = false end)
             else
-                C_Timer.NewTimer (timeoutDurationInstance, function() targetTimeout[npcID] = false end)
+                C_Timer.After(timeoutDurationInstance, function() targetTimeout[npcID] = false end)
             end
         end
     else

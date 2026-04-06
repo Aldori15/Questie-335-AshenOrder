@@ -650,6 +650,11 @@ l10n.zoneLookup = {
         [4668]="The Cooper Residence",
         [4679]="The Forlorn Cavern",
         [4714]="Gilneas",
+        [6137]="Frostmane Hovel",
+        [6170]="Northshire",
+        [6176]="Coldridge Valley",
+        [6454]="Deathknell",
+        [6455]="Sunstrider Isle",
     },
     [1]={
         [14]="Durotar",
@@ -1222,6 +1227,9 @@ l10n.zoneLookup = {
         --[4100]="The Culling of Stratholme",
         [4381]="Waygate",
         [4382]="The Shaper's Terrace",
+        [6450]="Shadowglen",
+        [6451]="Valley of Trials",
+        [6456]="Ammen Vale",
     },
     [13]={
         [3817]="Test Dungeon",
@@ -1259,6 +1267,12 @@ l10n.zoneLookup = {
     },
     [33]={
         [209]="Shadowfang Keep",
+        [10014]="Shadowfang Keep",
+        [10015]="Shadowfang Keep",
+        [10016]="Shadowfang Keep",
+        [10017]="Shadowfang Keep",
+        [10018]="Shadowfang Keep",
+        [10019]="Shadowfang Keep",
     },
     [34]={
         [717]="The Stockade",
@@ -1268,6 +1282,7 @@ l10n.zoneLookup = {
         [208]="Unused Ironcladcove",
         [1581]="The Deadmines",
         [1582]="Ironclad Cove",
+        [10029]="The Deadmines",
     },
     [37]={
         [268]="Azshara Crater",
@@ -1280,12 +1295,22 @@ l10n.zoneLookup = {
     },
     [48]={
         [719]="Blackfathom Deeps",
+        [10020]="Blackfathom Deeps",
+        [10021]="Blackfathom Deeps",
     },
     [70]={
         [1337]="Uldaman",
+        [10033]="Uldaman",
+    },
+    [71]={
+        [1941]="Caverns of Time",
+        [10092]="Caverns of Time",
     },
     [90]={
         [721]="Gnomeregan",
+        [10030]="Gnomeregan",
+        [10031]="Gnomeregan",
+        [10032]="Gnomeregan",
     },
     [109]={
         [1417]="Sunken Temple",
@@ -1303,25 +1328,46 @@ l10n.zoneLookup = {
     },
     [189]={
         [796]="Scarlet Monastery",
+        [10008]="Scarlet Monastery",
+        [10009]="Scarlet Monastery",
+        [10010]="Scarlet Monastery",
     },
     [229]={
         [1583]="Blackrock Spire",
         [4628]="Halls of Binding",
+        [7307]="Upper Blackrock Spire",
+        [10003]="Blackrock Spire",
+        [10004]="Blackrock Spire",
+        [10005]="Blackrock Spire",
+        [10006]="Blackrock Spire",
+        [10007]="Blackrock Spire",
     },
     [230]={
         [1584]="Blackrock Depths",
+        [10002]="Blackrock Depths",
     },
     [242] = {
         [1585]="Blackrock Depths",
     },
     [289]={
         [2057]="Scholomance",
+        [6066]="Scholomance",
+        [10011]="Scholomance",
+        [10012]="Scholomance",
+        [10013]="Scholomance",
+        [10077]="Scholomance",
+        [10078]="Scholomance",
+        [10079]="Scholomance",
     },
     [329]={
         [2017]="Stratholme",
+        [5916]="Stratholme - Main Gate",
+        [5917]="Stratholme - Service Entrance",
+        [10001]="Stratholme",
     },
     [349]={
         [2100]="Maraudon",
+        [10000]="Maraudon",
     },
     [369]={
         [2257]="Deeprun Tram",
@@ -1331,6 +1377,15 @@ l10n.zoneLookup = {
     },
     [409]={
         [2717]="Molten Core",
+    },
+    [429]={
+        [2557]="Dire Maul",
+        [10022]="Dire Maul",
+        [10023]="Dire Maul",
+        [10024]="Dire Maul",
+        [10025]="Dire Maul",
+        [10026]="Dire Maul",
+        [10027]="Dire Maul",
     },
     [449]={
         [2918]="Champions' Hall",
@@ -1735,12 +1790,19 @@ l10n.zoneLookup = {
         [3437]="The Hatchery",
         [3438]="The Comb",
         [3439]="Watchers' Terrace",
+        [10040]="Ahn'Qiraj",
+        [10041]="Ahn'Qiraj",
     },
     [532]={
         [3457]="Karazhan",
     },
     [533]={
         [3456]="Naxxramas",
+        [10062]="Naxxramas",
+        [10063]="Naxxramas",
+        [10064]="Naxxramas",
+        [10065]="Naxxramas",
+        [10066]="Naxxramas",
     },
     [540]={
         [3535]="Hellfire Citadel",
@@ -1773,24 +1835,29 @@ l10n.zoneLookup = {
     },
     [552]={
         [3848]="The Arcatraz",
+        [10045]="The Arcatraz",
+        [10046]="The Arcatraz",
     },
     [553]={
         [3847]="The Botanica",
     },
     [554]={
         [3849]="The Mechanar",
+        [10044]="The Mechanar",
     },
     [555]={
         [3789]="Shadow Labyrinth",
     },
     [556]={
         [3791]="Sethekk Halls",
+        [10042]="Sethekk Halls",
     },
     [557]={
         [3792]="Mana-Tombs",
     },
     [558]={
         [3790]="Auchenai Crypts",
+        [10043]="Auchenai Crypts",
     },
     [559]={
         [3698]="Nagrand Arena",
@@ -2403,17 +2470,32 @@ l10n.zoneLookup = {
     },
     [574]={
         [206]="Utgarde Keep",
+        [10057]="Utgarde Keep",
+        [10058]="Utgarde Keep",
     },
     [575]={
         [1196]="Utgarde Pinnacle",
+        [10053]="Utgarde Pinnacle",
     },
     [576]={
         [4265]="The Nexus",
     },
+    [578]={
+        [4228]="The Oculus",
+        [10047]="The Oculus",
+        [10048]="The Oculus",
+        [10049]="The Oculus",
+    },
     [585]={
         [4131]="Magisters' Terrace",
+        [10028]="Magisters' Terrace",
+    },
+    [595]={
+        [4100]="The Culling of Stratholme",
+        [10059]="The Culling of Stratholme",
     },
     [598]={
+        [3688]="Auchindoun",
         [4076]="Reuse Me 7",
     },
     [599]={
@@ -2422,13 +2504,27 @@ l10n.zoneLookup = {
     [600]={
         [4196]="Drak'Tharon Keep",
         [4633]="Raptor Pens",
+        [10060]="Drak'Tharon Keep",
     },
     [601]={
         [4277]="Azjol-Nerub",
         [4405]="Passage of Lost Fiends",
+        [10055]="Azjol-Nerub",
+        [10056]="Azjol-Nerub",
     },
     [602]={
         [4272]="Halls of Lightning",
+        [10054]="Halls of Lightning",
+    },
+    [603]={
+        [4273]="Ulduar",
+        [10050]="Ulduar",
+        [10051]="Ulduar",
+        [10052]="Ulduar",
+    },
+    [604]={
+        [4416]="Gundrak",
+        [10061]="Gundrak",
     },
     [608]={
         [4415]="The Violet Hold",
@@ -2467,6 +2563,12 @@ l10n.zoneLookup = {
         [4897]="The Sanctum of Blood",
         [4898]="Frostmourne",
         [4910]="Frostmourne",
+        [10067]="Icecrown Citadel",
+        [10068]="Icecrown Citadel",
+        [10069]="Icecrown Citadel",
+        [10070]="Icecrown Citadel",
+        [10071]="Icecrown Citadel",
+        [10072]="Icecrown Citadel",
     },
     [632]={
         [4809]="The Forge of Souls",
@@ -2493,6 +2595,9 @@ l10n.zoneLookup = {
     },
     [673]={
         [4833]="Transport: Horde Gunship (IGB)",
+    },
+    [861] = {
+        [5733] = "Molten Front",
     },
     [2118]={
         [14284]="Borean Tundra",
@@ -2674,6 +2779,7 @@ l10n.zoneCategoryLookup = {
     },
     [9] = {
         [-1] = "Epic",
+        [-21] = "Hallow's End",
         [-22] = "Seasonal",
         [-41] = "Day of the Dead",
         [-221] = "Treasure Map",

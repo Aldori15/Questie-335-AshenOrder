@@ -36,7 +36,7 @@ local zoneSectionLocales = {
         ["frFR"] = "Événements",
         ["esES"] = "Eventos",
         ["zhTW"] = "節慶",
-        ["zhCN"] = "事件",
+        ["zhCN"] = "节日",
     },
     ["Outland"] = {
         ["ptBR"] = "Terralém",
@@ -109,6 +109,18 @@ local zoneSectionLocales = {
         ["esES"] = "Mazmorras",
         ["zhTW"] = "副本",
         ["zhCN"] = "地下城",
+    },
+    ["Instance"] = {
+        ["enUS"] = true,
+        ["deDE"] = "Instanz",
+        ["esES"] = "Estancia",
+        ["esMX"] = "Estancia",
+        ["frFR"] = true,
+        ["koKR"] = "인스턴스",
+        ["ptBR"] = "Instância",
+        ["ruRU"] = "Подземелье",
+        ["zhCN"] = "副本",
+        ["zhTW"] = "副本",
     },
 }
 

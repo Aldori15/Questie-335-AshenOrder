@@ -52,10 +52,75 @@ local UnitInParty = QuestieCompat.UnitInParty
 
 local questAcceptedMessage = string.gsub(ERR_QUEST_ACCEPTED_S, "(%%s)", "(.+)")
 local questCompletedMessage = string.gsub(ERR_QUEST_COMPLETE_S, "(%%s)", "(.+)")
+local criteriaUpdateQueued
+local lastLevelRefreshAt = 0
+local lastLevelRefreshed = nil
+local lastPlayerEnteringWorldContext
+
+local function _RefreshAvailableAfterLevelChange(level)
+    if (not level) or level <= 0 then return end
+
+    local now = GetTime()
+    if lastLevelRefreshed == level and (now - lastLevelRefreshAt) < 0.25 then return end
+
+    lastLevelRefreshed = level
+    lastLevelRefreshAt = now
+    QuestiePlayer:SetPlayerLevel(level)
+
+    AvailableQuests.RefreshVisibleAvailableIcons()
+    AvailableQuests.ResetLevelRequirementCache()
+
+    AvailableQuests.CalculateAndDrawAll()
+    C_Timer.After(0.30, function()
+        local stableLevel = UnitLevel("player")
+        if stableLevel and stableLevel > 0 then
+            QuestiePlayer:SetPlayerLevel(stableLevel)
+        end
+        AvailableQuests.ResetLevelRequirementCache()
+        AvailableQuests.CalculateAndDrawAll()
+    end)
+end
+
+local function _GetPlayerEnteringWorldContext()
+    local isInInstance, instanceType = IsInInstance()
+    if not isInInstance then
+        return "world", false
+    end
+
+    local _, _, difficultyId, _, _, _, _, instanceMapId = GetInstanceInfo()
+    return string.format("%s:%s:%s", tostring(instanceType or "instance"), tostring(instanceMapId or 0), tostring(difficultyId or 0)),
+        (instanceType == "raid" or instanceType == "pvp" or instanceType == "arena")
+end
+
+local function _ShouldSmoothResetOnPlayerEnteringWorld()
+    local currentContext, skipReset = _GetPlayerEnteringWorldContext()
+    local shouldReset = false
+
+    if not lastPlayerEnteringWorldContext then
+        shouldReset = not skipReset
+    elseif currentContext ~= lastPlayerEnteringWorldContext and not skipReset then
+        shouldReset = true
+    end
+
+    lastPlayerEnteringWorldContext = currentContext
+    return shouldReset
+end
 
 --* Calculated in _EventHandler:PlayerLogin()
 ---en/br/es/fr/gb/it/mx: "You are now %s with %s." (e.g. "You are now Honored with Stormwind."), all other languages are very alike
 local FACTION_STANDING_CHANGED_PATTERN
+
+local function _HasTrackedAchievements()
+    if not (Questie and Questie.db and Questie.db.char and Questie.db.char.trackedAchievementIds) then
+        return false
+    end
+
+    for _ in pairs(Questie.db.char.trackedAchievementIds) do
+        return true
+    end
+
+    return false
+end
 
 function QuestieEventHandler:RegisterEarlyEvents()
     Questie:RegisterEvent("PLAYER_LOGIN", _EventHandler.PlayerLogin)
@@ -63,6 +128,7 @@ end
 
 function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterEvent("PLAYER_LEVEL_UP", _EventHandler.PlayerLevelUp)
+    Questie:RegisterEvent("UNIT_LEVEL", _EventHandler.UnitLevel)
     Questie:RegisterEvent("PLAYER_REGEN_DISABLED", _EventHandler.PlayerRegenDisabled)
     Questie:RegisterEvent("PLAYER_REGEN_ENABLED", _EventHandler.PlayerRegenEnabled)
 
@@ -92,15 +158,18 @@ function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterEvent("QUEST_FINISHED", QuestieAuto.QUEST_FINISHED)
     Questie:RegisterEvent("QUEST_ACCEPTED", QuestieAuto.QUEST_ACCEPTED)
     Questie:RegisterEvent("QUEST_DETAIL", function(...) -- When the quest is presented!
+        AvailableQuests.ValidateAvailableQuestsFromQuestDetail()
         QuestieAuto.QUEST_DETAIL(...)
         if Questie.IsSoD then QuestieDebugOffer.QuestDialog(...) end;
     end)
     Questie:RegisterEvent("QUEST_PROGRESS", QuestieAuto.QUEST_PROGRESS)
     Questie:RegisterEvent("GOSSIP_SHOW", function(...)
+        AvailableQuests.ValidateAvailableQuestsFromGossipShow()
         QuestieAuto.GOSSIP_SHOW(...)
         QuestgiverFrame.GossipMark(...)
     end)
     Questie:RegisterEvent("QUEST_GREETING", function(...)
+        AvailableQuests.ValidateAvailableQuestsFromQuestGreeting(...)
         QuestieAuto.QUEST_GREETING(...)
         QuestgiverFrame.GreetingMark(...)
     end)
@@ -148,14 +217,26 @@ function QuestieEventHandler:RegisterLateEvents()
             end)
         end)
 
-        --[[ TODO: This fires FAR too often. Until Blizzard figures out a way to allow us to trigger achievement updates this needs to remain disabled for now.
         Questie:RegisterEvent("CRITERIA_UPDATE", function()
             Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] CRITERIA_UPDATE")
-            QuestieCombatQueue:Queue(function()
-                QuestieTracker:Update()
+            if (not Questie.db.profile.trackerEnabled) or (not _HasTrackedAchievements()) then
+                return
+            end
+
+            -- This event can fire rapidly while criteria are being evaluated. Queue one delayed update so
+            -- tracker objectives refresh once criteria state has settled.
+            if criteriaUpdateQueued then
+                return
+            end
+
+            criteriaUpdateQueued = true
+            C_Timer.After(0.1, function()
+                criteriaUpdateQueued = nil
+                QuestieCombatQueue:Queue(function()
+                    QuestieTracker:Update()
+                end)
             end)
         end)
-        --]]
         -- Money based Achievement updates
         Questie:RegisterEvent("CHAT_MSG_MONEY", function()
             Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] CHAT_MSG_MONEY")
@@ -197,7 +278,7 @@ function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterEvent("NAME_PLATE_UNIT_ADDED", QuestieNameplate.NameplateCreated)
     Questie:RegisterEvent("NAME_PLATE_UNIT_REMOVED", QuestieNameplate.NameplateDestroyed)
     Questie:RegisterEvent("PLAYER_TARGET_CHANGED", function(...)
-        QuestieNameplate.DrawTargetFrame()
+        QuestieNameplate:DrawTargetFrame()
         --if Questie.IsSoD then QuestieDebugOffer.NPCTarget() end;
     end)
 
@@ -210,16 +291,19 @@ function QuestieEventHandler:RegisterLateEvents()
         QuestieAnnounce.ItemLooted(_, text, notPlayerName, _, _, playerName)
     end)
 
-    -- since icon updates are disabled in instances, we need to reset on P_E_W
+    -- Loading screens can leave quest state stale around instance transitions, but a full
+    -- reset on every world-to-world teleport is unnecessary.
     Questie:RegisterEvent("PLAYER_ENTERING_WORLD", function()
         if Questie.started then
             QuestieMap:InitializeQueue()
-            local isInInstance, instanceType = IsInInstance()
-            local skipInstance = isInInstance and (instanceType == "raid" or instanceType == "pvp" or instanceType == "arena")
-
-            -- Only run map updates when not in a raid or battleground
-            if not skipInstance then
+            if _ShouldSmoothResetOnPlayerEnteringWorld() then
                 QuestieQuest:SmoothReset()
+            else
+                QuestieQuest:RefreshQuestIconVisibility()
+                AvailableQuests.CalculateAndDrawAll(nil, true)
+                QuestieCombatQueue:Queue(function()
+                    QuestieTracker:Update()
+                end)
             end
         end
     end)
@@ -323,7 +407,7 @@ function _EventHandler:MapExplorationUpdated()
     end
 
     -- Exploratory based Achievement updates
-    if Questie.IsWotlk then
+    if Questie.IsWotlk or QuestieCompat.Is335 then
         QuestieCombatQueue:Queue(function()
             QuestieTracker:Update()
         end)
@@ -335,16 +419,26 @@ end
 function _EventHandler:PlayerLevelUp(level)
     Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_LEVEL_UP", level)
 
-    QuestiePlayer:SetPlayerLevel(level)
+    _RefreshAvailableAfterLevelChange(level)
+    QuestieJourney:PlayerLevelUp(level)
 
-    -- deferred update (possible desync fix?)
-    C_Timer.After(3, function()
-        QuestiePlayer:SetPlayerLevel(level)
-
-        AvailableQuests.CalculateAndDrawAll()
+    -- Quest difficulty colors might have changed with the new level
+    QuestieCombatQueue:Queue(function()
+        QuestieTracker:Update()
     end)
 
-    QuestieJourney:PlayerLevelUp(level)
+end
+
+--- Fires when a unit level changed
+---@param unit string
+function _EventHandler:UnitLevel(unit)
+    if unit ~= "player" then return end
+
+    local level = UnitLevel("player")
+    if (not level) or level <= 0 then return end
+
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] UNIT_LEVEL", level)
+    _RefreshAvailableAfterLevelChange(level)
 end
 
 --- Fires when a modifier key changed
@@ -494,18 +588,25 @@ function _EventHandler:GroupLeft()
     QuestieComms:ResetAll()
 end
 
-local trackerHiddenByCombat, optionsHiddenByCombat, journeyHiddenByCombat = false, false, false
+local trackerMinimizedByCombat, trackerHiddenByCombat = false, false
+local optionsHiddenByCombat, journeyHiddenByCombat = false, false
 function _EventHandler:PlayerRegenDisabled()
     Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_REGEN_DISABLED")
 
     -- Let's make sure the frame exists - might be nil if player is in combat upon login
     if QuestieTracker then
-        if Questie.db.profile.hideTrackerInCombat and Questie.db.char.isTrackerExpanded and (not trackerHiddenByCombat) then
-            trackerHiddenByCombat = true
+        if Questie.db.profile.minimizeTrackerInCombat and Questie.db.char.isTrackerExpanded and (not trackerMinimizedByCombat) then
+            trackerMinimizedByCombat = true
             QuestieTracker:Collapse()
         end
 
-        if IsInInstance() and Questie.db.profile.hideTrackerInDungeons then
+        -- Handle complete hiding in combat
+        if Questie.db.profile.hideTrackerInCombat and (not trackerHiddenByCombat) then
+            trackerHiddenByCombat = true
+            QuestieTracker:Hide()
+        end
+
+        if IsInInstance() and Questie.db.profile.minimizeTrackerInDungeons then
             QuestieTracker:Collapse()
         end
     end
@@ -522,16 +623,16 @@ function _EventHandler:PlayerRegenDisabled()
     if QuestieJourney then
         if QuestieJourney:IsShown() then
             journeyHiddenByCombat = true
-            QuestieJourney.ToggleJourneyWindow()
+            QuestieJourney:ToggleJourneyWindow()
         end
     end
 end
 
 function _EventHandler:PlayerRegenEnabled()
     Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_REGEN_ENABLED")
-    if Questie.db.profile.hideTrackerInCombat and trackerHiddenByCombat then
-        if (not Questie.db.profile.hideTrackerInDungeons) or (not IsInInstance()) then
-            trackerHiddenByCombat = false
+    if Questie.db.profile.minimizeTrackerInCombat and trackerMinimizedByCombat then
+        if (not Questie.db.profile.minimizeTrackerInDungeons) or (not IsInInstance()) then
+            trackerMinimizedByCombat = false
             QuestieTracker:Expand()
         end
 
@@ -540,13 +641,21 @@ function _EventHandler:PlayerRegenEnabled()
         end)
     end
 
+    -- Handle complete hiding in combat
+    if Questie.db.profile.hideTrackerInCombat and trackerHiddenByCombat then
+        if (not Questie.db.profile.hideTrackerInDungeons) or (not IsInInstance()) then
+            trackerHiddenByCombat = false
+            QuestieTracker:Show()
+        end
+    end
+
     if optionsHiddenByCombat then
         QuestieConfigFrame:Show()
         optionsHiddenByCombat = false
     end
 
     if journeyHiddenByCombat then
-        QuestieJourney.ToggleJourneyWindow()
+        QuestieJourney:ToggleJourneyWindow()
         journeyHiddenByCombat = false
     end
 end

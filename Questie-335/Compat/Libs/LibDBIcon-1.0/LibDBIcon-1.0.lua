@@ -240,6 +240,9 @@ end
 function lib:IsRegistered(name)
 	return (lib.objects[name] or lib.notCreated[name]) and true or false
 end
+function lib:GetMinimapButton(name)
+	return lib.objects[name]
+end
 function lib:Refresh(name, db)
 	if lib.disabled then return end
 	check(name)

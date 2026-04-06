@@ -355,7 +355,39 @@ function TrackerUtils:IsQuestItemUsable(itemId)
     return false
 end
 
----@param quest table Quest Table
+---@param quest Quest
+---@return ItemId[]
+function TrackerUtils:GetUsableQuestItemIds(quest)
+    local usableQuestItems = {}
+    local seenQuestItems = {}
+
+    local function AddUsableQuestItem(itemId)
+        if itemId and (not seenQuestItems[itemId]) and QuestieDB.QueryItemSingle(itemId, "class") == 12 and GetItemCount(itemId) > 0 and self:IsQuestItemUsable(itemId) then
+            seenQuestItems[itemId] = true
+            tinsert(usableQuestItems, itemId)
+        end
+    end
+
+    local sourceItemId = quest.sourceItemId
+    if sourceItemId == nil then
+        sourceItemId = QuestieDB.QueryQuestSingle(quest.Id, "sourceItemId")
+    end
+    AddUsableQuestItem(sourceItemId)
+
+    for _, itemId in ipairs(quest.requiredSourceItems or {}) do
+        AddUsableQuestItem(itemId)
+    end
+
+    for _, objective in ipairs(quest.ObjectiveData or {}) do
+        if objective.Type == "item" then
+            AddUsableQuestItem(objective.Id)
+        end
+    end
+
+    return usableQuestItems
+end
+
+---@param quest Quest
 ---@return string|nil completionText Quest Completion text string or nil
 function TrackerUtils:GetCompletionText(quest)
     local completionText
@@ -366,8 +398,9 @@ function TrackerUtils:GetCompletionText(quest)
 
     if completionText then
         return completionText
-    else
-        return quest.Description[1]:gsub("%.", "")
+    elseif quest.Description and next(quest.Description) then
+        local descr = quest.Description[1]:gsub("%.", "")
+        return descr
     end
 end
 
@@ -401,8 +434,10 @@ function TrackerUtils:GetZoneNameByID(zoneId)
         return zoneCache[zoneId]
     end
 
-    if C_Map and C_Map.GetAreaInfo(zoneId) then
+    if C_Map.GetAreaInfo(zoneId) then
         zoneCache[zoneId] = C_Map.GetAreaInfo(zoneId)
+    elseif ZoneDB:GetLocalizedDungeonName(zoneId) then
+        zoneCache[zoneId] = ZoneDB:GetLocalizedDungeonName(zoneId)
     else
         zoneCache[zoneId] = GetZoneNameByIDFallback(zoneId)
     end
@@ -418,7 +453,7 @@ function TrackerUtils:GetCategoryNameByID(catId)
     end
 
     if type(catId) == "number" and catId < 0 and type(l10n.questCategoryLookup[catId]) == "string" then
-        zoneCache[catId] = l10n.questCategoryLookup[catId]
+        zoneCache[catId] = l10n(l10n.questCategoryLookup[catId])
         return zoneCache[catId]
     end
 
@@ -555,58 +590,6 @@ local function _GetDistance(x1, y1, x2, y2)
     return math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2)
 end
 
----@param questId number Quest ID number
----@return number|nil closestDistance Returns X/Y coordinates to closest Objective or nil if nothing is found
-local function _GetDistanceToClosestObjective(questId)
-    -- main function for proximity sorting
-    local player = _GetWorldPlayerPosition()
-
-    if (not player) then
-        return nil
-    end
-
-    local coordinates = {}
-    local quest = QuestieDB.GetQuest(questId)
-
-    if (not quest) then
-        return nil
-    end
-
-    local spawn, zone, name = QuestieMap:GetNearestQuestSpawn(quest)
-
-    if (not spawn) or (not zone) or (not name) then
-        return nil
-    end
-
-    local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
-    if not uiMapId then
-        return nil
-    end
-    local _, worldPosition = C_Map.GetWorldPosFromMapPos(uiMapId, {
-        x = spawn[1] / 100,
-        y = spawn[2] / 100
-    })
-
-    tinsert(coordinates, {
-        x = worldPosition.x,
-        y = worldPosition.y
-    })
-
-    if (not coordinates) then
-        return nil
-    end
-
-    local closestDistance
-    for _, _ in pairs(coordinates) do
-        local distance = _GetDistance(player.x, player.y, worldPosition.x, worldPosition.y)
-        if (not closestDistance) or (distance < closestDistance) then
-            closestDistance = distance
-        end
-    end
-
-    return closestDistance
-end
-
 ---@param uiMapId number Continent ID number
 ---@return string Continent Returns Continent Name or "UNKNOW"
 local function _GetContinent(uiMapId)
@@ -626,6 +609,37 @@ local function _GetContinent(uiMapId)
     else
         return "UNKNOWN"
     end
+end
+
+---@param quest Quest
+---@return number|nil distance
+---@return AreaId|nil zone
+---@return string|nil continent
+local function _GetNearestQuestSortData(quest)
+    if not quest then
+        return nil, nil, nil
+    end
+
+    local _, zone, _, _, _, distance = QuestieMap:GetNearestQuestSpawn(quest)
+    if not zone then
+        return distance, nil, nil
+    end
+
+    local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
+    return distance, zone, uiMapId and _GetContinent(uiMapId) or nil
+end
+
+---@param sortedQuestIds QuestId[]
+---@param orderCopy QuestId[]
+---@return boolean
+local function _DidQuestOrderChange(sortedQuestIds, orderCopy)
+    for index = 1, #sortedQuestIds do
+        if orderCopy[index] ~= sortedQuestIds[index] then
+            return true
+        end
+    end
+
+    return false
 end
 
 local function _GetZoneName(zoneOrSort, questId)
@@ -747,12 +761,11 @@ function TrackerUtils:GetSortedQuestIds()
         for _, questId in pairs(sortedQuestIds) do
             local sortData = {}
             sortData.questId = questId
-            sortData.distance = _GetDistanceToClosestObjective(questId)
             sortData.q = questDetails[questId].quest
-
-            local _, zone, _ = QuestieMap:GetNearestQuestSpawn(sortData.q)
+            local distance, zone, questContinent = _GetNearestQuestSortData(sortData.q)
+            sortData.distance = distance
             sortData.zone = zone
-            sortData.continent = _GetContinent(ZoneDB:GetUiMapIdByAreaId(zone))
+            sortData.continent = questContinent
             toSort[questId] = sortData
         end
 
@@ -863,16 +876,12 @@ function TrackerUtils:GetSortedQuestIds()
                                 table.sort(sortedQuestIds, sorterReversed)
                             end
 
-                            for index, val in pairs(sortedQuestIds) do
-                                if orderCopy[index] ~= val then -- The order has changed
-                                    break
-                                end
+                            if _DidQuestOrderChange(sortedQuestIds, orderCopy) then
+                                QuestieCombatQueue:Queue(function()
+                                    TrackerUtils.FilterProximityTimer = true
+                                    QuestieTracker:Update()
+                                end)
                             end
-
-                            QuestieCombatQueue:Queue(function()
-                                TrackerUtils.FilterProximityTimer = true
-                                QuestieTracker:Update()
-                            end)
                         end
                     end
                 end
@@ -885,12 +894,11 @@ function TrackerUtils:GetSortedQuestIds()
         for _, questId in pairs(sortedQuestIds) do
             local sortData = {}
             sortData.questId = questId
-            sortData.distance = _GetDistanceToClosestObjective(questId)
             sortData.q = questDetails[questId].quest
-
-            local _, zone, _ = QuestieMap:GetNearestQuestSpawn(sortData.q)
+            local distance, zone, questContinent = _GetNearestQuestSortData(sortData.q)
+            sortData.distance = distance
             sortData.zone = zone
-            sortData.continent = _GetContinent(ZoneDB:GetUiMapIdByAreaId(zone))
+            sortData.continent = questContinent
             toSort[questId] = sortData
         end
 
@@ -973,16 +981,12 @@ function TrackerUtils:GetSortedQuestIds()
                                 table.sort(sortedQuestIds, sorterReversed)
                             end
 
-                            for index, val in pairs(sortedQuestIds) do
-                                if orderCopy[index] ~= val then -- The order has changed
-                                    break
-                                end
+                            if _DidQuestOrderChange(sortedQuestIds, orderCopy) then
+                                QuestieCombatQueue:Queue(function()
+                                    TrackerUtils.FilterProximityTimer = true
+                                    QuestieTracker:Update()
+                                end)
                             end
-
-                            QuestieCombatQueue:Queue(function()
-                                TrackerUtils.FilterProximityTimer = true
-                                QuestieTracker:Update()
-                            end)
                         end
                     end
                 end
@@ -1084,4 +1088,44 @@ function TrackerUtils:UpdateVoiceOverPlayButtons()
             end
         end
     end
+end
+
+---@return boolean @true if the Tracker tracks a quest, false if not
+function TrackerUtils.HasQuest()
+    local hasQuest
+
+    if (GetNumQuestWatches(true) == 0) then
+        if Questie.IsWotlk or QuestieCompat.Is335 then
+            if (GetNumTrackedAchievements(true) == 0) then
+                hasQuest = false
+            else
+                hasQuest = true
+            end
+        else
+            hasQuest = false
+        end
+    else
+        if not Questie.db.profile.trackerShowCompleteQuests then
+            local isTrackingIncompleteQuest = false
+            for _, quest in pairs(QuestiePlayer.currentQuestlog) do
+                if not quest then break end
+                if IsQuestWatched(GetQuestLogIndexByID(quest.Id)) and quest:IsComplete() == 0 then
+                    isTrackingIncompleteQuest = true
+                    break
+                end
+            end
+
+            -- This hides the Tracker when all tracked Quests are complete
+            if (not isTrackingIncompleteQuest) then
+                hasQuest = false
+            else
+                hasQuest = true
+            end
+        else
+            hasQuest = true
+        end
+    end
+
+    Questie:Debug(Questie.DEBUG_SPAM, "[TrackerUtils.HasQuest] - ", hasQuest)
+    return hasQuest
 end

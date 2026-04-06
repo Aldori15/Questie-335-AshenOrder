@@ -160,6 +160,90 @@ function QuestieComms:GetQuest(questId, playerName)
     return nil;
 end
 
+local function _GetFullSyncDelays(sendMode)
+    if sendMode == "WHISPER" then
+        -- Direct resyncs after reload/login should feel immediate; ChatThrottleLib still protects throughput.
+        return 0, 0.1
+    end
+
+    return random() * 3, 3
+end
+
+local function _ScheduleQuestSyncBlocks(blocks, sendMode, sendBlock, onDone)
+    local startDelay, sendInterval = _GetFullSyncDelays(sendMode)
+
+    local function sendNext()
+        local block = tremove(blocks, 1)
+        if block then
+            sendBlock(block)
+            if blocks[1] then
+                C_Timer.After(sendInterval, sendNext)
+            else
+                onDone()
+            end
+        else
+            onDone()
+        end
+    end
+
+    if startDelay > 0 then
+        C_Timer.After(startDelay, sendNext)
+    else
+        sendNext()
+    end
+end
+
+local function _BuildSortedFullSyncEntries(partyType)
+    local sorted = {}
+    local playerZone = HBD:GetPlayerZone()
+
+    for questId, data in pairs(QuestLogCache.questLog_DO_NOT_MODIFY) do -- DO NOT MODIFY THE RETURNED TABLE
+        if (not QuestieDB.QuestPointers[questId]) then
+            if not Questie._sessionWarnings[questId] then
+                if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.", tostring(questId))) end
+                Questie._sessionWarnings[questId] = true
+            end
+        else
+            local questType = data.questTag
+            local entry = {
+                questId = questId,
+                questType = questType,
+                zoneOrSort = QuestieDB.QueryQuestSingle(questId, "zoneOrSort"),
+                isSoloQuest = not (questType == "Dungeon" or questType == "Raid" or questType == "Group" or questType == "Elite" or questType == "PVP"),
+            }
+
+            if entry.zoneOrSort > 0 then
+                entry.UiMapId = ZoneDB:GetUiMapIdByAreaId(entry.zoneOrSort)
+                entry.zoneDistance = HBD:GetZoneDistance(entry.UiMapId, 0.5, 0.5, playerZone, 0.5, 0.5) or 99999999
+            else
+                entry.zoneDistance = 99999999 -- some high number (class quests etc)
+            end
+
+            if partyType ~= "raid" or (not entry.isSoloQuest) then
+                tinsert(sorted, entry)
+            end
+        end
+    end
+
+    table.sort(sorted, function(a, b)
+        if a.isSoloQuest and not b.isSoloQuest then
+            return false
+        elseif b.isSoloQuest and not a.isSoloQuest then
+            return true
+        else
+            if a.zoneDistance > b.zoneDistance then
+                return false
+            elseif a.zoneDistance < b.zoneDistance then
+                return true
+            else
+                return false
+            end
+        end
+    end)
+
+    return sorted
+end
+
 
 function QuestieComms:Initialize()
     -- Lets us send any length of message. Also implements ChatThrottleLib to not get disconnected.
@@ -517,116 +601,88 @@ _QuestieComms._isBroadcasting = false
 _QuestieComms._needsNewBroadcast = false
 _QuestieComms._nextBroadcastData = {}
 
+local function _CanSendFullSync(partyType, sendMode, targetPlayer)
+    if sendMode == "WHISPER" then
+        local playerName = UnitName("player")
+        return targetPlayer and targetPlayer ~= "" and targetPlayer ~= playerName
+    end
+
+    return partyType ~= nil
+end
+
+local function _QueueUniqueFullSync(queue, eventName, sendMode, targetPlayer)
+    for _, queued in ipairs(queue) do
+        if queued[1] == eventName and queued[2] == sendMode and queued[3] == targetPlayer then
+            return false
+        end
+    end
+
+    tinsert(queue, {eventName, sendMode, targetPlayer})
+    return true
+end
+
 function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- broadcast quest update to group or raid
-    if _QuestieComms._isBroadcasting then
-        tinsert(_QuestieComms._nextBroadcastData, {eventName, sendMode, targetPlayer})
+    local partyType = QuestiePlayer:GetGroupType()
+    if not _CanSendFullSync(partyType, sendMode, targetPlayer) then
         return
     end
-    local partyType = QuestiePlayer:GetGroupType()
+
+    if _QuestieComms._isBroadcasting then
+        _QueueUniqueFullSync(_QuestieComms._nextBroadcastData, eventName, sendMode, targetPlayer)
+        return
+    end
+
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieComms] Message", eventName, "partyType:", tostring(partyType))
     if partyType then
-        local sorted = {}
-
-        for questId, data in pairs(QuestLogCache.questLog_DO_NOT_MODIFY) do -- DO NOT MODIFY THE RETURNED TABLE
-            if (not QuestieDB.QuestPointers[questId]) then
-                if not Questie._sessionWarnings[questId] then
-                    -- if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please report this on GitHub or Discord!", tostring(questId))) end
-                    if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.", tostring(questId))) end
-                    Questie._sessionWarnings[questId] = true
-                end
-            else
-                local questType = data.questTag
-                local entry = {
-                    questId = questId,
-                    questType = questType,
-                    zoneOrSort = QuestieDB.QueryQuestSingle(questId, "zoneOrSort"),
-                    isSoloQuest = not (questType == "Dungeon" or questType == "Raid" or questType == "Group" or questType == "Elite" or questType == "PVP"),
-                }
-
-                if entry.zoneOrSort > 0 then
-                    entry.UiMapId = ZoneDB:GetUiMapIdByAreaId(entry.zoneOrSort)
-                    entry.zoneDistance = HBD:GetZoneDistance(entry.UiMapId, 0.5, 0.5, HBD:GetPlayerZone(), 0.5, 0.5) or 99999999
-                else
-                    entry.zoneDistance = 99999999 -- some high number (class quests etc)
-                end
-                if partyType ~= "raid" or (not entry.isSoloQuest) then
-                    tinsert(sorted, entry)
-                end
-            end
-        end
-
-        table.sort(sorted, function(a, b)
-            if a.isSoloQuest and not b.isSoloQuest then
-                return false
-            elseif b.isSoloQuest and not a.isSoloQuest then
-                return true
-            else--if a.isSoloQuest == b.isSoloQuest then
-                if a.zoneDistance > b.zoneDistance then
-                    return false
-                elseif a.zoneDistance < b.zoneDistance then
-                    return true
-                else
-                    return false -- 0
-                end
-            end
-        end)
+        local sorted = _BuildSortedFullSyncEntries(partyType)
 
         local rawQuestList = {}
         local blocks = {}
         local entryCount = 0
-        local blockCount = 2 -- the extra tick allows checking tremove() == nil to set _isBroadcasting=false
         for _, entry in pairs(sorted) do
             local quest = QuestieComms:CreateQuestDataPacket(entry.questId);
-            --print("[CommsSendOrder][Block " .. (blockCount - 1) .. "] " .. QuestieDB.QueryQuestSingle(entry.questId, "name"))
             entryCount = entryCount + 1
             rawQuestList[quest.id] = quest;
-            if string.len(QuestieSerializer:Serialize(rawQuestList)) > 200 then--extra space for packet metadata and CTL stuff
+            if string.len(QuestieSerializer:Serialize(rawQuestList, "b89")) > 200 then--extra space for packet metadata and CTL stuff
                 rawQuestList[quest.id] = nil
                 tinsert(blocks, rawQuestList)
                 rawQuestList = {
                     [quest.id] = quest
                 }
                 entryCount = 1
-                blockCount = blockCount + 1
             end
         end
 
         if entryCount ~= 0 then
             tinsert(blocks, rawQuestList) -- add the last block
             _QuestieComms._isBroadcasting = true
-            -- hopefully reduce server load by staggering responses
-            C_Timer.After(random() * 3, function()
-                C_Timer.NewTicker(3, function()
-                    local block = tremove(blocks, 1)
-                    if block then
-                        -- send the block
-                        local questPacket = _QuestieComms:CreatePacket(_QuestieComms.QC_ID_BROADCAST_FULL_QUESTLIST);
-                        questPacket.data.rawQuestList = block;
-                        if "WHISPER" == sendMode then
-                            questPacket.data.writeMode = _QuestieComms.QC_WRITE_WHISPER
-                            questPacket.data.target = targetPlayer
-                            questPacket.data.priority = "NORMAL"
-                        else
-                            if partyType == "raid" then
-                                questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLRAID
-                                questPacket.data.priority = "BULK"
-                            elseif partyType == "instance" then
-                                questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLINSTANCE
-                                questPacket.data.priority = "BULK" -- in case of battlegrounds
-                            else
-                                questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLGROUP
-                                questPacket.data.priority = "NORMAL"
-                            end
-                        end
-                        questPacket:write();
+            _ScheduleQuestSyncBlocks(blocks, sendMode, function(block)
+                -- send the block
+                local questPacket = _QuestieComms:CreatePacket(_QuestieComms.QC_ID_BROADCAST_FULL_QUESTLIST);
+                questPacket.data.rawQuestList = block;
+                if "WHISPER" == sendMode then
+                    questPacket.data.writeMode = _QuestieComms.QC_WRITE_WHISPER
+                    questPacket.data.target = targetPlayer
+                    questPacket.data.priority = "NORMAL"
+                else
+                    if partyType == "raid" then
+                        questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLRAID
+                        questPacket.data.priority = "BULK"
+                    elseif partyType == "instance" then
+                        questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLINSTANCE
+                        questPacket.data.priority = "BULK" -- in case of battlegrounds
                     else
-                        _QuestieComms._isBroadcasting = false
-                        local nextBroadcast = tremove(_QuestieComms._nextBroadcastData, 1)
-                        if nextBroadcast then
-                            _QuestieComms:BroadcastQuestLog(unpack(nextBroadcast))
-                        end
+                        questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLGROUP
+                        questPacket.data.priority = "NORMAL"
                     end
-                end, blockCount)
+                end
+                questPacket:write();
+            end, function()
+                _QuestieComms._isBroadcasting = false
+                local nextBroadcast = tremove(_QuestieComms._nextBroadcastData, 1)
+                if nextBroadcast then
+                    _QuestieComms:BroadcastQuestLog(unpack(nextBroadcast))
+                end
             end)
         end
     end
@@ -636,118 +692,70 @@ _QuestieComms._isBroadcastingV2 = false
 _QuestieComms._nextBroadcastDataV2 = {}
 
 function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) -- broadcast quest update to group or raid
-    if _QuestieComms._isBroadcastingV2 then
-        tinsert(_QuestieComms._nextBroadcastDataV2, {eventName, sendMode, targetPlayer})
+    local partyType = QuestiePlayer:GetGroupType()
+    if not _CanSendFullSync(partyType, sendMode, targetPlayer) then
         return
     end
-    local partyType = QuestiePlayer:GetGroupType()
+
+    if _QuestieComms._isBroadcastingV2 then
+        _QueueUniqueFullSync(_QuestieComms._nextBroadcastDataV2, eventName, sendMode, targetPlayer)
+        return
+    end
+
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieComms] Message", eventName, "partyType:", tostring(partyType))
     if partyType then
-        local sorted = {}
-
-        for questId, data in pairs(QuestLogCache.questLog_DO_NOT_MODIFY) do -- DO NOT MODIFY THE RETURNED TABLE
-            if (not QuestieDB.QuestPointers[questId]) then
-                if not Questie._sessionWarnings[questId] then
-                    -- if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please report this on GitHub or Discord!", tostring(questId))) end
-                    if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.", tostring(questId))) end
-                    Questie._sessionWarnings[questId] = true
-                end
-            else
-                local questType = data.questTag
-                local entry = {
-                    questId = questId,
-                    questType = questType,
-                    zoneOrSort = QuestieDB.QueryQuestSingle(questId, "zoneOrSort"),
-                    isSoloQuest = not (questType == "Dungeon" or questType == "Raid" or questType == "Group" or questType == "Elite" or questType == "PVP"),
-                }
-
-                if entry.zoneOrSort > 0 then
-                    entry.UiMapId = ZoneDB:GetUiMapIdByAreaId(entry.zoneOrSort)
-                    entry.zoneDistance = HBD:GetZoneDistance(entry.UiMapId, 0.5, 0.5, HBD:GetPlayerZone(), 0.5, 0.5) or 99999999
-                else
-                    entry.zoneDistance = 99999999 -- some high number (class quests etc)
-                end
-                if partyType ~= "raid" or (not entry.isSoloQuest) then
-                    tinsert(sorted, entry)
-                end
-            end
-        end
-
-        table.sort(sorted, function(a, b)
-            if a.isSoloQuest and not b.isSoloQuest then
-                return false
-            elseif b.isSoloQuest and not a.isSoloQuest then
-                return true
-            else--if a.isSoloQuest == b.isSoloQuest then
-                if a.zoneDistance > b.zoneDistance then
-                    return false
-                elseif a.zoneDistance < b.zoneDistance then
-                    return true
-                else
-                    return false -- 0
-                end
-            end
-        end)
+        local sorted = _BuildSortedFullSyncEntries(partyType)
 
         local rawQuestList = {}
         local blocks = {}
         local entryCount = 0
-        local blockCount = 2 -- the extra tick allows checking tremove() == nil to set _isBroadcasting=false
         local offset = 2
 
         for _, entry in pairs(sorted) do
-            --print("[CommsSendOrder][Block " .. (blockCount - 1) .. "] " .. QuestieDB.QueryQuestSingle(entry.questId, "name"))
             entryCount = entryCount + 1
 
             offset = QuestieComms:PopulateQuestDataPacketV2_noclass_renameme(entry.questId, rawQuestList, offset)
 
-            if string.len(QuestieSerializer:Serialize(rawQuestList)) > 200 then--extra space for packet metadata and CTL stuff
+            if string.len(QuestieSerializer:Serialize(rawQuestList, "b89")) > 200 then--extra space for packet metadata and CTL stuff
                 rawQuestList[1] = entryCount
                 tinsert(blocks, rawQuestList)
                 rawQuestList = {}
                 entryCount = 0
-                blockCount = blockCount + 1
                 offset = 2
             end
         end
 
-        if entryCount ~= 0 or blockCount ~= 2 then
+        if entryCount ~= 0 or next(blocks) then
             rawQuestList[1] = entryCount
             tinsert(blocks, rawQuestList) -- add the last block
             _QuestieComms._isBroadcastingV2 = true
-            -- hopefully reduce server load by staggering responses
-            C_Timer.After(random() * 3, function()
-                C_Timer.NewTicker(3, function()
-                    local block = tremove(blocks, 1)
-                    if block then
-                        -- send the block
-                        local questPacket = _QuestieComms:CreatePacket(_QuestieComms.QC_ID_BROADCAST_FULL_QUESTLISTV2);
-                        questPacket.data[1] = block;
-                        if "WHISPER" == sendMode then
-                            questPacket.data.writeMode = _QuestieComms.QC_WRITE_WHISPER
-                            questPacket.data.target = targetPlayer
-                            questPacket.data.priority = "NORMAL"
-                        else
-                            if partyType == "raid" then
-                                questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLRAID
-                                questPacket.data.priority = "BULK"
-                            elseif partyType == "instance" then
-                                questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLINSTANCE
-                                questPacket.data.priority = "BULK" -- in case of battlegrounds
-                            else
-                                questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLGROUP
-                                questPacket.data.priority = "NORMAL"
-                            end
-                        end
-                        questPacket:write();
+            _ScheduleQuestSyncBlocks(blocks, sendMode, function(block)
+                -- send the block
+                local questPacket = _QuestieComms:CreatePacket(_QuestieComms.QC_ID_BROADCAST_FULL_QUESTLISTV2);
+                questPacket.data[1] = block;
+                if "WHISPER" == sendMode then
+                    questPacket.data.writeMode = _QuestieComms.QC_WRITE_WHISPER
+                    questPacket.data.target = targetPlayer
+                    questPacket.data.priority = "NORMAL"
+                else
+                    if partyType == "raid" then
+                        questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLRAID
+                        questPacket.data.priority = "BULK"
+                    elseif partyType == "instance" then
+                        questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLINSTANCE
+                        questPacket.data.priority = "BULK" -- in case of battlegrounds
                     else
-                        _QuestieComms._isBroadcastingV2 = false
-                        local nextBroadcast = tremove(_QuestieComms._nextBroadcastDataV2, 1)
-                        if nextBroadcast then
-                            _QuestieComms:BroadcastQuestLogV2(unpack(nextBroadcast))
-                        end
+                        questPacket.data.writeMode = _QuestieComms.QC_WRITE_ALLGROUP
+                        questPacket.data.priority = "NORMAL"
                     end
-                end, blockCount)
+                end
+                questPacket:write();
+            end, function()
+                _QuestieComms._isBroadcastingV2 = false
+                local nextBroadcast = tremove(_QuestieComms._nextBroadcastDataV2, 1)
+                if nextBroadcast then
+                    _QuestieComms:BroadcastQuestLogV2(unpack(nextBroadcast))
+                end
             end)
         end
     end
@@ -986,11 +994,11 @@ function _QuestieComms:Broadcast(packet)
     packet.target = nil
     packet.writeMode = nil -- we dont need to include these in the packet data
     if packetWriteMode == _QuestieComms.QC_WRITE_WHISPER then
-        local compressedData = QuestieSerializer:Serialize(packet);
+        local compressedData = QuestieSerializer:Serialize(packet, "b89");
         Questie:Debug(Questie.DEBUG_DEVELOP,"send(|cFFFF2222", string.len(compressedData), "|r)")
         Questie:SendCommMessage(_QuestieComms.prefix, compressedData, packetWriteMode, packetTarget, packetPriority)
     elseif packetWriteMode == _QuestieComms.QC_WRITE_CHANNEL then
-        local compressedData = QuestieSerializer:Serialize(packet);
+        local compressedData = QuestieSerializer:Serialize(packet, "b89");
         Questie:Debug(Questie.DEBUG_DEVELOP,"send(|cFFFF2222", string.len(compressedData), "|r)")
         -- Always do channel messages as BULK priority
         Questie:SendCommMessage(_QuestieComms.prefix, compressedData, packetWriteMode, GetChannelName("questiecom"), "BULK")
@@ -1002,7 +1010,7 @@ function _QuestieComms:Broadcast(packet)
         --print("Yelling progress: " .. compressedData)
         Questie:SendCommMessage(_QuestieComms.prefix, compressedData, packetWriteMode, "BULK")
     else
-        local compressedData = QuestieSerializer:Serialize(packet);
+        local compressedData = QuestieSerializer:Serialize(packet, "b89");
         Questie:Debug(Questie.DEBUG_DEVELOP, "send(|cFFFF2222", string.len(compressedData), "|r)")
         Questie:SendCommMessage(_QuestieComms.prefix, compressedData, packetWriteMode, nil, packetPriority)
         --OLD: C_ChatInfo.SendAddonMessage("questie", compressedData, packet.writeMode)
@@ -1013,9 +1021,9 @@ function _QuestieComms:OnCommReceived(message, distribution, sender)
     pcall(_QuestieComms.OnCommReceived_unsafe, _QuestieComms, message, distribution, sender)
 end
 
-function _QuestieComms:OnCommReceived_unsafe(message, distribution, sender)
+function _QuestieComms.OnCommReceived_unsafe(prefix, message, distribution, sender)
     --print("[" .. distribution .."][" .. sender .. "] " .. message)
-    Questie:Debug(Questie.DEBUG_DEVELOP, "|cFF22FF22", "sender:", "|r", sender, "distribution:", distribution, "Packet length:",string.len(message))
+    Questie:Debug(Questie.DEBUG_DEVELOP, "|cFF22FF22", "sender:", "|r", sender, "distribution:", distribution, "Packet length:", string.len(message))
     if message and sender and sender ~= UnitName("player") then
         local decompressedData
         if distribution == "YELL" then
@@ -1023,7 +1031,7 @@ function _QuestieComms:OnCommReceived_unsafe(message, distribution, sender)
             decompressedData = QuestieSerializer:Deserialize(message, "b89")
         else
             --print("Decompressing normal data")
-            decompressedData = QuestieSerializer:Deserialize(message)
+            decompressedData = QuestieSerializer:Deserialize(message, "b89")
         end
 
         --Check if the message version is the same base value
