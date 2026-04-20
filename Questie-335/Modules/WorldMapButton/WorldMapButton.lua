@@ -17,7 +17,16 @@ local mapButton
 
 function WorldMapButton.Initialize()
     mapButton = KButtons:Add("QuestieWorldMapButtonTemplate", "BUTTON")
-    WorldMapButton.Toggle(Questie.db.profile.mapShowHideEnabled)
+	WorldMapButton.Toggle(Questie.db.profile.mapShowHideEnabled)
+	local worldMapButtonFrame = _G.WorldMapButton
+
+    if worldMapButtonFrame then
+        mapButton:SetParent(worldMapButtonFrame)
+        mapButton:ClearAllPoints()
+        mapButton:SetFrameStrata("TOOLTIP")
+        mapButton:SetFrameLevel(worldMapButtonFrame:GetFrameLevel() + 1)
+        mapButton:SetPoint("TOPRIGHT", worldMapButtonFrame, "TOPRIGHT", -4, -4)
+    end
 
     Questie.WorldMap = {
         Button = mapButton
