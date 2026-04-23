@@ -46,5 +46,7 @@ l10n.questCategoryLookup = {
     [-377] = "|cFF00B0E8Scourge Invasion", -- Category added in Ashen Order repack
     [-378] = "Exiled Enclave", -- Category added in Ashen Order repack
     [-379] = "Stormwind City", -- Category added in Ashen Order repack
+    [-380] = "Children's Week",
     [-641] = "Nightmare Incursions",
+    [-1000] = "Special", -- for actual "Special" quests that are not part of events
 };

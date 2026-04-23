@@ -7,9 +7,11 @@ local WOW_PROJECT_WRATH_CLASSIC = QuestieCompat.WOW_PROJECT_WRATH_CLASSIC
 
 QuestieDB.sortKeys = {
     EPIC = -1,
+    HALLOWS_END = -21,
     SEASONAL = -22,
     HERBALISM = -24,
     BATTLEGROUND = -25,
+    DAY_OF_THE_DEAD = -41,
     WARLOCK = -61,
     WARRIOR = -81,
     SHAMAN = -82,
@@ -30,8 +32,10 @@ QuestieDB.sortKeys = {
     FIRST_AID = -324,
     LEGENDARY = -344,
     DARKMOON_FAIRE = -364,
+    AHN_QIRAJ_WAR = -365,
     LUNAR_FESTIVAL = -366,
     REPUTATION = -367,
+    INVASION = -368,
     MIDSUMMER = -369,
     BREWFEST = -370,
     INSCRIPTION = -371,
@@ -43,7 +47,11 @@ QuestieDB.sortKeys = {
     SCOURGE_INVASION = -377,
     EXILED_ENCLAVE = -378,
     STORMWIND_CITY = -379,
+    CHILDRENS_WEEK = -380,
+    HARVEST_FESTIVAL = -402,
+    WINTER_VEIL = -404,
     NIGHTMARE_INCURSIONS = -641,
+    SPECIALTEMP = -1000,
 }
 
 local isWotlk = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC
