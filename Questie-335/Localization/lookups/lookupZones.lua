@@ -2799,7 +2799,6 @@ l10n.zoneCategoryLookup = {
         [-377] = "|cFF00B0E8Scourge Invasion", -- Category added in Ashen Order repack
         [-378] = "Exiled Enclave", -- Category added in Ashen Order repack
         [-379] = "Stormwind City", -- Category added in Ashen Order repack
-        [-641] = "Nightmare Incursions", -- Category added in SoD P3
         -- Below are dummy IDs to not interfere with other IDs
         -- These are needed because the events are listed as "seasonal" or "special",
         -- not with a separate ID
