@@ -160,6 +160,7 @@ function QuestieOptionsDefaults:Load()
             questAnnounceCompleted = false,
             questAnnounceIncompleteBreadcrumb = true,
             questAnnounceLocally = false,
+            showPartyQuestObjectives = true,
             hideUnexploredMapIcons = false,
             hideUntrackedQuestsMapIcons = false,
             showRepeatableQuests = true,
@@ -205,7 +206,8 @@ function QuestieOptionsDefaults:Load()
             iconTheme = "questie",
 
             minimap = {
-                hide = false
+                hide = false,
+				minimapPos = 60,
             },
 
             TrackerWidth = 0,
