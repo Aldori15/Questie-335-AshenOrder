@@ -26,6 +26,8 @@ local GetClassColor = QuestieCompat.GetClassColor
 local C_Map = QuestieCompat.C_Map
 
 local tinsert = table.insert
+local tsort = table.sort
+local strfind = string.find
 local zoneNameToAreaIds
 QuestieTooltips.lastGametooltip = ""
 QuestieTooltips.lastGametooltipCount = -1;
@@ -73,6 +75,32 @@ local function _StoreTooltipTracking(tooltip)
             QuestieTooltips.lastGametooltipCount = tooltipLineCount
         end
     end
+end
+
+local function _GetSortedTooltipEntries(tooltips)
+    local sortedTooltips = {}
+
+    for tooltipKey, tooltip in pairs(tooltips or {}) do
+        tinsert(sortedTooltips, {
+            key = tooltipKey,
+            tooltip = tooltip,
+        })
+    end
+
+    tsort(sortedTooltips, function(left, right)
+        local leftTooltip = left.tooltip
+        local rightTooltip = right.tooltip
+        local leftQuestId = leftTooltip and leftTooltip.questId or 0
+        local rightQuestId = rightTooltip and rightTooltip.questId or 0
+
+        if leftQuestId ~= rightQuestId then
+            return leftQuestId < rightQuestId
+        end
+
+        return left.key < right.key
+    end)
+
+    return sortedTooltips
 end
 
 local function GetZoneNameToAreaIds()
@@ -131,6 +159,10 @@ local function IsObjectSpawnInCurrentZone(spawns, playerZone)
 
     local relatedPlayerAreaIds = BuildRelatedPlayerAreaIds(playerZone)
     for zoneId in pairs(spawns) do
+        if ZoneDB.private.specialZoneIdToUiMapId[zoneId] == 947 then
+            return true
+        end
+
         local currentZoneId = zoneId
         while currentZoneId do
             if relatedPlayerAreaIds[currentZoneId] then
@@ -226,13 +258,11 @@ function QuestieTooltips:RemoveQuest(questId)
 
     if quest then
         for _, objective in pairs(quest.Objectives) do
-            objective.AlreadySpawned = {}
             objective.hasRegisteredTooltips = false
             objective.registeredItemTooltips = false
         end
 
         for _, objective in pairs(quest.SpecialObjectives) do
-            objective.AlreadySpawned = {}
             objective.hasRegisteredTooltips = false
             objective.registeredItemTooltips = false
         end
@@ -261,6 +291,56 @@ function QuestieTooltips:RemoveQuest(questId)
     end
 
     QuestieTooltips.lookupKeysByQuestId[questId] = nil
+end
+
+---@param questId number
+function QuestieTooltips:RemoveAvailableQuest(questId)
+    if (not QuestieTooltips.lookupKeysByQuestId[questId]) then
+        return
+    end
+
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTooltips:RemoveAvailableQuest]", questId)
+
+    local removedAnyKey
+    for key in pairs(QuestieTooltips.lookupKeysByQuestId[questId] or {}) do
+        local removedForKey = false
+        local remainingForKey = false
+
+        for tooltipKey, tooltipData in pairs(QuestieTooltips.lookupByKey[key] or {}) do
+            if tooltipData.questId == questId and tooltipData.name and tooltipData.type ~= "Finisher" then
+                QuestieTooltips.lookupByKey[key][tooltipKey] = nil
+                removedForKey = true
+            elseif QuestieTooltips.lookupByKey[key][tooltipKey] then
+                remainingForKey = true
+            end
+        end
+
+        if removedForKey then
+            removedAnyKey = true
+            if not remainingForKey then
+                QuestieTooltips.lookupByKey[key] = nil
+            end
+
+            if QuestieTooltips.lookupByKey[key] == nil then
+                QuestieTooltips.lookupKeysByQuestId[questId][key] = nil
+            else
+                local hasQuestEntriesForKey = false
+                for _, tooltipData in pairs(QuestieTooltips.lookupByKey[key]) do
+                    if tooltipData.questId == questId then
+                        hasQuestEntriesForKey = true
+                        break
+                    end
+                end
+                if not hasQuestEntriesForKey then
+                    QuestieTooltips.lookupKeysByQuestId[questId][key] = nil
+                end
+            end
+        end
+    end
+
+    if removedAnyKey and not next(QuestieTooltips.lookupKeysByQuestId[questId]) then
+        QuestieTooltips.lookupKeysByQuestId[questId] = nil
+    end
 end
 
 -- This function contains the rules for formatting text for drop rate tooltips.
@@ -328,7 +408,12 @@ local function _FetchTooltipsForGroupMembers(key, tooltipData)
                         local color = QuestieLib:GetRGBForObjective(objective)
 
                         if objective.required then
-                            text = "   " .. color .. tostring(objective.fulfilled) .. "/" .. tostring(objective.required) .. " " .. objective.text;
+                            local questProgress = tostring(objective.fulfilled) .. "/" .. tostring(objective.required)
+                            if Questie.db.profile.showQuestProgressFirst then
+                                text = "   " .. color .. questProgress .. " " .. objective.text;
+                            else
+                                text = "   " .. color .. objective.text .. ": " .. questProgress;
+                            end
                         else
                             text = "   " .. color .. objective.text;
                         end
@@ -379,23 +464,28 @@ function QuestieTooltips:GetTooltip(key)
     }]]
     --
     local tooltipData = {}
-    local tooltipLines = {}
+    local tooltipLines
 
     if QuestieTooltips.lookupByKey[key] then
+        tooltipLines = {}
         local playerName = UnitName("player")
+        local sortedTooltipEntries = _GetSortedTooltipEntries(QuestieTooltips.lookupByKey[key])
 
         local finishedAndUnacceptedQuests = {}
         if Questie.db.profile.showQuestsInNpcTooltip then
             -- We built a table of all quests in the tooltip that can be accepted or turned in, to not show the objectives for those
             -- and also don't add the quest title twice.
-            for _, tooltip in pairs(QuestieTooltips.lookupByKey[key]) do
+            for _, tooltipEntry in ipairs(sortedTooltipEntries) do
+                local tooltip = tooltipEntry.tooltip
                 if tooltip.name then
                     finishedAndUnacceptedQuests[tooltip.questId] = true
                 end
             end
         end
 
-        for k, tooltip in pairs(QuestieTooltips.lookupByKey[key]) do
+        for _, tooltipEntry in ipairs(sortedTooltipEntries) do
+            local k = tooltipEntry.key
+            local tooltip = tooltipEntry.tooltip
             local questId = tooltip.questId
             if tooltip.name then
                 if Questie.db.profile.showQuestsInNpcTooltip then
@@ -408,9 +498,9 @@ function QuestieTooltips:GetTooltip(key)
                             questString = "|T" .. QuestieLib.AddonPath .. "Icons\\" .. availableIcon .. ".blp:" .. iconSize .. "|t" .. questString
                         elseif tooltip.type == "Finisher" then
                             questString = "|T" .. QuestieLib.AddonPath .. "Icons\\" .. completeIcon .. ".blp:" .. iconSize .. "|t" .. questString
-                        elseif tooltip.type == "itemFromMonster" then
+                        elseif tooltip.type == "itemFromMonster" or tooltip.type == "itemFromObject" then
                             questString = "|T" .. QuestieLib.AddonPath .. "Icons\\available_mobdrop.blp:" .. iconSize .. "|t" .. questString
-                        elseif tooltip.type == "itemFromObject" or tooltip.type == "Object" then
+                        elseif tooltip.type == "Object" then
                             questString = "|T" .. QuestieLib.AddonPath .. "Icons\\available_object.blp:" .. iconSize .. "|t" .. questString
                         end
                     end
@@ -450,6 +540,8 @@ function QuestieTooltips:GetTooltip(key)
                             if Questie.db.profile.debugEnabled and dropRateData and dropRateData[2] then
                                 if dropRateData[2] == "cmangos" then
                                     dropIcon = "|T" .. dropIconPath .. "cmangos.blp:" .. dropIconSize .. "|t "
+                                elseif dropRateData[2] == "azerothcore" then
+                                    dropIcon = "|T" .. dropIconPath .. "azerothcore.blp:" .. dropIconSize .. "|t "
                                 elseif dropRateData[2] == "mangos3" then
                                     dropIcon = "|T" .. dropIconPath .. "mangos3.blp:" .. dropIconSize .. "|t "
                                 elseif dropRateData[2] == "wowhead" then
@@ -461,10 +553,15 @@ function QuestieTooltips:GetTooltip(key)
                             dropRateText = "  |cFF999999" .. dropIcon .. "[" .. FormatDropText(dropRateData[1]) .. "%]|r";
                         end
                         if objective.Needed and ((not finishedAndUnacceptedQuests[questId]) or objective.Collected ~= objective.Needed) then
-                            text = "   " .. color .. tostring(objective.Collected) .. "/" .. tostring(objective.Needed) .. " " .. tostring(objective.Description) .. dropRateText;
+                            local questProgress = tostring(objective.Collected) .. "/" .. tostring(objective.Needed)
+                            if Questie.db.profile.showQuestProgressFirst then
+                                text = "   " .. color .. questProgress .. " " .. QuestieLib:GetObjectiveDescription(objective) .. dropRateText;
+                            else
+                                text = "   " .. color .. QuestieLib:GetObjectiveDescription(objective) .. ": " .. questProgress .. dropRateText;
+                            end
                             tooltipData[questId].objectivesText[objectiveIndex][playerName] = { ["color"] = color, ["text"] = text };
                         else
-                            text = "   " .. color .. tostring(objective.Description) .. dropRateText;
+                            text = "   " .. color .. QuestieLib:GetObjectiveDescription(objective) .. dropRateText;
                             tooltipData[questId].objectivesText[objectiveIndex][playerName] = { ["color"] = color, ["text"] = text };
                         end
                     end
@@ -480,7 +577,14 @@ function QuestieTooltips:GetTooltip(key)
 
     local playerName = UnitName("player")
 
-    for questId, questData in pairs(tooltipData) do
+    local sortedQuestIds = {}
+    for questId in pairs(tooltipData) do
+        tinsert(sortedQuestIds, questId)
+    end
+    tsort(sortedQuestIds)
+
+    for _, questId in ipairs(sortedQuestIds) do
+        local questData = tooltipData[questId]
         local hasObjective = false
         local tempObjectives = {}
         for _, playerList in pairs(questData.objectivesText or {}) do
@@ -491,16 +595,16 @@ function QuestieTooltips:GetTooltip(key)
                 if playerInfo then
                     playerColor = "|c" .. playerInfo.colorHex
                 elseif QuestieComms.remotePlayerEnabled[objectivePlayerName] and QuestieComms.remoteQuestLogs[questId] and QuestieComms.remoteQuestLogs[questId][objectivePlayerName] and (not Questie.db.profile.onlyPartyShared or UnitInParty(objectivePlayerName)) then
-                    playerColor = QuestieComms.remotePlayerClasses[playerName]
+                    playerColor = QuestieComms.remotePlayerClasses[objectivePlayerName]
                     if playerColor then
                         playerColor = Questie:GetClassColor(playerColor)
                         playerType = " (" .. l10n("Nearby") .. ")"
                     end
                 end
                 if objectivePlayerName == playerName and anotherPlayer then -- Add current player name to own objective
-                    local _, classFilename = UnitClass("player");
-                    local _, _, _, argbHex = GetClassColor(classFilename)
-                    local dropIndex = string.find(objectiveInfo.text, "  |cFF999999")
+                    local _, playerClass = UnitClassBase("player")
+                    local _, _, _, argbHex = GetClassColor(playerClass)
+                    local dropIndex = strfind(objectiveInfo.text, "  |cFF999999")
                     local playerString = " (|c" .. argbHex .. objectivePlayerName .. "|r" .. objectiveInfo.color .. ")|r"
                     if dropIndex then
                         objectiveInfo.text = objectiveInfo.text:sub(1,dropIndex-1)..playerString.." "..objectiveInfo.text:sub(dropIndex+1) -- Ensures drop data is shown after player name
@@ -521,6 +625,11 @@ function QuestieTooltips:GetTooltip(key)
             end
         end
         if hasObjective then
+            if (not tooltipLines) then
+                -- We only have tooltips from other players
+                tooltipLines = {}
+            end
+
             tinsert(tooltipLines, questData.title);
             for _, text in pairs(tempObjectives) do
                 tinsert(tooltipLines, text);
@@ -653,5 +762,3 @@ function QuestieTooltips:Initialize()
         end
     end)
 end
-
-return QuestieTooltips

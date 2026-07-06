@@ -3,9 +3,6 @@ local QuestieMap = QuestieLoader:ImportModule("QuestieMap");
 ---@class QuestieMapUtils
 QuestieMap.utils = QuestieMap.utils or {}
 
----@type QuestieLib
-local QuestieLib = QuestieLoader:ImportModule("QuestieLib");
-
 local HBD = QuestieCompat.HBD or LibStub("HereBeDragonsQuestie-2.0")
 
 local ZOOM_MODIFIER = 1;
@@ -31,7 +28,7 @@ function QuestieMap.utils:SetDrawOrder(frame)
             frameLevel = frameLevel - 1 -- This is to make sure that manual icons are always below other icons
         end
         local frameStrata = WorldMapFrame:GetFrameStrata()
-        frame:SetParent(WorldMapFrame)
+        frame:SetParent(WorldMapButton)
         frame:SetFrameStrata(frameStrata)
         frame:SetFrameLevel(frameLevel)
     end
@@ -55,95 +52,12 @@ function QuestieMap.utils:SetDrawOrder(frame)
             frame.texture:SetDrawLayer("OVERLAY", 6)
         elseif frame.data.Icon == Questie.ICON_TYPE_PVPQUEST_COMPLETE then
             frame.texture:SetDrawLayer("OVERLAY", 6)
-        elseif frame.data.Icon == Questie.ICON_TYPE_SODRUNE then
-            frame.texture:SetDrawLayer("OVERLAY", 6)
         else
             frame.texture:SetDrawLayer("OVERLAY", 0)
         end
     else
         frame.texture:SetDrawLayer("OVERLAY", 0)
     end
-end
-
----@param points table<number, Point> @{{x=0, y=0}, ...}
----@return number x, number y @Center coordinates
-function QuestieMap.utils.CenterPoint(points)
-    local x, y = 0, 0
-    local count = #points
-    for i=1, count do
-        local point = points[i]
-        x = x + point.x
-        y = y + point.y
-    end
-    x = x / count
-    y = y / count
-    return x, y
-end
-
----@param points table<number, Point> @A pointlist with {worldX=0, worldY=0, UiMapID=0, distance=0}
----@param rangeR number @Range of the hotzones.
----@param count number @Optional, used to allow more notes if far away from the quest giver.
----@return table<number, table<number, Point>> @A table of hotzones
-function QuestieMap.utils:CalcHotzones(points, rangeR, count)
---    if(points == nil) then return nil; end
-
-    local hotzones = {}
-    local pointsCount = #points
-    if rangeR <= 1 then
-        for j=1, pointsCount do
-            hotzones[j] = { points[j] }
-        end
-        return hotzones
-    end
-
-    if pointsCount == 1 then
-        -- This is execution shortcut to skip loop in case table size == 1
-
-        hotzones = { { points[1] } }
-        return hotzones
-    end
-
-    --If count isn't set we want to distance clustering to still work,
-    --to simplify the logic we just use a big number.
-    if not count then
-        count = 99999;
-    end
-
-    local useMovingRange = (count > 100)
-
-    local range = rangeR or 100;
-
-    for j=1, pointsCount do
-        local point = points[j]
-        if not point.touched then
-            point.touched = true
-            local notes = { point }
-
-            --We want things further away to be clustered more
-            local movingRange = range
-            if useMovingRange and (point.distance > 1000) then
-                movingRange = movingRange * (point.distance/1000);
-            end
-
-            local aX, aY, aUiMapID = point.worldX, point.worldY, point.UiMapID
-
-            for i=j+1, pointsCount do
-                local point2 = points[i]
-                --We only want to cluster icons that are on the same map.
-                if (not point2.touched) and (aUiMapID == point2.UiMapID)
-                    -- Do not cluster icons if they have no coordinates
-                    and aX ~= 0 and aY ~= 0 and point2.worldX ~= 0 and point2.worldY ~= 0 then
-                    local distance = QuestieLib:Euclid(aX, aY, point2.worldX, point2.worldY)
-                    if (distance < movingRange) then
-                        point2.touched = true
-                        notes[#notes+1] = point2
-                    end
-                end
-            end
-            hotzones[#hotzones+1] = notes
-        end
-    end
-    return hotzones
 end
 
 function QuestieMap.utils:IsExplored(uiMapId, x, y)
@@ -182,6 +96,18 @@ function QuestieMap.utils:MapExplorationUpdate()
     end
 end
 
+local function _GetManualScaleProfile(frame, isMinimap)
+    if not frame.isManualIcon then
+        return isMinimap and Questie.db.profile.globalMiniMapScale or Questie.db.profile.globalScale
+    end
+
+    if frame.data and frame.data.ManualScaleType == "instance" then
+        return isMinimap and Questie.db.profile.globalMiniMapInstanceScale or Questie.db.profile.globalInstanceScale
+    end
+
+    return isMinimap and Questie.db.profile.globalMiniMapTownsfolkScale or Questie.db.profile.globalTownsfolkScale
+end
+
 --- Rescale a single icon
 ---@param frameRef string|IconFrame @The global name/iconRef of the icon frame, e.g. "QuestieFrame1"
 ---@param mapScale number? @Scale value for the final size of the Icon
@@ -196,12 +122,11 @@ function QuestieMap.utils:RescaleIcon(frameRef, mapScale)
             frame.data.IconScale = frame.data:GetIconScale();
             local scale
             if frame.miniMapIcon then
-                -- Use globalMiniMapTownsfolkScale for townsfolk icons, globalMiniMapScale for quest icons
-                local scaleProfile = frame.isManualIcon and Questie.db.profile.globalMiniMapTownsfolkScale or Questie.db.profile.globalMiniMapScale
+                local scaleProfile = _GetManualScaleProfile(frame, true)
                 scale = 16 * (frame.data.IconScale or 1) * (scaleProfile or 0.7);
             else
                 --? If you ever chanage this logic, make sure you change the logic in QuestieMap:ProcessQueue() too!
-                local scaleProfile = frame.isManualIcon and Questie.db.profile.globalTownsfolkScale or Questie.db.profile.globalScale
+                local scaleProfile = _GetManualScaleProfile(frame, false)
                 scale = (16 * (frame.data.IconScale or 1) * (scaleProfile or 0.7)) * iconScale;
             end
 

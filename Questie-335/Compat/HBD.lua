@@ -137,14 +137,16 @@ end
 local WORLD_MAP_ID = 947
 
 -- upvalue lua api
-local cos, sin, max = math.cos, math.sin, math.max
+local cos, sin, math_max, math_abs = math.cos, math.sin, math.max, math.abs
 local type, pairs = type, pairs
+local strfind = string.find
 
 -- upvalue wow api
 local GetPlayerFacing = GetPlayerFacing
 
 -- storage for minimap pins
 local minimapPins = {}
+local minimapPinsByInstance = {}
 local activeMinimapPins = {}
 local minimapPinRegistry = {}
 
@@ -156,12 +158,45 @@ local pins = {
     Minimap = Minimap,
     updateFrame = CreateFrame("Frame"),
     activeMinimapPins = activeMinimapPins,
+    minimapPinRevision = 0,
     worldmapPins = worldmapPins,
     worldmapProvider = {
         GetMap = function(self) return QuestieCompat.WorldMapFrame end,
     },
 }
 QuestieCompat.HBDPins = pins
+
+local function MarkMinimapPinsChanged()
+    pins.minimapPinRevision = pins.minimapPinRevision + 1
+end
+
+local function RemoveMinimapPinFromInstance(icon, data)
+    local instanceID = data and data.instanceID
+    local bucket = instanceID and minimapPinsByInstance[instanceID]
+    if not bucket then
+        return
+    end
+
+    bucket[icon] = nil
+    if not next(bucket) then
+        minimapPinsByInstance[instanceID] = nil
+    end
+end
+
+local function AddMinimapPinToInstance(icon, data)
+    local instanceID = data and data.instanceID
+    if not instanceID then
+        return
+    end
+
+    local bucket = minimapPinsByInstance[instanceID]
+    if not bucket then
+        bucket = {}
+        minimapPinsByInstance[instanceID] = bucket
+    end
+
+    bucket[icon] = data
+end
 
 local minimap_size = {
     indoor = {
@@ -229,12 +264,62 @@ local minimapPinCount, queueFullUpdate = 0, false
 ---@type unknown, MinimapShapes?
 local minimapScale, minimapShape, mapRadius, minimapWidth, minimapHeight, mapSin, mapCos
 local lastZoom, lastFacing, lastXY, lastYY
+local OnUpdateHandler
 local worldMapLayoutDirty = true
+local worldMapRescaleDirty = true
 local worldMapRefreshPending = false
+local minimapRefreshPending = false
+local minimapZoomProbeReady = false
+local minimapZoomProbeScheduled = false
 local lastWorldMapUiMapID, lastWorldMapWidth, lastWorldMapHeight, lastWorldMapScale
 
 local function _HasTrackedMinimapPins()
     return next(minimapPins) ~= nil or next(activeMinimapPins) ~= nil
+end
+
+local function _ShouldProcessQuestieMinimapPins()
+    local profile = Questie.db.profile
+    if not profile then
+        return true
+    end
+
+    return profile.enabled and profile.enableMiniMapIcons
+end
+
+local function _StartMinimapOnUpdate()
+    if OnUpdateHandler then
+        pins.updateFrame:SetScript("OnUpdate", OnUpdateHandler)
+    end
+end
+
+local function _StopMinimapOnUpdate()
+    pins.updateFrame:SetScript("OnUpdate", nil)
+end
+
+local function _ClearActiveMinimapPins()
+    local hadActivePins = next(activeMinimapPins) ~= nil
+    minimapPinCount = 0
+    lastXY, lastYY = nil, nil
+
+    for pin in pairs(activeMinimapPins) do
+        pin:Hide()
+        activeMinimapPins[pin] = nil
+    end
+    if hadActivePins then
+        MarkMinimapPinsChanged()
+    end
+end
+
+local outdoorWorldInstanceIDs = {
+    [0] = true,   -- Eastern Kingdoms
+    [1] = true,   -- Kalimdor
+    [530] = true, -- Outland
+    [571] = true, -- Northrend
+}
+
+local function IsOutdoorPositionWhileInInstance(instanceID)
+    local isInInstance = IsInInstance()
+    return isInInstance and (not instanceID or outdoorWorldInstanceIDs[instanceID])
 end
 
 local function drawMinimapPin(pin, data)
@@ -268,7 +353,7 @@ local function drawMinimapPin(pin, data)
     if isRound then
         dist = (diffX*diffX + diffY*diffY) / 0.9^2
     else
-        dist = max(diffX*diffX, diffY*diffY) / 0.9^2
+        dist = math_max(diffX*diffX, diffY*diffY) / 0.9^2
     end
 
     -- if distance > 1, then adapt node position to slide on the border
@@ -326,26 +411,55 @@ local function GetZoneNameToAreaId()
     return zoneNameToAreaId
 end
 
+local bestAreaIdByUiMapID = {}
 local function GetBestAreaIdForUiMap(uiMapID)
     if not uiMapID then
         return nil
+    end
+
+    if bestAreaIdByUiMapID[uiMapID] ~= nil then
+        return bestAreaIdByUiMapID[uiMapID] or nil
     end
 
     local uiMapData = mapData[uiMapID]
     local zoneName = uiMapData and uiMapData.name
     local namedAreaId = zoneName and GetZoneNameToAreaId()[zoneName]
     if namedAreaId then
+        bestAreaIdByUiMapID[uiMapID] = namedAreaId
         return namedAreaId
     end
 
     if ZoneDB and ZoneDB.GetAreaIdByUiMapId then
         local success, areaId = pcall(ZoneDB.GetAreaIdByUiMapId, ZoneDB, uiMapID)
-        if success then
+        if success and areaId then
+            bestAreaIdByUiMapID[uiMapID] = areaId
             return areaId
         end
     end
 
+    bestAreaIdByUiMapID[uiMapID] = false
     return nil
+end
+
+local parentAreaIdByUiMapID = {}
+local function GetParentAreaIdForUiMap(uiMapID)
+    if not uiMapID then
+        return nil
+    end
+
+    if parentAreaIdByUiMapID[uiMapID] ~= nil then
+        return parentAreaIdByUiMapID[uiMapID] or nil
+    end
+
+    if not ZoneDB or not ZoneDB.GetParentZoneId then
+        return nil
+    end
+
+    local currentAreaId = GetBestAreaIdForUiMap(uiMapID)
+    local parentAreaId = currentAreaId and ZoneDB:GetParentZoneId(currentAreaId)
+    parentAreaIdByUiMapID[uiMapID] = parentAreaId or false
+
+    return parentAreaId
 end
 
 local function IsParentZoneUiMapForNamedSubZone(pinUiMapID, currentUiMapID)
@@ -359,12 +473,7 @@ local function IsParentZoneUiMapForNamedSubZone(pinUiMapID, currentUiMapID)
         return false
     end
 
-    if not ZoneDB or not ZoneDB.GetParentZoneId then
-        return false
-    end
-
-    local currentAreaId = GetBestAreaIdForUiMap(currentUiMapID)
-    local parentAreaId = currentAreaId and ZoneDB:GetParentZoneId(currentAreaId)
+    local parentAreaId = GetParentAreaIdForUiMap(currentUiMapID)
     if not parentAreaId then
         return false
     end
@@ -392,11 +501,33 @@ local function IsEquivalentZoneSiblingUiMap(leftUiMapID, rightUiMapID)
         and leftMapData.instance == rightMapData.instance
 end
 
+local waterBoundarySubzonesByParentUiMapID = {
+    ["South Seas"] = {
+        [1446] = true, -- Tanaris
+        [1434] = true, -- Stranglethorn Vale
+    },
+}
+
+local function IsCurrentWaterBoundaryForParentUiMap(uiMapID)
+    if not uiMapID then return false end
+
+    local subZoneName = GetSubZoneText and GetSubZoneText() or nil
+    local minimapZoneName = GetMinimapZoneText and GetMinimapZoneText() or nil
+    local subZoneParents = subZoneName and waterBoundarySubzonesByParentUiMapID[subZoneName]
+    local minimapZoneParents = minimapZoneName and waterBoundarySubzonesByParentUiMapID[minimapZoneName]
+
+    return (subZoneParents and subZoneParents[uiMapID]) or (minimapZoneParents and minimapZoneParents[uiMapID]) or false
+end
+
 local function ShouldShowMinimapPinForUiMap(data, currentUiMapID)
     local pinUiMapID = data and data.uiMapID
     local showInParentZone = data and data.showInParentZone
     if not pinUiMapID or not currentUiMapID then
         return true
+    end
+
+    if pinUiMapID == currentUiMapID and IsCurrentWaterBoundaryForParentUiMap(currentUiMapID) then
+        return false
     end
 
     if pinUiMapID == currentUiMapID then
@@ -431,6 +562,11 @@ local function ShouldShowMinimapPinForUiMap(data, currentUiMapID)
 end
 
 local function UpdateMinimapPins(force)
+    if not _ShouldProcessQuestieMinimapPins() then
+        _ClearActiveMinimapPins()
+        return
+    end
+
     if not _HasTrackedMinimapPins() then
         minimapPinCount = 0
         lastXY, lastYY = nil, nil
@@ -439,6 +575,10 @@ local function UpdateMinimapPins(force)
 
     -- get the current player position
     local x, y, instanceID, currentUiMapID = QuestieCompat.GetCurrentPlayerMinimapWorldPosition()
+    if IsOutdoorPositionWhileInInstance(instanceID) then
+        _ClearActiveMinimapPins()
+        return
+    end
 
     -- get data from the API for calculations
     local zoom = pins.Minimap:GetZoom()
@@ -490,14 +630,21 @@ local function UpdateMinimapPins(force)
             mapCos = cos(facing)
         end
 
-        for pin, data in pairs(minimapPins) do
-            if instanceID == data.instanceID
-                and ShouldShowMinimapPinForUiMap(data, currentUiMapID)
-                and math.abs(x-data.x) + math.abs(y-data.y) < 500 then -- questie specific fix
-                activeMinimapPins[pin] = data
-                data.keep = true
-                -- draw the pin (this may reset data.keep if outside of the map)
-                drawMinimapPin(pin, data)
+        local activeChanged = false
+        local instancePins = minimapPinsByInstance[instanceID]
+        if instancePins then
+            for pin, data in pairs(instancePins) do
+                if (not pin.hidden)
+                    and math_abs(x-data.x) + math_abs(y-data.y) < 500 -- questie specific fix
+                    and ShouldShowMinimapPinForUiMap(data, currentUiMapID) then
+                    if not activeMinimapPins[pin] then
+                        activeChanged = true
+                    end
+                    activeMinimapPins[pin] = data
+                    data.keep = true
+                    -- draw the pin (this may reset data.keep if outside of the map)
+                    drawMinimapPin(pin, data)
+                end
             end
         end
 
@@ -506,15 +653,24 @@ local function UpdateMinimapPins(force)
             if not data.keep then
                 pin:Hide()
                 activeMinimapPins[pin] = nil
+                activeChanged = true
             else
                 minimapPinCount = minimapPinCount + 1
                 data.keep = nil
             end
         end
+        if activeChanged then
+            MarkMinimapPinsChanged()
+        end
     end
 end
 
 local function UpdateMinimapIconPosition()
+    if not _ShouldProcessQuestieMinimapPins() then
+        _ClearActiveMinimapPins()
+        return
+    end
+
     if next(activeMinimapPins) == nil then
         minimapPinCount = 0
         return
@@ -532,7 +688,11 @@ local function UpdateMinimapIconPosition()
     -- we have no active minimap pins, just return early
     if minimapPinCount == 0 then return end
 
-    local x, y = QuestieCompat.GetCurrentPlayerMinimapWorldPosition()
+    local x, y, instanceID = QuestieCompat.GetCurrentPlayerMinimapWorldPosition()
+    if IsOutdoorPositionWhileInInstance(instanceID) then
+        _ClearActiveMinimapPins()
+        return
+    end
 
     -- for rotating minimap support
     local facing
@@ -581,6 +741,9 @@ end
 
 local function UpdateMinimapZoom()
     if not MinimapRadiusAPI then
+        if not minimapZoomProbeReady then
+            return
+        end
         local zoom = pins.Minimap:GetZoom()
         if GetCVar("minimapZoom") == GetCVar("minimapInsideZoom") then
             pins.Minimap:SetZoom(zoom < 2 and zoom + 1 or zoom - 1)
@@ -629,8 +792,13 @@ local function HandleWorldMapPin(icon, data, uiMapID)
         -- should this pin show on the world map?
         if uiMapID ~= data.uiMapID and data.worldMapShowFlag ~= HBD_PINS_WORLDMAP_SHOW_WORLD then return end
 
-        -- translate to the world map
-        x, y = HBD:GetAzerothWorldMapCoordinatesFromWorld(data.x, data.y, data.instanceID)
+        -- Pins already using Azeroth world-map coordinates should be drawn directly.
+        if icon.UiMapID == WORLD_MAP_ID then
+            x, y = icon.x / 100, icon.y / 100
+        else
+            -- translate to the world map
+            x, y = HBD:GetAzerothWorldMapCoordinatesFromWorld(data.x, data.y, data.instanceID)
+        end
     else
         -- check that it matches the instance
         if not HBD.mapData[uiMapID] or HBD.mapData[uiMapID].instance ~= data.instanceID then return end
@@ -638,6 +806,10 @@ local function HandleWorldMapPin(icon, data, uiMapID)
         if uiMapID ~= data.uiMapID then
             local mapType = HBD.mapData[uiMapID].mapType
             if not data.uiMapID then
+                if HBD.mapData[uiMapID].wdmInstanceMap then
+                    return
+                end
+
                 if mapType == Enum.UIMapType.Continent and data.worldMapShowFlag >= HBD_PINS_WORLDMAP_SHOW_CONTINENT then
                     --pass
                 elseif mapType ~= Enum.UIMapType.Zone and mapType ~= Enum.UIMapType.Dungeon and mapType ~= Enum.UIMapType.Micro then
@@ -648,6 +820,10 @@ local function HandleWorldMapPin(icon, data, uiMapID)
                 local currentMapData = HBD.mapData[uiMapID]
                 local iconMapData = HBD.mapData[data.uiMapID]
                 if not iconMapData then
+                    return
+                end
+
+                if currentMapData.wdmInstanceMap and (not iconMapData.wdmInstanceMap or iconMapData.instance ~= currentMapData.instance) then
                     return
                 end
 
@@ -717,13 +893,54 @@ local function UpdateMinimap()
     UpdateMinimapPins()
 end
 
+local function QueueMinimapRefresh()
+    queueFullUpdate = true
+    _StartMinimapOnUpdate()
+    if minimapRefreshPending then
+        return
+    end
+
+    if not C_Timer or not C_Timer.After then
+        UpdateMinimapPins(true)
+        return
+    end
+
+    minimapRefreshPending = true
+    C_Timer.After(0.01, function()
+        minimapRefreshPending = false
+        UpdateMinimapPins(true)
+    end)
+end
+
+local function ScheduleInitialMinimapZoomProbe()
+    if minimapZoomProbeReady or minimapZoomProbeScheduled then
+        return
+    end
+
+    minimapZoomProbeScheduled = true
+
+    if not C_Timer or not C_Timer.After then
+        minimapZoomProbeReady = true
+        minimapZoomProbeScheduled = false
+        UpdateMinimap()
+        return
+    end
+
+    -- Delay the zoom probe until the client has finished restoring its saved minimap zoom.
+    C_Timer.After(1, function()
+        minimapZoomProbeReady = true
+        minimapZoomProbeScheduled = false
+        UpdateMinimap()
+    end)
+end
+
 local function HideWorldMapPins()
     for icon in pairs(worldmapPins) do
         icon:Hide()
         icon:ClearAllPoints()
     end
     worldMapLayoutDirty = true
-    lastWorldMapUiMapID, lastWorldMapWidth, lastWorldMapHeight, lastWorldMapScale = nil, nil, nil, nil
+    lastWorldMapUiMapID, lastWorldMapWidth, lastWorldMapHeight = nil, nil, nil
 end
 
 local function UpdateWorldMap(force)
@@ -736,12 +953,11 @@ local function UpdateWorldMap(force)
     local uiMapID = QuestieCompat.GetCurrentUiMapID()
     if not uiMapID then return end
 
-    local scale = WorldMapButton:GetScale()
-    worldmapWidth  = WorldMapButton:GetWidth()*scale
-    worldmapHeight = WorldMapButton:GetHeight()*scale
+    worldmapWidth  = WorldMapButton:GetWidth()
+    worldmapHeight = WorldMapButton:GetHeight()
 
     local mapScale = QuestieMap.GetScaleValue()
-    local shouldRescale = force or worldMapLayoutDirty or mapScale ~= lastWorldMapScale
+    local shouldRescale = force or worldMapRescaleDirty or mapScale ~= lastWorldMapScale
     if (not force)
         and (not worldMapLayoutDirty)
         and uiMapID == lastWorldMapUiMapID
@@ -755,13 +971,18 @@ local function UpdateWorldMap(force)
         icon:Hide()
         --icon:ClearAllPoints()
 
-        if shouldRescale then
+        if icon.type == "line" then
+            if icon.UpdateLineGeometry then
+                icon:UpdateLineGeometry()
+            end
+        elseif shouldRescale then
             QuestieMap.utils:RescaleIcon(icon, mapScale)
         end
         HandleWorldMapPin(icon, data, uiMapID)
     end
 
     worldMapLayoutDirty = false
+    worldMapRescaleDirty = false
     lastWorldMapUiMapID = uiMapID
     lastWorldMapWidth = worldmapWidth
     lastWorldMapHeight = worldmapHeight
@@ -803,10 +1024,20 @@ end
 
 local lastFullUpdate = 0
 local lastIconUpdate = 0
-local function OnUpdateHandler(frame, elapsed)
+OnUpdateHandler = function(frame, elapsed)
+    if not _ShouldProcessQuestieMinimapPins() then
+        _ClearActiveMinimapPins()
+        lastFullUpdate = 0
+        lastIconUpdate = 0
+        queueFullUpdate = false
+        _StopMinimapOnUpdate()
+        return
+    end
+
     if not queueFullUpdate and not _HasTrackedMinimapPins() then
         lastFullUpdate = 0
         lastIconUpdate = 0
+        _StopMinimapOnUpdate()
         return
     end
 
@@ -823,7 +1054,6 @@ local function OnUpdateHandler(frame, elapsed)
         lastIconUpdate = 0
     end
 end
-pins.updateFrame:SetScript("OnUpdate", OnUpdateHandler)
 
 local function OnEventHandler(frame, event, ...)
     if QuestieCompat.ClearCachedPlayerPositions then
@@ -837,6 +1067,8 @@ local function OnEventHandler(frame, event, ...)
             queueFullUpdate = true
         end
     elseif event == "MINIMAP_UPDATE_ZOOM" then
+        minimapZoomProbeReady = true
+        minimapZoomProbeScheduled = false
         UpdateMinimap()
     elseif event == "PLAYER_LOGIN" then
         -- recheck cvars after login
@@ -844,11 +1076,13 @@ local function OnEventHandler(frame, event, ...)
         EnsureWorldMapLifecycleHooks()
     elseif event == "PLAYER_ENTERING_WORLD" then
         EnsureWorldMapLifecycleHooks()
-        UpdateMinimap()
+        _ClearActiveMinimapPins()
+        QueueMinimapRefresh()
+        ScheduleInitialMinimapZoomProbe()
         UpdateWorldMap()
     elseif event == "WORLD_MAP_UPDATE" then
         UpdateWorldMap()
-    elseif string.find(event, "ZONE_CHANGED") then
+    elseif strfind(event, "ZONE_CHANGED") then
         UpdateMinimap()
         UpdateWorldMap()
     end
@@ -894,6 +1128,7 @@ function pins:AddMinimapIconWorld(ref, icon, instanceID, x, y, floatOnEdge)
     minimapPinRegistry[ref][icon] = true
 
     local t = minimapPins[icon] or newCachedTable()
+    RemoveMinimapPinFromInstance(icon, t)
     t.instanceID = instanceID
     t.x = x
     t.y = y
@@ -902,7 +1137,9 @@ function pins:AddMinimapIconWorld(ref, icon, instanceID, x, y, floatOnEdge)
     t.showInParentZone = nil
 
     minimapPins[icon] = t
-    queueFullUpdate = true
+    AddMinimapPinToInstance(icon, t)
+    MarkMinimapPinsChanged()
+    QueueMinimapRefresh()
 
     icon:SetParent(pins.MinimapGroup or pins.Minimap)
 end
@@ -952,27 +1189,47 @@ end
 -- @param ref Reference to your addon to track the icon under (ie. your "self" or string identifier)
 -- @param icon Icon Frame
 function pins:RemoveMinimapIcon(ref, icon)
-    if not ref or not icon or not minimapPinRegistry[ref] then return end
-    minimapPinRegistry[ref][icon] = nil
+    if not ref or not icon then return end
+    if minimapPinRegistry[ref] then
+        minimapPinRegistry[ref][icon] = nil
+    end
     if minimapPins[icon] then
+        RemoveMinimapPinFromInstance(icon, minimapPins[icon])
         recycle(minimapPins[icon])
         minimapPins[icon] = nil
+        MarkMinimapPinsChanged()
+    end
+    if activeMinimapPins[icon] then
         activeMinimapPins[icon] = nil
+        MarkMinimapPinsChanged()
     end
     icon:Hide()
+    QueueMinimapRefresh()
 end
 
 --- Remove all minimap icons belonging to your addon (as tracked by "ref")
 -- @param ref Reference to your addon to track the icon under (ie. your "self" or string identifier)
 function pins:RemoveAllMinimapIcons(ref)
     if not ref or not minimapPinRegistry[ref] then return end
+    local removedPins = false
     for icon in pairs(minimapPinRegistry[ref]) do
-        recycle(minimapPins[icon])
-        minimapPins[icon] = nil
-        activeMinimapPins[icon] = nil
+        if minimapPins[icon] then
+            RemoveMinimapPinFromInstance(icon, minimapPins[icon])
+            recycle(minimapPins[icon])
+            minimapPins[icon] = nil
+            removedPins = true
+        end
+        if activeMinimapPins[icon] then
+            activeMinimapPins[icon] = nil
+            removedPins = true
+        end
         icon:Hide()
     end
     wipe(minimapPinRegistry[ref])
+    if removedPins then
+        MarkMinimapPinsChanged()
+    end
+    QueueMinimapRefresh()
 end
 
 --- Set the minimap object to position the pins on. Needs to support the usual functions a Minimap-type object exposes.
@@ -1034,6 +1291,7 @@ function pins:AddWorldMapIconWorld(ref, icon, instanceID, x, y, showFlag, frameL
 
     worldmapPins[icon] = t
     worldMapLayoutDirty = true
+    worldMapRescaleDirty = true
 
     icon.icon = icon --LOL!
     icon:SetParent(WorldMapButton)
@@ -1083,6 +1341,7 @@ function pins:AddWorldMapIconMap(ref, icon, uiMapID, x, y, showFlag, frameLevel)
 
     worldmapPins[icon] = t
     worldMapLayoutDirty = true
+    worldMapRescaleDirty = true
 
     icon.icon = icon --LOL!
     icon:SetParent(WorldMapButton)

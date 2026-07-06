@@ -99,6 +99,7 @@ local function GetNewObjectives(questId, oldObjectives, questLogIndex, isComplet
     for objIndex=1, #objectives do -- iterate manually to be sure getting those in order
         local oldObj = oldObjectives[objIndex]
         local newObj = objectives[objIndex]
+
         -- Check if objective.text is in game's cache
         if (newObj.text) and (stringByte(newObj.text, 1) ~= 32) then
             if (newObj.text ~= "") then -- Some quests have empty objectives, which shouldn't exist in the first place - We skip those
@@ -158,7 +159,10 @@ local function GetNewObjectives(questId, oldObjectives, questLogIndex, isComplet
     if (not isCompleteAccordingToBlizzard) then
         -- Blizzard can return bogus empty objectives and leave the quest flagged incomplete.
         -- If every real objective is finished, treat the quest as complete.
-        isComplete = allObjectivesFinished and 1 or 0
+        -- Only infer completion if there are actual trackable objectives. Scripted event
+        -- quests have zero client-tracked objectives; the server sets isComplete = 1
+        -- when the event fires.
+        isComplete = (#newObjectives > 0 and allObjectivesFinished) and 1 or 0
     end
 
     return newObjectives, changedObjIds, isComplete
@@ -171,7 +175,7 @@ QuestLogCache._GetNewObjectives = GetNewObjectives
 --- Remember to handle returned changes table even when cacheMiss == true. Returned changes are still valid. There may just be more changes that we couldn't get yet.
 --- Called only from QuestEventHandler.
 ---@param questIdsToCheck table? @keys are the questIds
----@return boolean cacheMiss, table changes @cacheMiss = couldn't get all required data  ; changes[questId] = list of changed objectiveIndexes (may be an empty list if quest has no objectives)
+---@return boolean cacheMiss, table changes, table questIdsChecked @cacheMiss = couldn't get all required data  ; changes[questId] = list of changed objectiveIndexes (may be an empty list if quest has no objectives)
 function QuestLogCache.CheckForChanges(questIdsToCheck)
     local cacheMiss = false
     local changes = {} -- table key = questid of the changed quest, table value = list of changed objective ids
@@ -194,7 +198,8 @@ function QuestLogCache.CheckForChanges(questIdsToCheck)
 
                 if newObjectives then
                     if (not cachedQuest) or (#cachedObjectives == #newObjectives and #cachedObjectives > 0 and
-                        (cachedQuest.title ~= title or cachedQuest.questTag ~= questTag or cachedQuest.isComplete ~= isComplete)) then
+                        (cachedQuest.title ~= title or cachedQuest.questTag ~= questTag or cachedQuest.isComplete ~= isComplete)) or
+                       (cachedQuest and #cachedObjectives == 0 and cachedQuest.isComplete ~= isComplete) then
                         -- Mark all objectives changed to force update those too.
 
                         -- changedObjIds is nil from GetObjectives() for quests not having objectives. This is easiest place to change it to {}.
@@ -264,20 +269,7 @@ function QuestLogCache.CheckForChanges(questIdsToCheck)
         end
     end
 
-    -- DEBUG prints:
---[[
-    local ids = "ALL"
-    if questIdsToCheck then
-        ids = ""
-        for questId in pairs(questIdsToCheck) do
-            ids = ids..tostring(questId).."," --yes, ugly extra comma at end. CBA
-        end
-    end
-    print("questIdsToCheck=", ids)
-    QuestLogCache.DebugPrintCacheChanges(cacheMiss, changes)
-]]--
-
-    return cacheMiss, changes
+    return cacheMiss, changes, questIdsChecked
 end
 
 

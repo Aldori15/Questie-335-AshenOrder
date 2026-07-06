@@ -74,6 +74,8 @@ TrackerMenu.addTomTomOption = function(menu, quest, objective)
 
             if spawn then
                 TrackerUtils:SetTomTomTarget(name, zone, spawn[1], spawn[2])
+            elseif quest then
+                TrackerUtils:SetTomTomTargetToDungeonEntrance(quest)
             end
         end
     })
@@ -208,9 +210,9 @@ TrackerMenu.addLinkToChatOption = function(menu, quest)
             LibDropDown:CloseDropDownMenus()
 
             if (not ChatFrame1EditBox:IsVisible()) then
-                ChatFrame_OpenChat(QuestieLink:GetQuestInsertString(quest.level, quest.name, quest.Id))
+                ChatFrame_OpenChat(QuestieLink:GetQuestInsertStringById(quest.Id))
             else
-                ChatEdit_InsertLink(QuestieLink:GetQuestInsertString(quest.level, quest.name, quest.Id))
+                ChatEdit_InsertLink(QuestieLink:GetQuestInsertStringById(quest.Id))
             end
         end
     })
@@ -232,7 +234,13 @@ TrackerMenu.addAbandonedQuest = function(menu, quest)
         func = function()
             LibDropDown:CloseDropDownMenus()
             local lastQuest = GetQuestLogSelection()
-            SelectQuestLogEntry(GetQuestLogIndexByID(quest.Id))
+            local questLogIndex = GetQuestLogIndexByID(quest.Id)
+            if (not questLogIndex) then
+                Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerMenu:addAbandonedQuest] Missing quest log index for tracked quest:", quest.Id)
+                QuestieTracker:UntrackQuestId(quest.Id)
+                return
+            end
+            SelectQuestLogEntry(questLogIndex)
             SetAbandonQuest()
 
             local items = GetAbandonQuestItems()

@@ -3,6 +3,7 @@ local Sounds = QuestieLoader:CreateModule("Sounds")
 
 --- COMPATIBILITY ---
 local C_Timer = QuestieCompat.C_Timer
+local LSM30 = LibStub("LibSharedMedia-3.0")
 
 local soundTable
 local shouldPlayObjectiveSound = false
@@ -15,7 +16,7 @@ function Sounds.PlayObjectiveProgress()
 
     if (not shouldPlayObjectiveProgress) then
         shouldPlayObjectiveProgress = true
-        C_Timer.After(0.5, function ()
+        C_Timer.After(Questie.db.profile.soundDelay, function ()
             if shouldPlayObjectiveProgress then
                 PlaySoundFile(Sounds.GetSelectedSoundFile(Questie.db.profile.objectiveProgressSoundChoiceName), "Master")
                 shouldPlayObjectiveProgress = false
@@ -31,7 +32,7 @@ function Sounds.PlayObjectiveComplete()
 
     if (not shouldPlayObjectiveSound) then
         shouldPlayObjectiveSound = true
-        C_Timer.After(0.5, function ()
+        C_Timer.After(Questie.db.profile.soundDelay, function ()
             if shouldPlayObjectiveSound then
                 PlaySoundFile(Sounds.GetSelectedSoundFile(Questie.db.profile.objectiveCompleteSoundChoiceName), "Master")
                 shouldPlayObjectiveSound = false
@@ -51,7 +52,7 @@ function Sounds.PlayQuestComplete()
 end
 
 function Sounds.GetSelectedSoundFile(typeSelected)
-    return soundTable[typeSelected]
+    return soundTable[typeSelected] or LSM30:Fetch("sound", typeSelected)
 end
 
 soundTable = {

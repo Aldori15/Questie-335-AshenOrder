@@ -3,6 +3,9 @@ local QuestieProfiler = QuestieLoader:CreateModule("Profiler")
 --- COMPATIBILITY ---
 local C_Timer = QuestieCompat.C_Timer
 local BackdropTemplateMixin = not QuestieCompat.Is335 and BackdropTemplateMixin
+local strlower = string.lower
+local strlen = string.len
+local strfind = string.find
 
 QuestieProfiler.hooks = {}
 QuestieProfiler.alreadyHooked = {}
@@ -27,6 +30,102 @@ QuestieProfiler.scriptsToWatch = {
     "OnShow",
     "OnHide"
 }
+
+local DATA_TABLE_KEYS = {
+    db = true,
+    npcData = true,
+    questData = true,
+    objectData = true,
+    itemData = true,
+    npcDataOverrides = true,
+    questDataOverrides = true,
+    objectDataOverrides = true,
+    itemDataOverrides = true,
+    NPCPointers = true,
+    QuestPointers = true,
+    ObjectPointers = true,
+    ItemPointers = true,
+    npcKeys = true,
+    questKeys = true,
+    objectKeys = true,
+    itemKeys = true,
+    npcKeysReversed = true,
+    questKeysReversed = true,
+    objectKeysReversed = true,
+    itemKeysReversed = true,
+    translations = true,
+    itemLookup = true,
+    questLookup = true,
+    npcNameLookup = true,
+    objectNameLookup = true,
+    objectLookup = true,
+    questItemBlacklist = true,
+    questNPCBlacklist = true,
+    hiddenQuests = true,
+}
+
+local DATA_PATH_PATTERNS = {
+    "%.npcData",
+    "%.questData",
+    "%.objectData",
+    "%.itemData",
+    "%.translations",
+    "%.itemLookup",
+    "%.questLookup",
+    "%.npcNameLookup",
+    "%.objectNameLookup",
+    "%.objectLookup",
+    "%.hiddenQuests",
+    "%.questItemBlacklist",
+    "%.questNPCBlacklist",
+}
+
+local function IsDataTablePath(name, key)
+    if DATA_TABLE_KEYS[key] then
+        return true
+    end
+
+    local lookupKey = name .. "." .. tostring(key)
+    for _, pattern in ipairs(DATA_PATH_PATTERNS) do
+        if strfind(lookupKey, pattern) then
+            return true
+        end
+    end
+    return false
+end
+
+local function LooksHookableTable(tbl)
+    local checked = 0
+    for childKey, childVal in pairs(tbl) do
+        local childType = type(childVal)
+        if childType == "function" then
+            return true
+        end
+        if childType == "table" and (childKey == "private" or childKey == "prototype" or childKey == "__index") then
+            return true
+        end
+        checked = checked + 1
+        if checked >= 64 then
+            return false
+        end
+    end
+    return false
+end
+
+local function ResetProfilerTables()
+    QuestieProfiler.needsHook = {}
+    QuestieProfiler.hookCallCount = {}
+    QuestieProfiler.hookTimeCount = {}
+    QuestieProfiler.lowerCaseLookup = {}
+    QuestieProfiler.shortestName = {}
+    QuestieProfiler.lookupToHook = {}
+    QuestieProfiler.alreadyHooked = {}
+    QuestieProfiler.needsHookCount = 0
+    QuestieProfiler.finishedHookCount = 0
+    QuestieProfiler.hookedFunctionCount = 0
+    QuestieProfiler.highestMS = 0
+    QuestieProfiler.highestCalls = 0
+end
 
 function QuestieProfiler:HookFunction(key, val, table, name)
     local lookupKey = name .. "." .. tostring(key)
@@ -59,7 +158,7 @@ function QuestieProfiler:HookFunction(key, val, table, name)
         end
         return unpack(ret)
     end
-    QuestieProfiler.lowerCaseLookup[lookupKey] = string.lower(lookupKey)
+    QuestieProfiler.lowerCaseLookup[lookupKey] = strlower(lookupKey)
     tinsert(QuestieProfiler.hooks, hook)
     table[key] = hook.override
     QuestieProfiler.hookedFunctionCount = QuestieProfiler.hookedFunctionCount + 1
@@ -76,16 +175,16 @@ function QuestieProfiler:HookTable(table, name)
                 else
                     lookupKey = name .. "." .. tostring(key)
                 end
-                if string.len(lookupKey) < string.len(QuestieProfiler.shortestName[val]) then
+                if strlen(lookupKey) < strlen(QuestieProfiler.shortestName[val]) then
                     QuestieProfiler.shortestName[val] = lookupKey
-                    QuestieProfiler.lowerCaseLookup[lookupKey] = string.lower(lookupKey)
+                    QuestieProfiler.lowerCaseLookup[lookupKey] = strlower(lookupKey)
                     --print("Shorter name: " .. lookupKey)
                 end
             end
         else
             --QuestieProfiler.alreadyHooked[val] = true
             local typ = type(val)
-            if type(key) == "table" then
+            if type(key) == "table" and (not QuestieProfiler.alreadyHooked[key]) and LooksHookableTable(key) then
                 tinsert(QuestieProfiler.needsHook, { key, name .. ".(key)" .. tostring(key) })
                 QuestieProfiler.needsHookCount = QuestieProfiler.needsHookCount + 1
             end
@@ -100,7 +199,7 @@ function QuestieProfiler:HookTable(table, name)
                 end
                 --print("["..QuestieProfiler.finishedHookCount.."/"..QuestieProfiler.needsHookCount.."]Hooking function " .. name .. "->" .. key)
                 QuestieProfiler:HookFunction(key, val, table, name)
-            elseif typ == "table" then
+            elseif typ == "table" and (not IsDataTablePath(name, key)) and LooksHookableTable(val) then
                 --QuestieProfiler:HookTable(val, name .. "->"..key)
 
                 tinsert(QuestieProfiler.needsHook, { val, name .. "." .. tostring(key) })
@@ -274,7 +373,7 @@ function QuestieProfiler:CreateUI()
                 local calls = callCount[ncall] + QuestieProfiler.hookCallCount[call]
                 timeCount[ncall] = time
                 callCount[ncall] = calls
-                QuestieProfiler.lowerCaseLookup[ncall] = string.lower(ncall)
+                QuestieProfiler.lowerCaseLookup[ncall] = strlower(ncall)
                 if time > highestMS then
                     highestMS = time
                 end
@@ -314,8 +413,8 @@ function QuestieProfiler:CreateUI()
             --print("Highest calls: " .. QuestieProfiler.highestCalls)
             local callstr = QuestieProfiler.shortestName[QuestieProfiler.lookupToHook[call]] or call
 
-            if (string.len(callstr) > 64) then
-                callstr = "..." .. string.sub(callstr, string.len(callstr) - 64)
+            if (strlen(callstr) > 64) then
+                callstr = "..." .. string.sub(callstr, strlen(callstr) - 64)
             end
 
             line[1]:SetText(color .. callstr)
@@ -456,15 +555,15 @@ function QuestieProfiler:CreateUI()
     end)
     local function clearFocus()
         search:ClearFocus()
-        if string.len(search:GetText()) == 0 then
+        if strlen(search:GetText()) == 0 then
             search:SetText("\124cFF888888Filter...")
         end
     end
     search:SetAutoFocus(false)
     search:SetScript("OnEscapePressed", clearFocus)
     search:HookScript(QuestieCompat.Is335 and "OnTextChanged" or "OnKeyUp", function(self, userInput)
-        local txt = string.lower(search:GetText())
-        if string.len(txt) == 0 or userInput == false then
+        local txt = strlower(search:GetText())
+        if strlen(txt) == 0 or userInput == false then
             txt = nil
         end
         QuestieProfiler.searchFilter = txt
@@ -485,6 +584,10 @@ end
 
 function QuestieProfiler:DoHooks(after)
     local timer
+    if next(QuestieProfiler.hooks) then
+        QuestieProfiler:Unhook()
+    end
+    ResetProfilerTables()
 
     -- libstub modules. TODO: check debugstack() to only include calls made by questie
     --QuestieProfiler.needsHookCount = QuestieProfiler.needsHookCount + 1
@@ -516,12 +619,7 @@ function QuestieProfiler:Unhook()
         hook.originalParent[hook.originalKey] = hook.original
     end
     QuestieProfiler.hooks = {}
-    QuestieProfiler.alreadyHooked = {}
-    QuestieProfiler.needsHookCount = 0
-    QuestieProfiler.finishedHookCount = 0
-    QuestieProfiler.hookedFunctionCount = 0
-    QuestieProfiler.highestMS = 0
-    QuestieProfiler.highestCalls = 0
+    ResetProfilerTables()
 end
 
 function QuestieProfiler:Start() -- call ingame when developing /run QuestieLoader:ImportModule("Profiler"):Start()

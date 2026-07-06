@@ -3,6 +3,8 @@ local QuestieFramePool = QuestieLoader:CreateModule("QuestieFramePool")
 -------------------------
 --Import modules.
 -------------------------
+---@type QuestieFrame
+local QuestieFrame = QuestieLoader:ImportModule("QuestieFrame")
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 ---@type QuestieMap
@@ -17,6 +19,8 @@ local l10n = QuestieLoader:ImportModule("l10n")
 --- COMPATIBILITY ---
 local C_Timer = QuestieCompat.C_Timer
 local WorldMapFrame = QuestieCompat.WorldMapFrame
+
+local math_max, math_min = math.max, math.min
 
 local HBDPins = QuestieCompat.HBDPins or LibStub("HereBeDragonsQuestie-Pins-2.0")
 
@@ -94,10 +98,13 @@ function QuestieFramePool:GetFrame()
     returnFrame.y = nil;
     returnFrame.AreaID = nil;
     returnFrame.UiMapID = nil
+    returnFrame.worldX = nil
+    returnFrame.worldY = nil
 
     if returnFrame.texture then
         returnFrame.texture:SetVertexColor(1, 1, 1, 1)
     end
+    returnFrame:SetAlpha(1) -- party objective icons dim the frame to 0.5; reset so recycled frames don't inherit it
     returnFrame.loaded = true
     returnFrame.shouldBeShowing = nil
     returnFrame.hidden = nil
@@ -165,7 +172,7 @@ end
 function _QuestieFramePool:QuestieCreateFrame()
     --Questie:Debug(Questie.DEBUG_SPAM, "[QuestieFramePool:QuestieCreateFrame]")
     numberOfFrames = numberOfFrames + 1
-    local newFrame = QuestieFramePool.Qframe:New(numberOfFrames, MapIconTooltip.Show)
+    local newFrame = QuestieFrame:New(numberOfFrames, MapIconTooltip.Show)
 
     tinsert(allFrames, newFrame)
     return newFrame
@@ -199,6 +206,60 @@ end
 
 local lineFrameCount = 1
 
+local function UpdateLineFrameGeometry(lineFrame)
+    local canvas = WorldMapFrame:GetCanvas()
+    if (not canvas) or (not lineFrame.startX) or (not lineFrame.startY) or (not lineFrame.endX) or (not lineFrame.endY) then
+        return
+    end
+
+    local canvasWidth = canvas:GetWidth()
+    local canvasHeight = canvas:GetHeight()
+    if (not canvasWidth) or (not canvasHeight) or canvasWidth <= 0 or canvasHeight <= 0 then
+        return
+    end
+
+    local lineWidth = lineFrame.lineWidth or 1.5
+    local startX = lineFrame.startX * canvasWidth / 100
+    local startY = lineFrame.startY * canvasHeight / -100 -- We do by / -100 due to using the top left point
+    local endX = lineFrame.endX * canvasWidth / 100
+    local endY = lineFrame.endY * canvasHeight / -100
+
+    local width = abs(startX - endX) + lineWidth * 4
+    local height = abs(startY - endY) + lineWidth * 4
+
+    local framePosX = math_max(startX, endX) - lineWidth * 2 - width / 2
+    local framePosY = math_min(startY, endY) + lineWidth * 2 + height / 2
+
+    lineFrame:SetParent(canvas)
+    lineFrame:ClearAllPoints()
+    lineFrame:SetHeight(height)
+    lineFrame:SetWidth(width)
+    lineFrame:SetPoint("TOPLEFT", canvas, "TOPLEFT", framePosX, framePosY)
+
+    local line = lineFrame.line
+    if line then
+        line:SetDrawLayer("OVERLAY", -5)
+        line:SetStartPoint("TOPLEFT", startX - framePosX, startY - framePosY)
+        line:SetEndPoint("TOPLEFT", endX - framePosX, endY - framePosY)
+        line:SetThickness(lineWidth)
+    end
+
+    local lineBorder = lineFrame.lineBorder
+    if lineBorder then
+        lineBorder:SetDrawLayer("OVERLAY", -6)
+        lineBorder:SetStartPoint("TOPLEFT", startX - framePosX, startY - framePosY)
+        lineBorder:SetEndPoint("TOPLEFT", endX - framePosX, endY - framePosY)
+        lineBorder:SetThickness(lineWidth + 2)
+    end
+
+    if QuestieCompat.Is335 and lineFrame:IsShown() then
+        local onShow = lineFrame:GetScript("OnShow")
+        if onShow then
+            onShow(lineFrame)
+        end
+    end
+end
+
 ---@param iconFrame IconFrame @The parent frame for the current line.
 ---@param startX number @A value between 0-100
 ---@param startY number @A value between 0-100
@@ -214,6 +275,8 @@ function QuestieFramePool:CreateLine(iconFrame, startX, startY, endX, endY, line
     if not QuestieFramePool.Routes_Lines then
         QuestieFramePool.Routes_Lines={}
     end
+    lineWidth = lineWidth or 1.5
+
     --Names are not stricktly needed, but it is nice for debugging.
     local frameName = "questieLineFrame".. lineFrameCount;
 
@@ -223,14 +286,6 @@ function QuestieFramePool:CreateLine(iconFrame, startX, startY, endX, endY, line
         lineFrame.frameId = lineFrameCount;
     end
 
-    local canvas = WorldMapFrame:GetCanvas()
-
-    local width = canvas:GetWidth();
-    local height = canvas:GetHeight();
-
-    --Setting the parent is required to get the correct frame levels.
-
-    lineFrame:SetParent(canvas) --This fixes the pan and zoom for lines
     if QuestieCompat.Is335 then
         lineFrame.CreateLine = QuestieCompat.CreateLine
     else
@@ -252,6 +307,12 @@ function QuestieFramePool:CreateLine(iconFrame, startX, startY, endX, endY, line
     lineFrame.y = (startY + endY) / 2
     lineFrame.AreaID = areaId or iconFrame.AreaID
     lineFrame.texture = iconFrame.texture
+    lineFrame.startX = startX
+    lineFrame.startY = startY
+    lineFrame.endX = endX
+    lineFrame.endY = endY
+    lineFrame.lineWidth = lineWidth
+    lineFrame.UpdateLineGeometry = UpdateLineFrameGeometry
 
     function lineFrame:Unload()
         if not self.iconFrame then
@@ -264,6 +325,11 @@ function QuestieFramePool:CreateLine(iconFrame, startX, startY, endX, endY, line
         self.data = nil
         self.texture = nil
         self.AreaID = nil
+        self.startX = nil
+        self.startY = nil
+        self.endX = nil
+        self.endY = nil
+        self.lineWidth = nil
         HBDPins:RemoveWorldMapIcon(Questie, self)
         tinsert(QuestieFramePool.Routes_Lines, self);
     end
@@ -275,6 +341,9 @@ function QuestieFramePool:CreateLine(iconFrame, startX, startY, endX, endY, line
     line.dB = color[3];
     line.dA = color[4];
     line:SetColorTexture(color[1],color[2],color[3],color[4]);
+    line:SetStartPoint("TOPLEFT", 0, 0)
+    line:SetEndPoint("TOPLEFT", 0, 0)
+    line:SetThickness(lineWidth)
 
     local lineBorder = lineFrame.lineBorder or lineFrame:CreateLine();
     lineFrame.lineBorder = lineBorder;
@@ -285,33 +354,7 @@ function QuestieFramePool:CreateLine(iconFrame, startX, startY, endX, endY, line
     lineBorder.dA = color[4];
     lineBorder:SetColorTexture(0,0,0,color[4]/2);
 
-    -- Set texture coordinates and anchors
-    --line:ClearAllPoints();
-
-    startX = startX * width / 100
-    startY = startY * height / -100 -- We do by / -100 due to using the top left point
-    endX = endX * width / 100
-    endY = endY * height / -100
-
-    width = abs(startX - endX) + lineWidth * 4
-    height = abs(startY - endY) + lineWidth * 4
-
-    local framePosX = max(startX, endX) - lineWidth * 2 - width / 2
-    local framePosY = min(startY, endY) + lineWidth * 2 + height / 2
-
-    lineFrame:SetHeight(height);
-    lineFrame:SetWidth(width);
-    lineFrame:SetPoint("TOPLEFT", canvas, "TOPLEFT", framePosX, framePosY)
-
-    line:SetDrawLayer("OVERLAY", -5)
-    line:SetStartPoint("TOPLEFT", startX - framePosX, startY - framePosY)
-    line:SetEndPoint("TOPLEFT", endX - framePosX, endY - framePosY)
-    line:SetThickness(lineWidth);
-
-    lineBorder:SetDrawLayer("OVERLAY", -6)
-    lineBorder:SetStartPoint("TOPLEFT", startX - framePosX, startY - framePosY)
-    lineBorder:SetEndPoint("TOPLEFT", endX - framePosX, endY - framePosY)
-    lineBorder:SetThickness(lineWidth+2);
+    lineFrame:UpdateLineGeometry()
 
     lineFrame:EnableMouse(true)
 

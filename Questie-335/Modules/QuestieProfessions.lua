@@ -2,13 +2,16 @@
 local QuestieProfessions = QuestieLoader:CreateModule("QuestieProfessions");
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest");
+---@type AvailableQuests
+local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
 
 ---@type l10n
-local l10n = QuestieLoader:ImportModule("l10n")
+local l10n = QuestieLoader:ImportModule("l10n");
 
 local playerProfessions = {}
 local professionTable = {}
 local professionNames = {}
+local specializationNames = {}
 local alternativeProfessionNames = {}
 
 -- Fast local references
@@ -23,6 +26,7 @@ hooksecurefunc("AbandonSkill", function(skillIndex)
             playerProfessions[professionTable[skillName]] = nil
             --? Reset all autoBlacklisted quests if a skill is abandoned
             QuestieQuest.ResetAutoblacklistCategory("skill")
+            AvailableQuests.CalculateAndDrawAll()
         end
     end
 end)
@@ -154,10 +158,10 @@ function QuestieProfessions:HasProfessionAndRankLevel(requiredRanks)
         local profession = requiredRanks[i][1]
         local rankLevel = requiredRanks[i][2]
         if _HasProfession(profession) then
+            hasProfession = true
             if _HasRankLevel(profession, rankLevel) then
                 return true, true
             end
-            hasProfession = true
         end
     end
     return hasProfession, false
@@ -300,9 +304,56 @@ QuestieProfessions.specializationKeys = { -- specializations use spellID, profes
     TAILORING_SPELLFIRE = 26797,
 }
 
+specializationNames = {
+    [QuestieProfessions.specializationKeys.ALCHEMY_ELIXIR] = "Elixir Master",
+    [QuestieProfessions.specializationKeys.ALCHEMY_POTION] = "Potion Master",
+    [QuestieProfessions.specializationKeys.ALCHEMY_TRANSMUTATION] = "Transmutation Master",
+    [QuestieProfessions.specializationKeys.BLACKSMITHING_ARMOR] = "Armorsmith",
+    [QuestieProfessions.specializationKeys.BLACKSMITHING_WEAPON] = "Weaponsmith",
+    [QuestieProfessions.specializationKeys.BLACKSMITHING_WEAPON_AXE] = "Master Axesmith",
+    [QuestieProfessions.specializationKeys.BLACKSMITHING_WEAPON_HAMMER] = "Master Hammersmith",
+    [QuestieProfessions.specializationKeys.BLACKSMITHING_WEAPON_SWORD] = "Master Swordsmith",
+    [QuestieProfessions.specializationKeys.ENGINEERING_GNOMISH] = "Gnomish Engineer",
+    [QuestieProfessions.specializationKeys.ENGINEERING_GOBLIN] = "Goblin Engineer",
+    [QuestieProfessions.specializationKeys.LEATHERWORKING_DRAGONSCALE] = "Dragonscale Leatherworking",
+    [QuestieProfessions.specializationKeys.LEATHERWORKING_ELEMENTAL] = "Elemental Leatherworking",
+    [QuestieProfessions.specializationKeys.LEATHERWORKING_TRIBAL] = "Tribal Leatherworking",
+    [QuestieProfessions.specializationKeys.TAILORING_MOONCLOTH] = "Mooncloth Tailoring",
+    [QuestieProfessions.specializationKeys.TAILORING_SHADOWEAVE] = "Shadoweave Tailoring",
+    [QuestieProfessions.specializationKeys.TAILORING_SPELLFIRE] = "Spellfire Tailoring",
+}
+
 ---@return string
 function QuestieProfessions:GetProfessionName(professionKey)
     return professionNames[professionKey]
+end
+
+local trainerNames = {
+    [QuestieProfessions.professionKeys.FIRST_AID] = "First Aid Trainer",
+    [QuestieProfessions.professionKeys.BLACKSMITHING] = "Blacksmithing Trainer",
+    [QuestieProfessions.professionKeys.LEATHERWORKING] = "Leatherworking Trainer",
+    [QuestieProfessions.professionKeys.ALCHEMY] = "Alchemy Trainer",
+    [QuestieProfessions.professionKeys.HERBALISM] = "Herbalism Trainer",
+    [QuestieProfessions.professionKeys.COOKING] = "Cooking Trainer",
+    [QuestieProfessions.professionKeys.MINING] = "Mining Trainer",
+    [QuestieProfessions.professionKeys.TAILORING] = "Tailoring Trainer",
+    [QuestieProfessions.professionKeys.ENGINEERING] = "Engineering Trainer",
+    [QuestieProfessions.professionKeys.ENCHANTING] = "Enchanting Trainer",
+    [QuestieProfessions.professionKeys.FISHING] = "Fishing Trainer",
+    [QuestieProfessions.professionKeys.SKINNING] = "Skinning Trainer",
+    [QuestieProfessions.professionKeys.JEWELCRAFTING] = "Jewelcrafting Trainer",
+    [QuestieProfessions.professionKeys.INSCRIPTION] = "Inscription Trainer",
+    [QuestieProfessions.professionKeys.RIDING] = "Riding Trainer",
+}
+
+---@return string?
+function QuestieProfessions.GetTrainerName(professionKey)
+    return trainerNames[professionKey]
+end
+
+---@return string?
+function QuestieProfessions:GetSpecializationName(specializationKey)
+    return specializationNames[specializationKey]
 end
 
 ---@return number
@@ -442,6 +493,12 @@ QuestieProfessions.rankKeys = {
       [5] = 28897, -- 300-375
       [6] = 51311, -- 375-450
     },
+    [762] = { -- Riding
+      [1] = 33388, -- 1-75 - Apprentice
+      [2] = 33391, -- 75-150 - Journeyman
+      [3] = 34090, -- 150-225 - Expert
+      [4] = 34091, -- 225-300 - Artisan
+    },
     [773] = { -- Inscription
       [1] = 45357, -- 1-75
       [2] = 45358, -- 75-150
@@ -449,13 +506,5 @@ QuestieProfessions.rankKeys = {
       [4] = 45360, -- 225-300
       [5] = 45361, -- 300-375
       [6] = 45363, -- 375-450
-    },
-    [794] = { -- Archaeology
-      [1] = 78670, -- 1-75
-      [2] = 88961, -- 75-150
-      [3] = 89718, -- 150-225
-      [4] = 89719, -- 225-300
-      [5] = 89720, -- 300-375
-      [6] = 89721, -- 375-450
     },
 }

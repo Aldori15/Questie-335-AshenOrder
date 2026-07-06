@@ -25,6 +25,8 @@ local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 local Comms = QuestieLoader:ImportModule("Comms")
 ---@type Phasing
 local Phasing = QuestieLoader:ImportModule("Phasing")
+---@type QuestieIconVisibility
+local QuestieIconVisibility = QuestieLoader:ImportModule("QuestieIconVisibility")
 
 local GetQuestGreenRange = GetQuestGreenRange
 local GetQuestID = QuestieCompat.GetQuestID
@@ -70,7 +72,7 @@ local function _ClearTable(tbl)
 end
 
 local function _ShouldTrackNpcAvailability(questId)
-    return QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)
+    return QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId) or QuestieDB.IsMonthlyQuest(questId)
 end
 
 local function _ApplyRefreshSpeed(useFastRefresh)
@@ -145,7 +147,7 @@ end
 
 local function _CalculateNextDailyResetTimestamp()
     local currentTimestamp = _GetCurrentServerTimestamp()
-    local timeUntilReset = tonumber(GetQuestResetTime()) or 0
+    local timeUntilReset = tonumber(QuestieCompat.GetQuestResetTime()) or 0
     if timeUntilReset < 0 then
         timeUntilReset = 0
     end
@@ -245,6 +247,10 @@ local function _GetUnavailableQuestBucketForQuest(syncState, questId)
 
     if QuestieDB.IsWeeklyQuest(questId) then
         return _EnsureUnavailableQuestSyncBucket(syncState, "weekly")
+    end
+
+    if QuestieDB.IsMonthlyQuest(questId) then
+        return _EnsureUnavailableQuestSyncBucket(syncState, "monthly")
     end
 end
 
@@ -473,7 +479,7 @@ function AvailableQuests.RebuildAll(callback, fastRefresh)
     end
 
     for i = 1, #questIds do
-        AvailableQuests.RemoveQuest(questIds[i])
+        AvailableQuests.RemoveAvailableQuest(questIds[i])
     end
 
     AvailableQuests.CalculateAndDrawAll(callback, fastRefresh)
@@ -482,24 +488,23 @@ end
 -- Recolor already drawn available-quest icons immediately on level changes
 function AvailableQuests.RefreshVisibleAvailableIcons()
     for questId in pairs(QuestieMap.questIdFrames) do
-        local questFrames = QuestieMap:GetFramesForQuest(questId)
         local oldIcon, newIcon
 
-        for _, frame in pairs(questFrames) do
+        QuestieMap:ForQuestFrames(questId, function(frame)
             if frame and frame.data and frame.data.Type == "available" and frame.data.QuestData then
                 oldIcon = frame.data.Icon
                 newIcon = _GetQuestIcon(frame.data.QuestData)
-                break
+                return true
             end
-        end
+        end)
 
         if newIcon and oldIcon and newIcon ~= oldIcon then
-            for _, frame in pairs(questFrames) do
+            QuestieMap:ForQuestFrames(questId, function(frame)
                 if frame and frame.data and frame.data.Type == "available" and frame.data.QuestData then
                     frame:UpdateTexture(Questie.usedIcons[newIcon])
                     frame.data.Icon = newIcon
                 end
-            end
+            end)
         end
     end
 end
@@ -509,7 +514,7 @@ function AvailableQuests.PruneByCurrentLevelFilter()
     local playerLevel = QuestiePlayer.GetPlayerLevel()
     local minLevel = playerLevel - GetQuestGreenRange("player")
     local maxLevel = playerLevel
-    local showTrivialRepeatableQuests = Questie.db.profile.showTrivialRepeatableQuests ~= false
+    local showTrivialRepeatableQuests = QuestieIconVisibility:IsEnabledAnywhere("trivialRepeatable")
 
     if Questie.db.profile.lowLevelStyle == Questie.LOWLEVEL_RANGE then
         minLevel = Questie.db.profile.minLevelFilter
@@ -522,7 +527,7 @@ function AvailableQuests.PruneByCurrentLevelFilter()
         local isRepeatableQuest = QuestieDB.IsRepeatable(questId)
         if _IsHiddenByTrivialRepeatableSetting(questId, isRepeatableQuest, showTrivialRepeatableQuests) or
             (not _IsLevelRequirementsFulfilledForAvailable(questId, minLevel, maxLevel, playerLevel, isRepeatableQuest)) then
-            AvailableQuests.RemoveQuest(questId)
+            AvailableQuests.RemoveAvailableQuest(questId)
         end
     end
 end
@@ -532,7 +537,29 @@ end
 function AvailableQuests.DrawAvailableQuest(quest) -- prevent recursion
     --? Some quests can be started by an item, NPC, and/or a GameObject
 
-    if Questie.db.profile.showItemStartQuests and quest.Starts["Item"] then
+    local added = 0
+    local limit = Questie.db.profile.availableIconLimit or 0
+    local function _AddStarterWithLimit(starter, drawTooltipKey, fallbackTooltipKey, tooltipType)
+        if (not starter) then
+            return
+        end
+
+        if drawTooltipKey == "m_" .. starter.id then
+            if playerFaction == "Alliance" and starter.friendlyToFaction == "H" then
+                return
+            elseif playerFaction == "Horde" and starter.friendlyToFaction == "A" then
+                return
+            end
+        end
+
+        if limit == 0 or added < limit then
+            added = added + _AddStarter(starter, quest, drawTooltipKey, (limit == 0 and 0) or (limit - added))
+        else
+            QuestieTooltips:RegisterQuestStartTooltip(quest.Id, starter.name, starter.id, fallbackTooltipKey, tooltipType)
+        end
+    end
+
+    if QuestieIconVisibility:IsEnabledAnywhere("itemStart") and quest.Starts["Item"] then
         local items = quest.Starts["Item"]
         for i = 1, #items do
             local item = QuestieDB:GetItem(items[i])
@@ -540,14 +567,14 @@ function AvailableQuests.DrawAvailableQuest(quest) -- prevent recursion
                 if item.npcDrops then
                     for _, npcId in pairs(item.npcDrops) do
                         local npc = QuestieDB:GetNPC(npcId)
-                        _AddStarter(npc, quest, "im_" .. npcId)
+                        _AddStarterWithLimit(npc, "im_" .. npcId, "m_" .. npcId, "itemFromMonster")
                     end
                 end
 
                 if item.objectDrops then
                     for _, objectId in pairs(item.objectDrops) do
                         local object = QuestieDB:GetObject(objectId)
-                        _AddStarter(object, quest, "io_" .. objectId)
+                        _AddStarterWithLimit(object, "io_" .. objectId, "o_" .. objectId, "itemFromObject")
                     end
                 end
             end
@@ -558,8 +585,7 @@ function AvailableQuests.DrawAvailableQuest(quest) -- prevent recursion
         local gameObjects = quest.Starts["GameObject"]
         for i = 1, #gameObjects do
             local obj = QuestieDB:GetObject(gameObjects[i])
-
-            _AddStarter(obj, quest, "o_" .. obj.id)
+            _AddStarterWithLimit(obj, "o_" .. gameObjects[i], "o_" .. gameObjects[i], "Object")
         end
     end
     if (quest.Starts["NPC"]) then
@@ -568,14 +594,16 @@ function AvailableQuests.DrawAvailableQuest(quest) -- prevent recursion
         for i = 1, #npcs do
             local npc = QuestieDB:GetNPC(npcs[i])
 
-            if trackNpcAvailability then
-                if (not availableQuestsByNpc[npc.id]) then
-                    availableQuestsByNpc[npc.id] = {}
+            if npc then
+                if trackNpcAvailability then
+                    if (not availableQuestsByNpc[npc.id]) then
+                        availableQuestsByNpc[npc.id] = {}
+                    end
+                    availableQuestsByNpc[npc.id][quest.Id] = true
                 end
-                availableQuestsByNpc[npc.id][quest.Id] = true
-            end
 
-            _AddStarter(npc, quest, "m_" .. npc.id)
+                _AddStarterWithLimit(npc, "m_" .. npc.id, "m_" .. npc.id, "NPC")
+            end
         end
     end
 end
@@ -598,6 +626,14 @@ _RemoveQuestFromNpcAvailability = function(questId, quest)
 end
 
 ---@param questId QuestId
+function AvailableQuests.RemoveAvailableQuest(questId)
+    availableQuests[questId] = nil
+    _RemoveQuestFromNpcAvailability(questId, QuestieDB.GetQuest(questId))
+    QuestieMap:UnloadQuestFrames(questId, nil, "available")
+    QuestieTooltips:RemoveAvailableQuest(questId)
+end
+
+---@param questId QuestId
 function AvailableQuests.RemoveQuest(questId)
     availableQuests[questId] = nil
     _RemoveQuestFromNpcAvailability(questId, QuestieDB.GetQuest(questId))
@@ -613,7 +649,7 @@ function AvailableQuests.RemoveQuestsForToday(npcId, questIds)
     local removedAnyQuest = false
     for _, questId in pairs(questIds) do
         if availableQuests[questId] or QuestieMap.questIdFrames[questId] or QuestieTooltips.lookupKeysByQuestId[questId] then
-            AvailableQuests.RemoveQuest(questId)
+            AvailableQuests.RemoveAvailableQuest(questId)
             removedAnyQuest = true
         end
         if availableQuestsByNpc[npcId] then
@@ -753,7 +789,7 @@ function AvailableQuests.ValidateAvailableQuestsFromGossipShow()
             end
         end
 
-        if (not isAvailableInGossip) and (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)) then
+        if (not isAvailableInGossip) and (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)) then -- no monthly quests here, those are personal
             tinsert(unavailableQuestsToBroadcast, questId)
         end
     end
@@ -805,7 +841,7 @@ function AvailableQuests.ValidateAvailableQuestsFromQuestDetail()
 
     local unavailableQuestsToBroadcast = {}
     for questId in pairs(availableQuestsByNpc[npcId] or {}) do
-        if questId ~= availableQuestId and (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)) then
+        if questId ~= availableQuestId and (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)) then -- no monthly quests here, those are personal
             tinsert(unavailableQuestsToBroadcast, questId)
         end
     end
@@ -874,7 +910,7 @@ function AvailableQuests.ValidateAvailableQuestsFromQuestGreeting()
 
     local unavailableQuestsToBroadcast = {}
     for questId in pairs(availableQuestsByNpc[npcId] or {}) do
-        if (not availableQuestsInGreeting[questId]) and (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)) then
+        if (not availableQuestsInGreeting[questId]) and (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)) then -- no monthly quests here, those are personal
             tinsert(unavailableQuestsToBroadcast, questId)
         end
     end
@@ -911,12 +947,14 @@ _CalculateAvailableQuests = function()
     end
 
     local completedQuests = Questie.db.char.complete
-    local showRepeatableQuests = Questie.db.profile.showRepeatableQuests
-    local showTrivialRepeatableQuests = Questie.db.profile.showTrivialRepeatableQuests ~= false
-    local showDungeonQuests = Questie.db.profile.showDungeonQuests
-    local showRaidQuests = Questie.db.profile.showRaidQuests
-    local showPvPQuests = Questie.db.profile.showPvPQuests
+    local showRepeatableQuests = QuestieIconVisibility:IsEnabledAnywhere("repeatable")
+    local showTrivialRepeatableQuests = QuestieIconVisibility:IsEnabledAnywhere("trivialRepeatable")
+    local showDungeonQuests = QuestieIconVisibility:IsEnabledAnywhere("dungeon")
+    local showRaidQuests = QuestieIconVisibility:IsEnabledAnywhere("raid")
+    local showPvPQuests = QuestieIconVisibility:IsEnabledAnywhere("pvp")
     local showAQWarEffortQuests = Questie.db.profile.showAQWarEffortQuests
+    local showScourgeInvasionQuests = Questie.db.profile.showScourgeInvasionQuests
+    local showSunsReachQuests = Questie.db.profile.showSunsReachQuests
 
     local autoBlacklist = QuestieDB.autoBlacklist
     local hiddenQuests = QuestieCorrections.hiddenQuests
@@ -925,6 +963,8 @@ _CalculateAvailableQuests = function()
     local currentQuestlog = QuestiePlayer.currentQuestlog
     local currentIsleOfQuelDanasQuests = IsleOfQuelDanas.quests[Questie.db.profile.isleOfQuelDanasPhase] or {}
     local aqWarEffortQuests = QuestieQuestBlacklist.AQWarEffortQuests
+    local scourgeInvasionQuests = QuestieQuestBlacklist.ScourgeInvasionQuests
+    local sunsReachQuests = QuestieQuestBlacklist.SunsReachQuests
 
     QuestieDB.activeChildQuests = {} -- Reset here so we don't need to keep track in the quest event system
 
@@ -958,8 +998,9 @@ _CalculateAvailableQuests = function()
             ((not showDungeonQuests) and QuestieDB.IsDungeonQuest(questId)) or      -- Don't show dungeon quests if option is disabled
             ((not showRaidQuests) and QuestieDB.IsRaidQuest(questId)) or            -- Don't show raid quests if option is disabled
             ((not showAQWarEffortQuests) and aqWarEffortQuests[questId]) or         -- Don't show AQ War Effort quests if the option disabled
-            (Questie.IsClassic and currentIsleOfQuelDanasQuests[questId]) or        -- Don't show Isle of Quel'Danas quests for Era/HC/SoX
-            (Questie.IsSoD and QuestieDB.IsRuneAndShouldBeHidden(questId))          -- Don't show SoD Rune quests with the option disabled
+            ((not showScourgeInvasionQuests) and scourgeInvasionQuests[questId]) or -- Don't show Scourge Invasion quests if the option is disabled
+            ((not showSunsReachQuests) and sunsReachQuests[questId]) or             -- Hide all Sun's Reach quests if the event is off
+            (showSunsReachQuests and currentIsleOfQuelDanasQuests[questId])         -- Phase-based filtering when event is on
         ) then
             nextAvailableQuestSet[questId] = nil
             return
@@ -1003,7 +1044,7 @@ _SyncAvailableQuestDisplay = function(previousAvailableQuests, nextAvailableQues
 
     for questId in pairs(previousAvailableQuests) do
         if not nextAvailableQuests[questId] then
-            AvailableQuests.RemoveQuest(questId)
+            AvailableQuests.RemoveAvailableQuest(questId)
         end
 
         questCount = questCount + 1
@@ -1038,13 +1079,11 @@ end
 ---@param questId QuestId
 ---@return boolean
 _HasLiveAvailableQuestFrames = function(questId)
-    for _, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
+    return QuestieMap:ForQuestFrames(questId, function(frame)
         if frame and frame.data and frame.data.Type == "available" then
             return true
         end
-    end
-
-    return false
+    end)
 end
 
 ---@param quest Quest|nil
@@ -1053,7 +1092,7 @@ _RegisterQuestStartTooltips = function(quest)
         return
     end
 
-    local items = Questie.db.profile.showItemStartQuests and quest.Starts["Item"]
+    local items = QuestieIconVisibility:IsEnabledAnywhere("itemStart") and quest.Starts["Item"]
     if items then
         for i = 1, #items do
             local item = QuestieDB:GetItem(items[i])
@@ -1197,9 +1236,7 @@ end
 
 ---@param quest Quest
 _GetQuestIcon = function(quest)
-    if Questie.IsSoD == true and QuestieDB.IsSoDRuneQuest(quest.Id) then
-        return Questie.ICON_TYPE_SODRUNE
-    elseif QuestieDB.IsActiveEventQuest(quest.Id) then
+    if QuestieDB.IsActiveEventQuest(quest.Id) then
         return Questie.ICON_TYPE_EVENTQUEST
     end
     if QuestieDB.IsPvPQuest(quest.Id) then
@@ -1220,14 +1257,17 @@ end
 ---@param starter table Either an object or an NPC
 ---@param quest Quest
 ---@param tooltipKey string the tooltip key. For objects it's "o_<ID>", for NPCs it's "m_<ID>"
-_AddStarter = function(starter, quest, tooltipKey)
+---@param limit number 0 means unlimited
+---@return number added
+_AddStarter = function(starter, quest, tooltipKey, limit)
     if (not starter) then
-        return
+        return 0
     end
 
-    -- Need to know when this quest starts from an item, so we save it later
+    -- Need to know when this quest starts from an item or object, so we save it later
     ---@type string|nil
     local starterType
+    local added = 0
 
     if tooltipKey == "m_" .. starter.id then
         -- filter hostile starters
@@ -1249,6 +1289,9 @@ _AddStarter = function(starter, quest, tooltipKey)
         starterType = "itemFromObject"
     end
 
+    local isDungeonQuest = QuestieDB.IsDungeonQuest(quest.Id)
+    local isRaidQuest = QuestieDB.IsRaidQuest(quest.Id)
+
     QuestieTooltips:RegisterQuestStartTooltip(quest.Id, starter.name, starter.id, tooltipKey, (starterType or "NPC"))
 
     local starterIcons = {}
@@ -1260,7 +1303,7 @@ _AddStarter = function(starter, quest, tooltipKey)
             local coords
             for spawnIndex = 1, #spawns do
                 coords = spawns[spawnIndex]
-                if Phasing.IsSpawnVisible(coords[3]) and (#spawns == 1 or _HasProperDistanceToAlreadyAddedSpawns(coords, alreadyAddedSpawns)) then
+                if Phasing.IsSpawnVisible(coords[3]) and (limit == 0 or added < limit) and (#spawns == 1 or _HasProperDistanceToAlreadyAddedSpawns(coords, alreadyAddedSpawns)) then
                     visibleStarterZones[zone] = true
 
                     local data = {
@@ -1272,13 +1315,20 @@ _AddStarter = function(starter, quest, tooltipKey)
                         QuestData = quest,
                         Name = starter.name,
                         IsObjectiveNote = false,
+                        StarterType = starterType,
+                        isDungeonQuest = isDungeonQuest,
+                        isRaidQuest = isRaidQuest,
+                        IsItemStartQuestSource = starterType == "itemFromMonster" or starterType == "itemFromObject",
                     }
 
                     if (coords[1] == -1 or coords[2] == -1) then
                         local dungeonLocation = ZoneDB:GetDungeonLocation(zone)
                         if dungeonLocation then
                             for _, value in ipairs(dungeonLocation) do
-                                QuestieMap:DrawWorldIcon(data, value[1], value[2], value[3])
+                                if limit == 0 or added < limit then
+                                    QuestieMap:DrawWorldIcon(data, value[1], value[2], value[3])
+                                    added = added + 1
+                                end
                             end
                         end
                     else
@@ -1290,7 +1340,10 @@ _AddStarter = function(starter, quest, tooltipKey)
                                 starterLocs[zone] = { coords[1], coords[2] }
                             end
                         end
-                        tinsert(alreadyAddedSpawns, coords)
+                        if icon then
+                            tinsert(alreadyAddedSpawns, coords)
+                            added = added + 1
+                        end
                     end
                 end
             end
@@ -1303,30 +1356,43 @@ _AddStarter = function(starter, quest, tooltipKey)
             if (visibleStarterZones[zone] or (not starter.spawns) or (not starter.spawns[zone]) or _HasVisibleSpawnInZone(starter.spawns[zone])) and
                 (not dungeons[zone]) and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
                 if not starterIcons[zone] then
-                    local data = {
-                        Id = quest.Id,
-                        Icon = _GetQuestIcon(quest),
-                        GetIconScale = _GetIconScaleForAvailable,
-                        IconScale = _GetIconScaleForAvailable(),
-                        Type = "available",
-                        QuestData = quest,
-                        Name = starter.name,
-                        IsObjectiveNote = false,
-                    }
-                    starterIcons[zone] = QuestieMap:DrawWorldIcon(data, zone, waypoints[1][1][1], waypoints[1][1][2])
-                    starterLocs[zone] = { waypoints[1][1][1], waypoints[1][1][2] }
+                    if limit == 0 or added < limit then
+                        local data = {
+                            Id = quest.Id,
+                            Icon = _GetQuestIcon(quest),
+                            GetIconScale = _GetIconScaleForAvailable,
+                            IconScale = _GetIconScaleForAvailable(),
+                            Type = "available",
+                            QuestData = quest,
+                            Name = starter.name,
+                            IsObjectiveNote = false,
+                            StarterType = starterType,
+                            isDungeonQuest = isDungeonQuest,
+                            isRaidQuest = isRaidQuest,
+                            IsItemStartQuestSource = starterType == "itemFromMonster" or starterType == "itemFromObject",
+                        }
+                        starterIcons[zone] = QuestieMap:DrawWorldIcon(data, zone, waypoints[1][1][1], waypoints[1][1][2])
+                        if starterIcons[zone] then
+                            starterLocs[zone] = { waypoints[1][1][1], waypoints[1][1][2] }
+                            added = added + 1
+                        end
+                    end
                 end
-                QuestieMap:DrawWaypoints(starterIcons[zone], waypoints, zone)
+                if starterIcons[zone] then
+                    QuestieMap:DrawWaypoints(starterIcons[zone], waypoints, zone)
+                end
             end
         end
     end
+
+    return added
 end
 
 _HasProperDistanceToAlreadyAddedSpawns = function(coords, alreadyAddedSpawns)
     for _, alreadyAdded in pairs(alreadyAddedSpawns) do
         local distance = QuestieLib.GetSpawnDistance(alreadyAdded, coords)
-        -- 29 seems like a good distance. The "Undying Laborer" in Westfall shows both spawns for the "Horn of Lordaeron" rune
-        if distance < 29 then
+        -- 28 seems like a good distance. The NPC Denalan in Teldrassil shows both spawns for the quests.
+        if distance < Questie.db.profile.spawnFilterDistance then
             return false
         end
     end
@@ -1336,5 +1402,3 @@ end
 _GetIconScaleForAvailable = function()
     return Questie.db.profile.availableScale or 1.3
 end
-
-return AvailableQuests

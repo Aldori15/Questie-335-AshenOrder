@@ -6,7 +6,7 @@ local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestieProfessions
 local QuestieProfessions = QuestieLoader:ImportModule("QuestieProfessions")
 
-local _, playerClass = UnitClass("player")
+local _, playerClass = UnitClassBase("player")
 local playerFaction = UnitFactionGroup("player")
 
 local tinsert = tinsert
@@ -114,8 +114,10 @@ function Townsfolk.Initialize()
         ["Auctioneer"] = townsfolkData["Auctioneer"].data,
         ["Banker"] = townsfolkData["Banker"].data,
         ["Battlemaster"] = townsfolkData["Battlemaster"].data,
+        ["Barber"] = {},
         ["Flight Master"] = townsfolkData["Flight Master"].data,
         ["Innkeeper"] = townsfolkData["Innkeeper"].data,
+        ["Riding Trainer"] = {},
         ["Weapon Master"] = {}, -- populated below
     }
 
@@ -165,6 +167,35 @@ function Townsfolk.Initialize()
         end
 
         if count > 10 then -- Yield every 10 iterations, 10 is just a madeup number, is pretty fast.
+            count = 0
+            coroutine.yield()
+        end
+        count = count + 1
+    end
+
+    local subNameTownsfolk = {
+        ["Barber"] = "Barber",
+        ["Riding Trainer"] = "Riding Trainer",
+        ["Cold Weather Flying Trainer"] = "Riding Trainer",
+    }
+    local subNameTownsfolkIds = {}
+    for _, key in pairs(subNameTownsfolk) do
+        subNameTownsfolkIds[key] = {}
+        for _, id in pairs(townfolk[key]) do
+            subNameTownsfolkIds[key][id] = true
+        end
+    end
+
+    count = 0
+    for id, npcData in pairs(QuestieDB.npcData) do
+        local subName = npcData[QuestieDB.npcKeys.subName]
+        local key = subNameTownsfolk[subName]
+        if key and npcData[QuestieDB.npcKeys.spawns] and not subNameTownsfolkIds[key][id] then
+            subNameTownsfolkIds[key][id] = true
+            tinsert(townfolk[key], id)
+        end
+
+        if count > 700 then
             count = 0
             coroutine.yield()
         end
@@ -267,10 +298,6 @@ function Townsfolk.PostBoot() -- post DB boot (use queries here)
         5565, 16583, -- WARLOCK
         17034, 17026, 17035, 17021, 17038, 17036, 17037, -- DRUID
     }
-    
-    if Questie.IsSoD then
-        table.insert(reagents, 212160) -- In SoD the Chronoboon Displacer is sold by reagent vendors
-    end
 
     -- populate vendor IDs from db
     if #reagents > 0 then
@@ -301,7 +328,7 @@ function Townsfolk:BuildCharacterTownsfolk()
     Questie.db.char.townsfolk = {}
     Questie.db.char.vendorList = {}
     Questie.db.char.vendorListInitialized = nil
-    Questie.db.char.townsfolkClass = UnitClass("player")
+    Questie.db.char.townsfolkClass = select(2, UnitClassBase("player"))
 
     for key, npcs in pairs(Questie.db.global.factionSpecificTownsfolk[playerFaction]) do
         Questie.db.char.townsfolk[key] = npcs

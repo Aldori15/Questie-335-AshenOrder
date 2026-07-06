@@ -11,6 +11,10 @@ Questie-335 updated to work with the Ashen Order repack.
 > [!WARNING]
 > Please note that both "Questie-335" and "Questie-AshenOrder" addon folders must be used together and they will not work properly independently of each other.  This also means you cannot use a Questie-335 from another repository as it will not be compatible with Questie-AshenOrder, so please make sure you use both and only the ones from this repository.
 
+## Questie Information
+- You can use the [issue tracker](https://github.com/Aldori15/Questie-335-AshenOrder/issues) to report bugs and post feature requests (requires a Github account).
+- If you get an error message from the WoW client, please include the **complete** text or a screenshot of it in your report.
+    - You need to enter `/console scriptErrors 1` once in the ingame chat for Lua error messages to be shown. You can later disable them again with `/console scriptErrors 0`.
 
 # Features
 

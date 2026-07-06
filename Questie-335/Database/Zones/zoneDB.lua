@@ -87,7 +87,12 @@ end
 ---@param areaId AreaId
 ---@return UiMapId
 function ZoneDB:GetUiMapIdByAreaId(areaId)
-    return areaIdToUiMapId[areaId] or specialZoneIdToUiMapId[areaId]
+    local uiMapId = areaIdToUiMapId[areaId] or specialZoneIdToUiMapId[areaId]
+    if (not uiMapId) then
+        Questie:Debug(Questie.DEBUG_CRITICAL, "No UiMapId found for AreaId: " .. tostring(areaId))
+    end
+
+    return uiMapId
 end
 
 --- Use with care, kind of slow.
@@ -218,19 +223,30 @@ do
         local count = 0
 
         for questId in pairs(QuestieDB.QuestPointers) do
-            if (not QuestieCorrections.hiddenQuests[questId]) then
+            local hiddenQuest = QuestieCorrections.hiddenQuests[questId]
+            local isCurrentExpansionEventQuest = QuestieEvent:IsEventQuestInCurrentExpansion(questId)
+            if (not hiddenQuest) or isCurrentExpansionEventQuest then
                 if QuestiePlayer.HasRequiredRace(QuestieDB.QueryQuestSingle(questId, "requiredRaces"))
                     and QuestiePlayer.HasRequiredClass(QuestieDB.QueryQuestSingle(questId, "requiredClasses")) then
 
                     local zoneOrSort, requiredSkill = QuestieDB.QueryQuestSingle(questId, "zoneOrSort"), QuestieDB.QueryQuestSingle(questId, "requiredSkill")
-                    if requiredSkill and requiredSkill[1] ~= QuestieProfessions.professionKeys.RIDING then
-                        zoneOrSort = QuestieProfessions:GetSortIdByProfessionId(requiredSkill[1])
+                    local requiredSkillId = requiredSkill and requiredSkill[1]
+                    local professionZoneId = requiredSkillId
+                        and requiredSkillId ~= QuestieProfessions.professionKeys.RIDING
+                        and QuestieProfessions:GetSortIdByProfessionId(requiredSkillId)
 
-                        if (not zoneMap[zoneOrSort]) then
-                            zoneMap[zoneOrSort] = {}
+                    local eventSortKey = hiddenQuest and isCurrentExpansionEventQuest and _ZoneDB:GetEventSortKey(QuestieEvent:GetEventNameFor(questId))
+                    if eventSortKey then
+                        if (not zoneMap[eventSortKey]) then
+                            zoneMap[eventSortKey] = {}
                         end
-                        zoneMap[zoneOrSort][questId] = true
-                    elseif zoneOrSort > 0 then
+                        zoneMap[eventSortKey][questId] = true
+                    elseif professionZoneId then
+                        if (not zoneMap[professionZoneId]) then
+                            zoneMap[professionZoneId] = {}
+                        end
+                        zoneMap[professionZoneId][questId] = true
+                    elseif zoneOrSort and zoneOrSort > 0 then
                         local parentZoneId = ZoneDB:GetParentZoneId(zoneOrSort)
 
                         if parentZoneId then
@@ -290,6 +306,33 @@ do
     end
 end
 
+---@param yield boolean?
+---@return table
+function ZoneDB:RebuildZonesWithQuests(yield)
+    zoneMap = {}
+    return self:GetZonesWithQuests(yield)
+end
+
+function _ZoneDB:GetEventSortKey(eventName)
+    local sortKeys = QuestieDB.sortKeys
+    local eventSortKeys = {
+        ["Brewfest"] = sortKeys.BREWFEST,
+        ["Children's Week"] = sortKeys.CHILDRENS_WEEK,
+        ["Darkmoon Faire"] = sortKeys.DARKMOON_FAIRE,
+        ["Day of the Dead"] = sortKeys.DAY_OF_THE_DEAD,
+        ["Harvest Festival"] = sortKeys.HARVEST_FESTIVAL,
+        ["Hallow's End"] = sortKeys.HALLOWS_END,
+        ["Love is in the Air"] = sortKeys.LOVE_IS_IN_THE_AIR,
+        ["Lunar Festival"] = sortKeys.LUNAR_FESTIVAL,
+        ["Midsummer"] = sortKeys.MIDSUMMER,
+        ["Noblegarden"] = sortKeys.NOBLEGARDEN,
+        ["Pilgrim's Bounty"] = sortKeys.PILGRIMS_BOUNTY,
+        ["Winter Veil"] = sortKeys.WINTER_VEIL,
+    }
+
+    return eventSortKeys[eventName]
+end
+
 
 ---@param zoneOrSort ZoneOrSort
 function _ZoneDB:IsSpecialQuest(zoneOrSort)
@@ -344,37 +387,43 @@ end
 
 ---@return table
 function _ZoneDB:SplitSeasonalQuests()
-    if (not zoneMap[QuestieDB.sortKeys.SPECIAL]) or (not zoneMap[QuestieDB.sortKeys.SEASONAL]) then
+    local sortKeys = QuestieDB.sortKeys
+
+    if (not zoneMap[sortKeys.SPECIAL]) and (not zoneMap[sortKeys.SEASONAL]) then
         return zoneMap
     end
-    local questsToSplit = zoneMap[QuestieDB.sortKeys.SEASONAL]
+
+    local questsToSplit = {}
+    if zoneMap[sortKeys.SEASONAL] then
+        for k, v in pairs(zoneMap[sortKeys.SEASONAL]) do questsToSplit[k] = v end
+    end
+
     -- Merging SEASONAL and SPECIAL quests to be split into real groups
-    for k, v in pairs(zoneMap[QuestieDB.sortKeys.SPECIAL]) do questsToSplit[k] = v end
+    if zoneMap[sortKeys.SPECIAL] then
+        for k, v in pairs(zoneMap[sortKeys.SPECIAL]) do questsToSplit[k] = v end
+    end
 
     local updatedZoneMap = zoneMap
-    updatedZoneMap[-400] = {}
-    updatedZoneMap[-401] = {}
-    updatedZoneMap[-402] = {}
-    updatedZoneMap[-403] = {}
-    updatedZoneMap[-404] = {}
 
     for questId, _ in pairs(questsToSplit) do
-        local eventName = QuestieEvent:GetEventNameFor(questId)
-        if eventName == "Love is in the Air" then
-            updatedZoneMap[-400][questId] = true
-        elseif eventName == "Children's Week" then
-            updatedZoneMap[-401][questId] = true
-        elseif eventName == "Harvest Festival" then
-            updatedZoneMap[-402][questId] = true
-        elseif eventName == "Hallow's End" then
-            updatedZoneMap[-403][questId] = true
-        elseif eventName == "Winter Veil" then
-            updatedZoneMap[-404][questId] = true
+        local eventSortKey = _ZoneDB:GetEventSortKey(QuestieEvent:GetEventNameFor(questId))
+        if eventSortKey then
+            if (not updatedZoneMap[eventSortKey]) then
+                updatedZoneMap[eventSortKey] = {}
+            end
+            updatedZoneMap[eventSortKey][questId] = true
+        else
+            -- here for actual "Special" quests that are not part of events
+            -- E.g. CLUCK!
+            if (not updatedZoneMap[sortKeys.SPECIALTEMP]) then
+                updatedZoneMap[sortKeys.SPECIALTEMP] = {}
+            end
+            updatedZoneMap[sortKeys.SPECIALTEMP][questId] = true
         end
     end
 
-    updatedZoneMap[QuestieDB.sortKeys.SEASONAL] = nil
-    updatedZoneMap[QuestieDB.sortKeys.SPECIAL] = nil
+    updatedZoneMap[sortKeys.SEASONAL] = nil
+    updatedZoneMap[sortKeys.SPECIAL] = nil
     return updatedZoneMap
 end
 
@@ -403,17 +452,11 @@ function _ZoneDB:RunTests()
     -- Fetch all UiMapIds (WOTLK/TBC, ERA)
     local maps = C_Map.GetMapChildrenInfo(946, nil, true) or C_Map.GetMapChildrenInfo(947, nil, true)
     Questie:Debug(Questie.DEBUG_CRITICAL, "[" .. Questie:Colorize("ZoneDBTests", "yellow") .. "] Testing ZoneDB")
-    local buggedMaps = {
-        [306] = true, -- ScholomanceOLD
-        [307] = true, -- ScholomanceOLD
-        [308] = true, -- ScholomanceOLD
-        [309] = true, -- ScholomanceOLD
-    }
     for _, map in pairs(maps) do
         --- We don't care about World, Continent or Cosmic
         if map.mapType ~= UI_MAP_TYPE_WORLD and map.mapType ~= UI_MAP_TYPE_CONTINENT and map.mapType ~= UI_MAP_TYPE_COSMIC then
             local success, result = pcall(ZoneDB.GetAreaIdByUiMapId, ZoneDB, map.mapID)
-            if not success and not buggedMaps[map.mapID] then
+            if not success then
                 Questie:Error("[ZoneDBTests] ZoneDB.GetAreaIdByUiMapId fails for " .. map.name .. " (" .. map.mapID .. "). Result: " .. result)
             end
 
@@ -421,5 +464,3 @@ function _ZoneDB:RunTests()
     end
     Questie:Debug(Questie.DEBUG_CRITICAL, "[" .. Questie:Colorize("ZoneDBTests", "yellow") .. "] Testing ZoneDB done")
 end
-
-return ZoneDB

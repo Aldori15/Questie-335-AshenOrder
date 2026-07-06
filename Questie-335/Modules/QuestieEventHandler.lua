@@ -41,14 +41,18 @@ local QuestieInit = QuestieLoader:ImportModule("QuestieInit")
 local MinimapIcon = QuestieLoader:ImportModule("MinimapIcon")
 ---@type QuestgiverFrame
 local QuestgiverFrame = QuestieLoader:ImportModule("QuestgiverFrame")
----@type QuestieDebugOffer
-local QuestieDebugOffer = QuestieLoader:ImportModule("QuestieDebugOffer")
 ---@type AvailableQuests
 local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
+---@type QuestiePartyObjectives
+local QuestiePartyObjectives = QuestieLoader:ImportModule("QuestiePartyObjectives")
 
 --- COMPATIBILITY ---
 local C_Timer = QuestieCompat.C_Timer
+local GetGroupUnitByName = QuestieCompat.GetGroupUnitByName
+local GetNumGroupMembers = QuestieCompat.GetNumGroupMembers
+local IsInGroup = QuestieCompat.IsInGroup
 local UnitInParty = QuestieCompat.UnitInParty
+local strfind = string.find
 
 local questAcceptedMessage = string.gsub(ERR_QUEST_ACCEPTED_S, "(%%s)", "(.+)")
 local questCompletedMessage = string.gsub(ERR_QUEST_COMPLETE_S, "(%%s)", "(.+)")
@@ -160,7 +164,6 @@ function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterEvent("QUEST_DETAIL", function(...) -- When the quest is presented!
         AvailableQuests.ValidateAvailableQuestsFromQuestDetail()
         QuestieAuto.QUEST_DETAIL(...)
-        if Questie.IsSoD then QuestieDebugOffer.QuestDialog(...) end;
     end)
     Questie:RegisterEvent("QUEST_PROGRESS", QuestieAuto.QUEST_PROGRESS)
     Questie:RegisterEvent("GOSSIP_SHOW", function(...)
@@ -177,7 +180,6 @@ function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterEvent("GOSSIP_CLOSED", QuestieAuto.GOSSIP_CLOSED)               -- Called twice when the stopping to talk to an NPC
     Questie:RegisterEvent("QUEST_COMPLETE", function(...)                           -- When complete window shows
         QuestieAuto.QUEST_COMPLETE(...)
-        if Questie.IsSoD then QuestieDebugOffer.QuestDialog(...) end;
     end)
 
     -- UI Achievement Events
@@ -262,11 +264,6 @@ function QuestieEventHandler:RegisterLateEvents()
         end)
     end
 
-    -- Questie Debug Offer
-    if Questie.IsSoD then
-        Questie:RegisterEvent("LOOT_OPENED", QuestieDebugOffer.LootWindow)
-    end
-
     -- Questie Comms Events
 
     -- Party join event for QuestieComms, Use bucket to hinder this from spamming (Ex someone using a raid invite addon etc)
@@ -274,12 +271,21 @@ function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterEvent("GROUP_JOINED", _EventHandler.GroupJoined)
     Questie:RegisterEvent("GROUP_LEFT", _EventHandler.GroupLeft)
 
+    -- On a /reload (or login) while already in a group, GROUP_JOINED does not fire, so request party quest logs now;
+    -- otherwise we never receive party members' objectives until the group changes.
+    if IsInGroup() then
+        _EventHandler:GroupJoined()
+    end
+
     -- Nameplate / Target Frame Objective Events
     Questie:RegisterEvent("NAME_PLATE_UNIT_ADDED", QuestieNameplate.NameplateCreated)
     Questie:RegisterEvent("NAME_PLATE_UNIT_REMOVED", QuestieNameplate.NameplateDestroyed)
     Questie:RegisterEvent("PLAYER_TARGET_CHANGED", function(...)
+        QuestieNameplate:UpdateNameplate()
         QuestieNameplate:DrawTargetFrame()
-        --if Questie.IsSoD then QuestieDebugOffer.NPCTarget() end;
+        C_Timer.After(0.05, function()
+            QuestieNameplate:UpdateNameplate()
+        end)
     end)
 
     -- quest announce
@@ -373,10 +379,17 @@ end
 ---@param message string The message value from the CHAT_MSG_SYSTEM event
 function _EventHandler:ChatMsgSystem(message)
     -- When a new quest is accepted or completed quest is turned in, update the LibDataBroker text with the appropriate message
-    if string.find(message, questCompletedMessage) == 1 or string.find(message, questAcceptedMessage) == 1 then
+    if strfind(message, questCompletedMessage) == 1 or strfind(message, questAcceptedMessage) == 1 then
         MinimapIcon:UpdateText(message)
-    elseif string.find(message, FACTION_STANDING_CHANGED_PATTERN) then -- When you discover a new faction or increase standing eg. Neutral -> Friendly
-        QuestieReputation:Update()
+    elseif strfind(message, FACTION_STANDING_CHANGED_PATTERN) then -- When you discover a new faction or increase standing eg. Neutral -> Friendly
+        local factionChanged, newFaction = QuestieReputation:Update(false)
+        if factionChanged or newFaction then
+            QuestieCombatQueue:Queue(function()
+                QuestieTracker:Update()
+            end)
+
+            AvailableQuests.CalculateAndDrawAll()
+        end
     end
 end
 
@@ -548,16 +561,51 @@ function _EventHandler:ChatMsgCompatFactionChange()
     end
 end
 
+-- Snapshot of online/offline state for party members who have shared quests, used to decide
+-- whether a GROUP_ROSTER_UPDATE actually requires a party-objective redraw.
+local previousOnlineStatus = {}
+
+-- GROUP_ROSTER_UPDATE fires for many reasons, including party members crossing zone boundaries.
+-- Party objectives only need redrawing when a quest-sharing member goes online/offline or leaves,
+-- so this prevents a constant full redraw while a group travels.
+---@return boolean
+local function _OnlineStatusChanged()
+    local changed = false
+    local current = {}
+    for _, players in pairs(QuestieComms.remoteQuestLogs) do
+        for name in pairs(players) do
+            if current[name] == nil then
+                local unit = GetGroupUnitByName(name)
+                local online = unit and UnitIsConnected(unit) and true or false
+                current[name] = online
+                if previousOnlineStatus[name] ~= online then
+                    changed = true
+                end
+            end
+        end
+    end
+    for name in pairs(previousOnlineStatus) do
+        if current[name] == nil then
+            changed = true -- a member who previously shared quests no longer does
+        end
+    end
+    previousOnlineStatus = current
+    return changed
+end
+
 function _EventHandler.GroupRosterUpdate()
     local currentMembers = GetNumGroupMembers()
-    -- Only want to do logic when number increases, not decreases.
-    if QuestiePlayer.numberOfGroupMembers < currentMembers then
-        -- Tell comms to send information to members.
-        --Questie:SendMessage("QC_ID_BROADCAST_FULL_QUESTLIST")
-        QuestiePlayer.numberOfGroupMembers = currentMembers
-    else
-        -- We do however always want the local to be the current number to allow up and down.
-        QuestiePlayer.numberOfGroupMembers = currentMembers
+    local sizeChanged = currentMembers ~= QuestiePlayer.numberOfGroupMembers
+    QuestiePlayer.numberOfGroupMembers = currentMembers
+
+    -- Evaluate unconditionally so the online snapshot stays current even when the size also changed.
+    local onlineChanged = _OnlineStatusChanged()
+
+    -- Only redraw when the group size changed (crossing the draw threshold / members joining or
+    -- leaving) or a quest-sharing member changed online status. Pure zone changes also fire
+    -- GROUP_ROSTER_UPDATE and must NOT trigger a redraw.
+    if sizeChanged or onlineChanged then
+        QuestiePartyObjectives:ScheduleUpdate()
     end
 end
 
@@ -586,6 +634,8 @@ end
 function _EventHandler:GroupLeft()
     --Resets both QuestieComms.remoteQuestLog and QuestieComms.data
     QuestieComms:ResetAll()
+    QuestiePartyObjectives:Clear()
+    previousOnlineStatus = {}
 end
 
 local trackerMinimizedByCombat, trackerHiddenByCombat = false, false

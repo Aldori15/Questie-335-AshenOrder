@@ -11,10 +11,10 @@ local QuestieOptionsDefaults = QuestieLoader:ImportModule("QuestieOptionsDefault
 local QuestieOptionsUtils = QuestieLoader:ImportModule("QuestieOptionsUtils");
 ---@type QuestieTracker
 local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker");
----@type IsleOfQuelDanas
-local IsleOfQuelDanas = QuestieLoader:ImportModule("IsleOfQuelDanas");
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
+---@type QuestieJourney
+local QuestieJourney = QuestieLoader:ImportModule("QuestieJourney")
 
 QuestieOptions.tabs.advanced = {...}
 local optionsDefaults = QuestieOptionsDefaults:Load()
@@ -66,8 +66,8 @@ function QuestieOptions.tabs.advanced:Initialize()
                 name = function() return l10n('Icon Limit'); end,
                 desc = function() return l10n('Limits the amount of icons drawn per type. ( Default: %s )', optionsDefaults.profile.iconLimit); end,
                 width = 1.5,
-                min = 10,
-                max = 500,
+                min = 1,
+                max = 5000,
                 step = 10,
                 disabled = function() return (not Questie.db.profile.enableIconLimit); end,
                 get = function(info) return QuestieOptions:GetProfileValue(info); end,
@@ -86,75 +86,64 @@ function QuestieOptions.tabs.advanced:Initialize()
                 width = 0.3,
                 func = function() end,
             },
-            clusterLevelHotzone = {
+            objectiveFilterDistance = {
                 type = "range",
                 order = 1.4,
-                name = function() return l10n('Objective icon cluster amount'); end,
-                desc = function() return l10n('How much objective icons should cluster.'); end,
+                name = function() return l10n("Objective icon filter distance"); end,
+                desc = function() return l10n("Minimum distance between two objective icons in the same zone.\n\nSet to 0 to show all icons. Higher values reduce icon clutter."); end,
                 width = 1.5,
                 disabled = function() return (not Questie.db.profile.enabled); end,
-                min = 1,
-                max = 300,
+                min = 0,
+                max = 5,
                 step = 1,
                 get = function(info) return QuestieOptions:GetProfileValue(info); end,
                 set = function(info, value)
-                    QuestieOptionsUtils:Delay(0.5, QuestieOptions.ClusterRedraw, l10n('Setting clustering value, clusterLevelHotzone set to %s : Redrawing!', value))
                     QuestieOptions:SetProfileValue(info, value)
-                    QuestieOptionsUtils.DetermineTheme()
+                    QuestieOptionsUtils:Delay(0.5, QuestieQuest.SmoothReset, l10n("Setting objective filter distance to %s : Redrawing!", value))
                 end,
             },
-            quelDanasSpacer1 = QuestieOptionsUtils:Spacer(1.45, (not Questie.IsTBC)),
-            npcrules_group = {
-                type = "group",
-                order = 1.5,
-                inline = true,
-                width = 0.5,
-                hidden = (not Questie.IsTBC),
-                name = function() return l10n("Quel'Danas Settings"); end,
-                disabled = function()
-                    return (not Questie.db.profile.autoAccept) or (not Questie.db.profile.autoAccept.enabled)
+            spawnFilterDistance = {
+                type = "range",
+                order = 1.41,
+                name = function() return l10n("Available quest filter distance"); end,
+                desc = function() return l10n("How far away a spawn starting a quest needs to be inside a zone before another spawn of the same creature or object is added.\n\nWARNING! Setting this to lower values may result in a lot of icons being drawn and can impact map performance!"); end,
+                width = 1.5,
+                disabled = function() return (not Questie.db.profile.enabled); end,
+                min = 1,
+                max = 100,
+                step = 1,
+                get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                set = function(info, value)
+                    QuestieOptions:SetProfileValue(info, value)
+                    QuestieOptionsUtils:Delay(0.5, QuestieQuest.SmoothReset, l10n("Setting icon limit value to %s : Redrawing!", value))
                 end,
-                args = {
-                    isleOfQuelDanasPhase = {
-                        type = "select",
-                        order = 1.3,
-                        width = 1.5,
-                        values = IsleOfQuelDanas.localizedPhaseNames,
-                        style = 'dropdown',
-                        name = function() return l10n("Isle of Quel'Danas Phase") end,
-                        desc = function() return l10n("Select the phase fitting your realm progress on the Isle of Quel'Danas"); end,
-                        disabled = function() return (not Questie.IsWotlk) end,
-                        get = function() return Questie.db.profile.isleOfQuelDanasPhase; end,
-                        set = function(_, key)
-                            Questie.db.profile.isleOfQuelDanasPhase = key
-                            QuestieQuest:SmoothReset()
-                        end,
-                    },
-                    quelDanasSpacer2 = {
-                        type = "description",
-                        order = 1.4,
-                        name = "",
-                        desc = "",
-                        image = "",
-                        imageWidth = 0.2,
-                        width = 0.2,
-                        func = function() end,
-                    },
-                    isleOfQuelDanasPhaseReminder = {
-                        type = "toggle",
-                        order = 1.5,
-                        name = function() return l10n('Disable Phase reminder'); end,
-                        desc = function() return l10n("Enable or disable the reminder on login to set the Isle of Quel'Danas phase"); end,
-                        disabled = function() return (not Questie.IsWotlk) end,
-                        width = 1,
-                        get = function() return Questie.db.profile.isIsleOfQuelDanasPhaseReminderDisabled; end,
-                        set = function(_, value)
-                            Questie.db.profile.isIsleOfQuelDanasPhaseReminderDisabled = value
-                        end,
-                    },
-                },
             },
-
+            iconSpacer2 = {
+                type = "description",
+                order = 1.42,
+                name = "",
+                desc = "",
+                image = "",
+                imageWidth = 0.3,
+                width = 0.3,
+                func = function() end,
+            },
+            availableIconLimit = {
+                type = "range",
+                order = 1.43,
+                name = function() return l10n("Available quest icon limit"); end,
+                desc = function() return l10n("This setting limits the number of icons starting a single quest.\n\nSetting to zero means there is no limit (except through other settings).\n\nWARNING! Setting this to 0 may result in a lot of icons being drawn and can impact map performance!"); end,
+                width = 1.5,
+                disabled = function() return (not Questie.db.profile.enabled); end,
+                min = 0,
+                max = 500,
+                step = 1,
+                get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                set = function(info, value)
+                    QuestieOptions:SetProfileValue(info, value)
+                    QuestieOptionsUtils:Delay(0.5, QuestieQuest.SmoothReset, l10n("Setting icon limit value to %s : Redrawing!", value))
+                end,
+            },
             Spacer_A = QuestieOptionsUtils:Spacer(2.9),
             locale_header = {
                 type = "header",
@@ -191,11 +180,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                     end
 
                     if previousLocale ~= Questie.db.global.questieLocale then
-                        if Questie.IsSoD then
-                            Questie.db.global.sod.dbIsCompiled = nil -- recompile db with new lang if locale changed
-                        else
-                            Questie.db.global.dbIsCompiled = nil -- recompile db with new lang if locale changed
-                        end
+                        Questie.db.global.dbIsCompiled = nil -- recompile db with new lang if locale changed
                         StaticPopup_Show("QUESTIE_LANG_CHANGED_RELOAD")
                     end
                 end,
@@ -232,6 +217,14 @@ function QuestieOptions.tabs.advanced:Initialize()
                     StaticPopup_Show("QUESTIE_JOURNEY_RESET_CONFIRM")
                 end,
             },
+            Spacer_Browse = QuestieOptionsUtils:Spacer(4.4),
+            journeyBrowseCharacters = {
+                type = "execute",
+                order = 4.46,
+                name = function() return l10n("Import Journey data") end,
+                desc = function() return l10n("Browse other characters on this account and import their journey data.") end,
+                func = function() QuestieJourney:ShowCharacterBrowserFrame() end,
+            },
             Spacer_E = QuestieOptionsUtils:Spacer(4.5),
             recompileDatabase = {
                 type = "execute",
@@ -239,12 +232,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                 name = function() return l10n('Recompile Database'); end,
                 desc = function() return l10n('Forces a recompile of the Questie database. This will also reload the UI.'); end,
                 func = function (_, _)
-                    if Questie.IsSoD then
-                        Questie.db.global.sod.dbIsCompiled = false
-                    else
-                        Questie.db.global.dbIsCompiled = false
-                    end
-                    ReloadUI()
+                    StaticPopup_Show("QUESTIE_RECOMPILE_DATABASE_CONFIRM")
                 end,
             },
             Spacer_F = QuestieOptionsUtils:Spacer(4.7),
@@ -261,7 +249,7 @@ function QuestieOptions.tabs.advanced:Initialize()
             github_text = {
                 type = "description",
                 order = 4.8,
-                name = function() return Questie:Colorize(l10n('Questie is under active development for World of Warcraft: Classic. Please check GitHub for the latest alpha builds or to report issues. Or join us on our discord! (( https://github.com/Questie/Questie/ ))'), 'purple'); end,
+                name = function() return Questie:Colorize(l10n('Questie-335 is under active development for World of Warcraft: Wotlk 3.3.5a, targeting AzerothCore for data accuracy. Please check GitHub for the latest changes or to report issues.'), 'purple'); end,
                 fontSize = "medium",
             },
             HeaderDev = {
@@ -420,11 +408,7 @@ StaticPopupDialogs["QUESTIE_RESET_CONFIRM"] = {
         Questie.db.profile.migrationVersion = nil
         Questie.db.profile.minimap.hide = optionsDefaults.profile.minimap.hide
 
-        if Questie.IsSoD then
-            Questie.db.global.sod.dbIsCompiled = false
-        else
-            Questie.db.global.dbIsCompiled = false
-        end
+        Questie.db.global.dbIsCompiled = false
 
         Questie.db.char.hidden = nil
         Questie.db.char.hiddenDailies = optionsDefaults.char.hiddenDailies
@@ -438,7 +422,8 @@ StaticPopupDialogs["QUESTIE_RESET_CONFIRM"] = {
         if textField then
             textField:SetText(confirmText)
         end
-        self:SetFrameStrata("FULLSCREEN_DIALOG")
+        self:SetFrameStrata("TOOLTIP")
+        self:SetFrameLevel(1000)
         self:Raise()
     end,
     timeout = 0,
@@ -461,7 +446,32 @@ StaticPopupDialogs["QUESTIE_JOURNEY_RESET_CONFIRM"] = {
         if textField then
             textField:SetText(confirmText)
         end
-        self:SetFrameStrata("FULLSCREEN_DIALOG")
+        self:SetFrameStrata("TOOLTIP")
+        self:SetFrameLevel(1000)
+        self:Raise()
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+StaticPopupDialogs["QUESTIE_RECOMPILE_DATABASE_CONFIRM"] = {
+    text = "", -- we set it in OnShow
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function(self)
+        Questie.db.global.dbIsCompiled = false
+        ReloadUI()
+    end,
+    OnShow = function(self)
+        local confirmText = l10n("Questie database recompile\n\nThis will reload the WoW UI and then take some time to complete. You will see a message in chat when the process has completed.\n\nThe recompile process should be done while not in combat, or Questie may malfunction!\n\nAre you sure you want to recompile the Questie database?")
+        local textField = self.text or self.Text
+        if textField then
+            textField:SetText(confirmText)
+        end
+        self:SetFrameStrata("TOOLTIP")
+        self:SetFrameLevel(1000)
         self:Raise()
     end,
     timeout = 0,

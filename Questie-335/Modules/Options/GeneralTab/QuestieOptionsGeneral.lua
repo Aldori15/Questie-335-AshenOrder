@@ -17,8 +17,6 @@ local QuestieMenu = QuestieLoader:ImportModule("QuestieMenu");
 local l10n = QuestieLoader:ImportModule("l10n")
 ---@type QuestieTooltips
 local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips");
----@type WorldMapButton
-local WorldMapButton = QuestieLoader:ImportModule("WorldMapButton")
 ---@type QuestieCoords
 local QuestieCoords = QuestieLoader:ImportModule("QuestieCoords");
 ---@type QuestieTracker
@@ -29,18 +27,20 @@ local QuestieShutUp = QuestieLoader:ImportModule("QuestieShutUp")
 local Sounds = QuestieLoader:ImportModule("Sounds")
 ---@type AvailableQuests
 local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
+---@type QuestiePartyObjectives
+local QuestiePartyObjectives = QuestieLoader:ImportModule("QuestiePartyObjectives")
 
 QuestieOptions.tabs.general = { ... }
 local optionsDefaults = QuestieOptionsDefaults:Load()
+local LSM30 = LibStub("LibSharedMedia-3.0")
+local tableSort, stringLower = table.sort, string.lower
 
 local _GetAnnounceChannels
 local _IsAnnounceDisabled
 local _GetQuestSoundChoices
-local _GetQuestSoundChoicesSort
 local _GetObjectiveSoundChoices
-local _GetObjectiveSoundChoicesSort
 local _GetObjectiveProgressSoundChoices
-local _GetObjectiveProgressSoundChoicesSort
+local _GetSortedOptions
 
 function QuestieOptions.tabs.general:Initialize()
     return {
@@ -91,14 +91,26 @@ function QuestieOptions.tabs.general:Initialize()
                     printLocalMessages = {
                         type = "toggle",
                         order = 7.3,
-                        name = function() return l10n('Display announcements locally when outside of a group'); end,
-                        desc = function() return l10n("Questie will print your progress messages to chat when not in a group. Other players will NOT be able to see this."); end,
+                        name = function() return l10n("Announce quest updates to yourself"); end,
+                        desc = function() return l10n("Questie will print your update messages to chat. Other players will NOT be able to see this."); end,
                         disabled = function() return Questie.db.profile.questieShutUp end,
                         width = 2.5,
                         get = function () return Questie.db.profile.questAnnounceLocally end,
                         set = function (_, value)
                             Questie.db.profile.questAnnounceLocally = value
                             Questie:Debug(Questie.DEBUG_DEVELOP, "Quest announce locally changed to:", value)
+                        end,
+                    },
+                    showPartyQuestObjectives = {
+                        type = "toggle",
+                        order = 7.35,
+                        name = function() return l10n("Show party members' quest objectives"); end,
+                        desc = function() return l10n("Show quest objectives from party members on the map and minimap, even for quests you don't have or have already completed."); end,
+                        width = 2.5,
+                        get = function () return Questie.db.profile.showPartyQuestObjectives end,
+                        set = function (_, value)
+                            Questie.db.profile.showPartyQuestObjectives = value
+                            QuestiePartyObjectives:Update()
                         end,
                     },
                     shareQuestsNearby = {
@@ -251,19 +263,6 @@ function QuestieOptions.tabs.general:Initialize()
                             Questie.db.profile.enableQuestFrameIcons = value
                         end,
                     },
-                    mapShowHideEnabled = {
-                        type = "toggle",
-                        order = 5.25,
-                        name = function() return l10n('Show Questie Map Button'); end,
-                        desc = function() return l10n('Enable or disable the Show/Hide Questie Button on Map (May fix some Map Addon interactions).'); end,
-                        width = 1.55,
-                        get = function(info) return QuestieOptions:GetProfileValue(info); end,
-                        set = function (info, value)
-                            QuestieOptions:SetProfileValue(info, value)
-
-                            WorldMapButton.Toggle(value)
-                        end,
-                    },
                     minimapButtonEnabled = {
                         type = "toggle",
                         order = 5.3,
@@ -281,25 +280,9 @@ function QuestieOptions.tabs.general:Initialize()
                             end
                         end,
                     },
-                    mapCoordinatesEnabled = {
-                        type = "toggle",
-                        order = 5.4,
-                        name = function() return l10n('Show Map Coordinates'); end,
-                        desc = function() return l10n("Place the Player's coordinates and Cursor's coordinates on the Map's title."); end,
-                        width = 1.55,
-                        get = function(info) return QuestieOptions:GetProfileValue(info); end,
-                        set = function (info, value)
-                            QuestieOptions:SetProfileValue(info, value)
-
-                            if not value then
-                                QuestieCoords:ResetMapText();
-                                QuestieCoords:ResetMiniWorldMapText();
-                            end
-                        end,
-                    },
                     minimapCoordinatesEnabled = {
                         type = "toggle",
-                        order = 5.5,
+                        order = 5.4,
                         name = function() return l10n('Show Minimap Coordinates'); end,
                         desc = function() return l10n("Place the Player's coordinates on the Minimap title."); end,
                         width = 1.55,
@@ -312,18 +295,14 @@ function QuestieOptions.tabs.general:Initialize()
                             end
                         end,
                     },
-                    mapCoordinatePrecision = {
-                        type = "range",
-                        order = 5.6,
-                        name = function() return l10n('Map Coordinates Decimal Precision'); end,
-                        desc = function() return l10n('How many decimals to include in the precision on the Map for Player and Cursor coordinates.\n(Default: %s)', optionsDefaults.profile.mapCoordinatePrecision); end,
-                        width = 1.4,
-                        min = 0,
-                        max = 5,
-                        step = 1,
-                        disabled = function() return not Questie.db.profile.mapCoordinatesEnabled end,
+                    announceWorldEvents = {
+                        type = "toggle",
+                        order = 5.5,
+                        name = function() return l10n('Show active world event notifications'); end,
+                        desc = function() return l10n('Print a chat message when a world event is active or about to start.'); end,
+                        width = 1.55,
                         get = function(info) return QuestieOptions:GetProfileValue(info); end,
-                        set = function (info, value)
+                        set = function(info, value)
                             QuestieOptions:SetProfileValue(info, value)
                         end,
                     },
@@ -448,7 +427,10 @@ function QuestieOptions.tabs.general:Initialize()
                         desc = function() return l10n('When this is enabled, quest info will be added to relevant mob/item tooltips.'); end,
                         width = 1.5,
                         get = function () return Questie.db.profile.enableTooltips; end,
-                        set = function (_, value) Questie.db.profile.enableTooltips = value end
+                        set = function (_, value)
+                            Questie.db.profile.enableTooltips = value
+                            SetCVar("showQuestTrackingTooltips", tostring(value and 0 or 1))
+                        end
                     },
                     questsInNpcTooltip = {
                         type = "toggle",
@@ -516,6 +498,18 @@ function QuestieOptions.tabs.general:Initialize()
                         get = function () return Questie.db.profile.onlyPartyShared; end,
                         set = function (_, value) Questie.db.profile.onlyPartyShared = value end
                     },
+                    trimObjectiveText = {
+                        type = "toggle",
+                        order = 8.8,
+                        name = function() return l10n("Trim Objective Text"); end,
+                        desc = function() return l10n("Simplify quest objective text by removing \"slain\" from it."); end,
+                        width = 1.5,
+                        get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                        set = function(info, value)
+                            QuestieOptions:SetProfileValue(info, value)
+                            QuestieTracker:Update()
+                        end,
+                    },
                 },
             },
             sound_spacer = QuestieOptionsUtils:Spacer(5.5,nil,"minimal"),
@@ -525,6 +519,15 @@ function QuestieOptions.tabs.general:Initialize()
                 inline = true,
                 name = function() return l10n('Sound Options'); end,
                 args = {
+                    loadCustomSounds = {
+                        type = "toggle",
+                        order = 8.7,
+                        name = function() return l10n("Load custom sounds"); end,
+                        desc = function() return l10n("If checked, sounds added through LibSharedMedia are loaded."); end,
+                        width = 2.5,
+                        get = function () return Questie.db.profile.loadCustomSounds; end,
+                        set = function (_, value) Questie.db.profile.loadCustomSounds = value end
+                    },
                     questCompleteSound = {
                         type = "toggle",
                         order = 9.01,
@@ -551,8 +554,8 @@ function QuestieOptions.tabs.general:Initialize()
                     questCompleteSoundChoice = {
                         type = "select",
                         order = 9.03,
-                        values = _GetQuestSoundChoices(),
-                        sorting = _GetQuestSoundChoicesSort(),
+                        values = _GetQuestSoundChoices,
+                        sorting = _GetSortedOptions(_GetQuestSoundChoices),
                         style = 'dropdown',
                         name = function() return l10n('Quest Complete Sound Selection') end,
                         desc = function() return l10n('The sound you hear when a quest is completed'); end,
@@ -594,8 +597,8 @@ function QuestieOptions.tabs.general:Initialize()
                     objectiveCompleteSoundChoice = {
                         type = "select",
                         order = 9.07,
-                        values = _GetObjectiveSoundChoices(),
-                        sorting = _GetObjectiveSoundChoicesSort(),
+                        values = _GetObjectiveSoundChoices,
+                        sorting = _GetSortedOptions(_GetObjectiveSoundChoices),
                         style = 'dropdown',
                         name = function() return l10n('Objective Complete Sound Selection') end,
                         desc = function() return l10n('The sound you hear when an objective is completed'); end,
@@ -631,8 +634,8 @@ function QuestieOptions.tabs.general:Initialize()
                     objectiveProgressSoundChoice = {
                         type = "select",
                         order = 9.10,
-                        values = _GetObjectiveProgressSoundChoices(),
-                        sorting = _GetObjectiveProgressSoundChoicesSort(),
+                        values = _GetObjectiveProgressSoundChoices,
+                        sorting = _GetSortedOptions(_GetObjectiveProgressSoundChoices),
                         style = 'dropdown',
                         name = function() return l10n('Objective Progress Sound Selection') end,
                         desc = function() return l10n('The sound you hear when you make progress on a quest objective'); end,
@@ -640,6 +643,20 @@ function QuestieOptions.tabs.general:Initialize()
                         disabled = function() return (not Questie.db.profile.soundOnObjectiveProgress); end,
                         set = function(_, value)
                             Questie.db.profile.objectiveProgressSoundChoiceName = value
+                        end,
+                    },
+                    soundDelay = {
+                        type = "range",
+                        order = 10.0,
+                        name = function() return l10n("Progress Sound Delay"); end,
+                        desc = function() return l10n("Delay (in seconds, default: %s) for playing objective progress and completion sounds. Increase this if you hear double sounds.", optionsDefaults.profile.soundDelay); end,
+                        width = 1.4,
+                        min = 0.0,
+                        max = 1.0,
+                        step = 0.01,
+                        get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                        set = function (info, value)
+                            QuestieOptions:SetProfileValue(info, value)
                         end,
                     },
                 },
@@ -663,7 +680,7 @@ _IsAnnounceDisabled = function()
 end
 
 _GetQuestSoundChoices = function()
-    return {
+    local choices = {
         ["QuestDefault"]     = "Default",
         ["GameDefault"]      = "Game Default",
         ["Troll Male"]       = "Troll Male",
@@ -687,33 +704,14 @@ _GetQuestSoundChoices = function()
         ["Blood Elf Female"] = "Blood Elf Female",
         ["Blood Elf Male"]   = "Blood Elf Male",
     }
-end
 
-_GetQuestSoundChoicesSort = function()
-    return {
-        "QuestDefault",
-        "GameDefault",
-        "Troll Male",
-        "Troll Female",
-        "Tauren Male",
-        "Tauren Female",
-        "Undead Male",
-        "Undead Female",
-        "Orc Male",
-        "Orc Female",
-        "Night Elf Female",
-        "Night Elf Male",
-        "Human Female",
-        "Human Male",
-        "Gnome Male",
-        "Gnome Female",
-        "Dwarf Male",
-        "Dwarf Female",
-        "Draenei Male",
-        "Draenei Female",
-        "Blood Elf Female",
-        "Blood Elf Male",
-    }
+    if Questie.db.profile.loadCustomSounds then
+        for _, sound in pairs(LSM30:List(LSM30.MediaType.SOUND)) do
+            choices[sound] = sound
+        end
+    end
+
+    return choices
 end
 
 _GetObjectiveSoundChoices = function()
@@ -735,29 +733,14 @@ _GetObjectiveSoundChoices = function()
         choices["Humm"] = "Humm"
         choices["Short Circuit"] = "Short Circuit"
     end
-    return choices
-end
 
-_GetObjectiveSoundChoicesSort = function()
-    local sorting = {
-        "ObjectiveDefault",
-        "Map Ping",
-        "Window Close",
-        "Window Open",
-        "Boat Docked",
-        "Bell Toll Alliance",
-        "Bell Toll Horde",
-    }
-    if Questie.IsWotlk or QuestieCompat.Is335 then
-        tinsert(sorting, "Explosion")
-        tinsert(sorting, "Shing!")
-        tinsert(sorting, "Wham!")
-        tinsert(sorting, "Simon Chime")
-        tinsert(sorting, "War Drums")
-        tinsert(sorting, "Humm")
-        tinsert(sorting, "Short Circuit")
+    if Questie.db.profile.loadCustomSounds then
+        for _, sound in pairs(LSM30:List(LSM30.MediaType.SOUND)) do
+            choices[sound] = sound
+        end
     end
-    return sorting
+
+    return choices
 end
 
 _GetObjectiveProgressSoundChoices = function()
@@ -780,28 +763,33 @@ _GetObjectiveProgressSoundChoices = function()
         choices["Humm"] = "Humm"
         choices["Short Circuit"] = "Short Circuit"
     end
+
+    if Questie.db.profile.loadCustomSounds then
+        for _, sound in pairs(LSM30:List(LSM30.MediaType.SOUND)) do
+            choices[sound] = sound
+        end
+    end
+
     return choices
 end
 
-_GetObjectiveProgressSoundChoicesSort = function()
-    local sorting = {
-        "ObjectiveProgress",
-        "ObjectiveDefault",
-        "Map Ping",
-        "Window Close",
-        "Window Open",
-        "Boat Docked",
-        "Bell Toll Alliance",
-        "Bell Toll Horde",
-    }
-    if Questie.IsWotlk or QuestieCompat.Is335 then
-        tinsert(sorting, "Explosion")
-        tinsert(sorting, "Shing!")
-        tinsert(sorting, "Wham!")
-        tinsert(sorting, "Simon Chime")
-        tinsert(sorting, "War Drums")
-        tinsert(sorting, "Humm")
-        tinsert(sorting, "Short Circuit")
+---Sorts options alphabetically, ignoring case.
+---We return a function to allow AceConfig to refetch the options after toggling custom sounds.
+---@param getOptions function
+---@return function
+_GetSortedOptions = function(getOptions)
+    return function()
+        local sorting = {}
+        for key, value in pairs(getOptions()) do
+            tinsert(sorting, {key = key, value = value})
+        end
+        tableSort(sorting, function(a, b)
+            return stringLower(a.value) < stringLower(b.value)
+        end)
+        local sortedKeys = {}
+        for _, pair in ipairs(sorting) do
+            tinsert(sortedKeys, pair.key)
+        end
+        return sortedKeys
     end
-    return sorting
 end

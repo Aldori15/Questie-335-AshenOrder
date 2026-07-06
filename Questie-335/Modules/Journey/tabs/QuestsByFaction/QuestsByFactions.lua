@@ -3,6 +3,9 @@ local QuestieJourney = QuestieLoader:CreateModule("QuestieJourney")
 local _QuestieJourney = QuestieJourney.private
 _QuestieJourney.questsByFaction = {}
 
+---@type QuestDetailsFrame
+local QuestDetailsFrame = QuestieLoader:ImportModule("QuestDetailsFrame")
+
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestieLib
@@ -11,8 +14,6 @@ local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 local QuestieReputation = QuestieLoader:ImportModule("QuestieReputation")
 ---@type QuestieCorrections
 local QuestieCorrections = QuestieLoader:ImportModule("QuestieCorrections")
----@type QuestieProfessions
-local QuestieProfessions = QuestieLoader:ImportModule("QuestieProfessions")
 ---@type QuestieQuestBlacklist
 local QuestieQuestBlacklist = QuestieLoader:ImportModule("QuestieQuestBlacklist")
 ---@type QuestieEvent
@@ -32,8 +33,6 @@ local IsPlayerSpell = QuestieCompat.IsPlayerSpell
 
 local factionTreeFrame
 local factionQuestMap
-
-local factionIDs = QuestieDB.factionIDs
 
 local expansionDefinitions = {
     { key = "classic", label = EXPANSION_NAME0, order = QuestieCompat.WOW_PROJECT_CLASSIC },
@@ -67,6 +66,12 @@ local referencedFactionFields = {
 
 local referencedFactionIds
 local factionDataInitialized = false
+
+local function _AddReferencedFactionId(refs, factionId)
+    if factionId then
+        refs[factionId] = true
+    end
+end
 
 local function _RegisterFactionForExpansion(factionId, introOrder)
     local factionName = QuestieReputation.GetFactionName(factionId)
@@ -128,33 +133,16 @@ local function _CollectReferencedFactionIds()
 
             if _IsQuestAvailableToPlayer(requiredRaces, requiredClasses) then
                 if requiredMinRep then
-                    local factionId = requiredMinRep[1]
-                    if factionId then
-                        refs[factionId] = true
-                    end
+                    _AddReferencedFactionId(refs, requiredMinRep[1])
                 end
 
                 if requiredMaxRep then
-                    local factionId = requiredMaxRep[1]
-                    if factionId then
-                        refs[factionId] = true
-                    end
+                    _AddReferencedFactionId(refs, requiredMaxRep[1])
                 end
 
                 if reputationReward then
                     for _, reward in pairs(reputationReward) do
-                        local factionId = reward[1]
-                        if factionId then
-                            refs[factionId] = true
-                        end
-                    end
-                end
-
-                if requiredRaces and requiredRaces ~= QuestieDB.raceKeys.NONE then
-                    if bit.band(requiredRaces, QuestieDB.raceKeys.ALL_ALLIANCE) == requiredRaces then
-                        refs[factionIDs.ALLIANCE] = true
-                    elseif bit.band(requiredRaces, QuestieDB.raceKeys.ALL_HORDE) == requiredRaces then
-                        refs[factionIDs.HORDE] = true
+                        _AddReferencedFactionId(refs, reward[1])
                     end
                 end
             end
@@ -203,6 +191,23 @@ local function _PopulateFactionsByExpansion()
     end
 end
 
+local function _PruneFactionsWithoutQuests()
+    if not QuestieJourney.factionsByExpansion or not factionQuestMap then
+        return
+    end
+
+    for _, bucket in pairs(QuestieJourney.factionsByExpansion) do
+        if bucket then
+            for factionId in pairs(bucket) do
+                local questsForFaction = factionQuestMap[factionId]
+                if (not questsForFaction) or (not next(questsForFaction)) then
+                    bucket[factionId] = nil
+                end
+            end
+        end
+    end
+end
+
 local function _EnsureFactionDataInitialized()
     if factionDataInitialized then
         return
@@ -210,6 +215,7 @@ local function _EnsureFactionDataInitialized()
 
     _BuildExpansionDropdownData()
     _PopulateFactionsByExpansion()
+    _PruneFactionsWithoutQuests()
 
     factionDataInitialized = true
 end
@@ -236,28 +242,14 @@ local function _AddQuestToFaction(factionId, questId)
     factionQuestMap[factionId][questId] = true
 end
 
-local function _IsAllianceRaceMask(raceMask)
-    if not raceMask or raceMask == QuestieDB.raceKeys.NONE then
-        return false
-    end
-
-    return bit.band(raceMask, QuestieDB.raceKeys.ALL_ALLIANCE) == raceMask
-end
-
-local function _IsHordeRaceMask(raceMask)
-    if not raceMask or raceMask == QuestieDB.raceKeys.NONE then
-        return false
-    end
-
-    return bit.band(raceMask, QuestieDB.raceKeys.ALL_HORDE) == raceMask
-end
-
 function _EnsureFactionQuestData()
     if factionQuestMap then
         return
     end
 
     factionQuestMap = {}
+    local refs = referencedFactionIds or {}
+    local shouldCollectReferences = not referencedFactionIds
 
     local HIDE_ON_MAP = QuestieQuestBlacklist.HIDE_ON_MAP
     local hiddenQuests = QuestieCorrections.hiddenQuests
@@ -279,6 +271,22 @@ function _EnsureFactionQuestData()
         local requiredClasses = queryResult[5]
 
         if _IsQuestAvailableToPlayer(requiredRaces, requiredClasses) then
+            if shouldCollectReferences then
+                if requiredMinRep then
+                    _AddReferencedFactionId(refs, requiredMinRep[1])
+                end
+
+                if requiredMaxRep then
+                    _AddReferencedFactionId(refs, requiredMaxRep[1])
+                end
+
+                if reputationReward then
+                    for _, reward in pairs(reputationReward) do
+                        _AddReferencedFactionId(refs, reward[1])
+                    end
+                end
+            end
+
             -- Filter out hidden quests
             if hiddenQuests and (((not hiddenQuests[questId]) or hiddenQuests[questId] == HIDE_ON_MAP) or QuestieEvent:IsEventQuest(questId)) then
                 if requiredMinRep then
@@ -294,34 +302,16 @@ function _EnsureFactionQuestData()
                         _AddQuestToFaction(factionPair[1], questId)
                     end
                 end
-
-                -- Only add to ALLIANCE/HORDE factions if the quest provides reputation
-                -- Do we even want this? You can select each faction individually in the dropdown.
-                if reputationReward and next(reputationReward) then
-                    if _IsAllianceRaceMask(requiredRaces) then
-                        _AddQuestToFaction(factionIDs.ALLIANCE, questId)
-                    elseif _IsHordeRaceMask(requiredRaces) then
-                        _AddQuestToFaction(factionIDs.HORDE, questId)
-                    end
-                end
             end
         end
     end
 
     QuestieJourney.factionMap = factionQuestMap
-
-    if QuestieJourney.factionsByExpansion then
-        for expansionKey, bucket in pairs(QuestieJourney.factionsByExpansion) do
-            if bucket then
-                for factionId in pairs(bucket) do
-                    local questsForFaction = factionQuestMap[factionId]
-                    if (not questsForFaction) or (not next(questsForFaction)) then
-                        bucket[factionId] = nil
-                    end
-                end
-            end
-        end
+    if shouldCollectReferences then
+        referencedFactionIds = refs
     end
+
+    _PruneFactionsWithoutQuests()
 end
 
 ---Manage the faction tree itself and the contents of the per-quest window
@@ -338,6 +328,7 @@ function _QuestieJourney.questsByFaction:ManageTree(container, factionTree)
     factionTreeFrame = AceGUI:Create("TreeGroup")
     factionTreeFrame:SetFullWidth(true)
     factionTreeFrame:SetFullHeight(true)
+    factionTreeFrame:EnableButtonTooltips(false)
     factionTreeFrame:SetTree(factionTree)
 
     factionTreeFrame.treeframe:SetWidth(415)
@@ -371,10 +362,10 @@ function _QuestieJourney.questsByFaction:ManageTree(container, factionTree)
 
         -- Add the quest to the open chat window if it was a shift click
         if (IsModifiedClick("CHATLINK") and ChatEdit_GetActiveWindow()) then
-            ChatEdit_InsertLink(QuestieLink:GetQuestInsertString(quest.level, quest.name, quest.Id))
+            ChatEdit_InsertLink(QuestieLink:GetQuestInsertStringById(quest.Id))
         end
 
-        _QuestieJourney:DrawQuestDetailsFrame(scrollFrame, quest)
+        QuestDetailsFrame:Draw(scrollFrame, quest)
     end)
 
     container:AddChild(factionTreeFrame)
@@ -433,16 +424,14 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
     local breadcrumbCounter = 0
     local hiddenCounter = 0
 
-    local temp = {}
-
     local playerlevel = UnitLevel("player")
+    local HIDE_ON_MAP = QuestieQuestBlacklist.HIDE_ON_MAP
     local hiddenQuests = QuestieCorrections.hiddenQuests
     local DoableStates = QuestieDB.DoableStates
 
     for _, levelAndQuest in pairs(sortedQuestByLevel) do
         local questId = levelAndQuest[2]
         if QuestieDB.QuestPointers[questId] then
-            temp.value = questId
             local queryResult = QuestieDB.QueryQuest(
                 questId,
                 {
@@ -472,7 +461,20 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                 end
             end
 
-            temp.text = questName
+            local temp = {
+                value = questId,
+                text = questName,
+            }
+            temp.iconSize = 14
+            temp.useIconGutter = true
+            temp.iconGutterOffset = -3
+            if QuestiePlayer.currentQuestlog[questId] then
+                if QuestieDB.IsComplete(questId) == 1 then
+                    temp.icon = Questie.icons["complete"]
+                else
+                    temp.icon = Questie.icons["incomplete"]
+                end
+            end
 
             local breadcrumbForQuestId = QuestieDB.QueryQuest(questId,{"breadcrumbForQuestId"})[1] or {}
             local eligibilityText, _, returnReason = QuestieDB.IsDoableVerbose(questId, false, true, true)
@@ -514,7 +516,7 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                 -- reused the logic from AvailableQuests.lua _DrawChildQuests
                 -- if this is modified, also make sure the changes are reflected in the other file(s)
                     local requiredRaces = QuestieDB.QueryQuestSingle(questId, "requiredRaces")
-                    if (not Questie.db.char.complete[questId]) and (not hiddenQuests[questId]) and (QuestiePlayer.HasRequiredRace(requiredRaces)) then
+                    if (not Questie.db.char.complete[questId]) and ((not hiddenQuests[questId]) or hiddenQuests[questId] == HIDE_ON_MAP) and (QuestiePlayer.HasRequiredRace(requiredRaces)) then
                         -- some childQuest remain completed after abandoning and retaking parentQuest
                         -- here we are checking against 
                         local childQuestExclusiveTo = QuestieDB.QueryQuestSingle(questId, "exclusiveTo")
@@ -523,6 +525,7 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                             if QuestiePlayer.currentQuestlog[exclusiveToQuestId] or Questie.db.char.complete[exclusiveToQuestId] then
                                 tinsert(factionTree[4].children, temp)
                                 completedCounter = completedCounter + 1
+                                blockedByExclusiveTo = true
                             end
                         end
                         if (not blockedByExclusiveTo) then
@@ -637,8 +640,11 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                     end
                     -- "Regular" exclusives
                     if not questDecidedCategory then
-                        tinsert(factionTree[4].children, temp)
-                        if not QuestieDB.IsRepeatable(questId) then
+                        if QuestieDB.IsRepeatable(questId) then
+                            tinsert(factionTree[6].children, temp)
+                            unobtainableCounter = unobtainableCounter + 1
+                        else
+                            tinsert(factionTree[4].children, temp)
                             completedCounter = completedCounter + 1
                         end
                     end
@@ -692,14 +698,30 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                     if not QuestieDB.IsRepeatable(questId) then
                         prequestMissingCounter = prequestMissingCounter + 1
                     end
+                elseif returnReason == DoableStates.MISSING_START_ITEM then -- item-start quest without the start item
+                    tinsert(factionTree[5].children, temp)
+                    if not QuestieDB.IsRepeatable(questId) then
+                        prequestMissingCounter = prequestMissingCounter + 1
+                    end
                 elseif returnReason == DoableStates.PROFESSION_MISSING then -- profession missing completely
                     tinsert(factionTree[6].children, temp)
                     unobtainableCounter = unobtainableCounter + 1
+                elseif returnReason == DoableStates.DISABLED_BY then -- disabling quest is active
+                    tinsert(factionTree[5].children, temp)
+                    if not QuestieDB.IsRepeatable(questId) then
+                        prequestMissingCounter = prequestMissingCounter + 1
+                    end
                 end
             end
 
             -- AQ War Effort quests (one-time world event that has ended for all realms)
-            if (not Questie.IsSoD) and QuestieQuestBlacklist.AQWarEffortQuests[questId] then
+            if QuestieQuestBlacklist.AQWarEffortQuests[questId] then
+                tinsert(factionTree[6].children, temp)
+                unobtainableCounter = unobtainableCounter + 1
+            end
+
+            -- Scourge Invasion quests (Acore worldstate event)
+            if QuestieQuestBlacklist.ScourgeInvasionQuests[questId] then
                 tinsert(factionTree[6].children, temp)
                 unobtainableCounter = unobtainableCounter + 1
             end

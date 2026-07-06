@@ -1,6 +1,5 @@
 <Ui xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
     <Script file="ExtraObjectives\ClassicObjectives.lua"/>
-    <Script file="ExtraObjectives\SeasonObjectives.lua"/>
     <Script file="ExtraObjectives\TbcObjectives.lua"/>
     <Script file="ExtraObjectives\WotlkObjectives.lua"/>
 
@@ -13,7 +12,6 @@
     <Script file="MinimapIcon\Townsfolk.lua"/>
 
     <Script file="Options\Advanced.lua"/>
-    <Script file="Options\DBMHud.lua"/>
     <Script file="Options\General.lua"/>
     <Script file="Options\Map.lua"/>
     <Script file="Options\Minimap.lua"/>

@@ -2,6 +2,8 @@
 local Migration = QuestieLoader:CreateModule("Migration")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
+---@type QuestieIconVisibility
+local QuestieIconVisibility = QuestieLoader:ImportModule("QuestieIconVisibility")
 
 -- add functions to this table to migrate users who have not yet run said function.
 -- make sure to always add to the end of the table as it runs first to last
@@ -14,56 +16,9 @@ local migrationFunctions = {
         -- theres no need to delete old settings, since we read/write to different addresses now;
         -- old settings can linger unused unless you roll back versions, no harm no foul
     end,
-    [2] = function()
-        -- Blizzard removed some sounds from Era/SoD, which are present in WotLK
-        local objectiveSound = Questie.db.profile.objectiveCompleteSoundChoiceName
-        if (not (Questie.IsWotlk or QuestieCompat.Is335)) and
-            objectiveSound == "Explosion" or
-            objectiveSound == "Shing!" or
-            objectiveSound == "Wham!" or
-            objectiveSound == "Simon Chime" or
-            objectiveSound == "War Drums" or
-            objectiveSound == "Humm" or
-            objectiveSound == "Short Circuit"
-        then
-            Questie.db.profile.objectiveCompleteSoundChoiceName = "ObjectiveDefault"
-        end
-
-        local progressSound = Questie.db.profile.objectiveProgressSoundChoiceName
-        if (not (Questie.IsWotlk or QuestieCompat.Is335)) and
-            progressSound == "Explosion" or
-            progressSound == "Shing!" or
-            progressSound == "Wham!" or
-            progressSound == "Simon Chime" or
-            progressSound == "War Drums" or
-            progressSound == "Humm" or
-            progressSound == "Short Circuit"
-        then
-            Questie.db.profile.objectiveProgressSoundChoiceName = "ObjectiveProgress"
-        end
-    end,
-    [3] = function()
-        if Questie.IsSoD then
-            if Questie.db.profile.showSoDRunes then
-                Questie.db.profile.showRunesOfPhase = {
-                    phase1 = true,
-                    phase2 = false,
-                    phase3 = false,
-                    phase4 = false,
-                }
-            else
-                Questie.db.profile.showRunesOfPhase = {
-                    phase1 = false,
-                    phase2 = false,
-                    phase3 = false,
-                    phase4 = false,
-                }
-            end
-        end
-    end,
-    [4] = function()
-        Questie.db.profile.tutorialShowRunesDone = false
-    end,
+    [2] = function() end,
+    [3] = function() end,
+    [4] = function() end,
     [5] = function()
         Questie.db.profile.enableTooltipsNextInChain = true
     end,
@@ -104,7 +59,7 @@ local migrationFunctions = {
         Questie.db.profile.enableTooltipDroprates = true
     end,
     [14] = function()
-        local _, playerClass = UnitClass("player")
+        local _, playerClass = UnitClassBase("player")
         if playerClass == "ROGUE" and Questie.db.profile.townsfolkConfig["Reagents"] then
             Questie.db.profile.townsfolkConfig["Reagents"] = false
             Questie.db.profile.townsfolkConfig["Poisons"] = true
@@ -162,6 +117,38 @@ local migrationFunctions = {
         elseif autoAccept.rejectSharedInBattleground == nil then
             autoAccept.rejectSharedInBattleground = false
         end
+    end,
+    [18] = function()
+        Questie.db.profile.questObjectiveColors = true
+        Questie.db.profile.questMinimapObjectiveColors = true
+    end,
+    [19] = function()
+        Questie.db.profile.townsfolkConfig = Questie.db.profile.townsfolkConfig or {}
+        Questie.db.profile.townsfolkConfig["Meeting Stones"] = false
+    end,
+    [20] = function()
+        Questie.db.profile.clusterLevelHotzone = nil
+        Questie.db.profile.objectiveFilterDistance = 2
+    end,
+    [21] = function()
+        if Questie.db.profile.trackerFontOutline == "None" then
+            Questie.db.profile.trackerFontOutline = ""
+        end
+    end,
+    [22] = function()
+        Questie.db.profile.trimObjectiveText = true
+    end,
+    [23] = function()
+        QuestieIconVisibility:MigrateProfile(Questie.db.profile)
+    end,
+    [24] = function()
+        Questie.db.profile.showQuestXpAtMaxLevel = false
+    end,
+    [25] = function()
+        Questie.db.profile.autoAccept.abandonBreadcrumbFollowup = false
+    end,
+    [26] = function()
+        Questie.db.profile.showPartyQuestObjectives = true
     end,
 }
 

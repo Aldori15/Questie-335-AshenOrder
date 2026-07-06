@@ -7,6 +7,8 @@ local TrackerLinePool = QuestieLoader:CreateModule("TrackerLinePool")
 local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
 ---@type TrackerBaseFrame
 local TrackerBaseFrame = QuestieLoader:ImportModule("TrackerBaseFrame")
+---@type TrackerQuestFrame
+local TrackerQuestFrame = QuestieLoader:ImportModule("TrackerQuestFrame")
 ---@type TrackerUtils
 local TrackerUtils = QuestieLoader:ImportModule("TrackerUtils")
 ---@type TrackerQuestTimers
@@ -49,6 +51,61 @@ local lineMarginLeft = 10
 local ITEM_BUTTON_UPDATE_INTERVAL = 0.1
 local ITEM_BUTTON_CHARGE_UPDATE_INTERVAL = 0.2
 local ITEM_BUTTON_RANGE_UPDATE_INTERVAL = 0.3
+
+local function ToggleAllQuestsInZone(expandZone)
+    local zoneId = expandZone and expandZone.zoneId
+    if not zoneId or Questie.db.char.collapsedZones[zoneId] then
+        return
+    end
+
+    local zoneLineIndex
+    for i = 1, lineIndex do
+        if linePool[i].expandZone == expandZone then
+            zoneLineIndex = i
+            break
+        end
+    end
+
+    if not zoneLineIndex then
+        return
+    end
+
+    local questIds = {}
+    for i = zoneLineIndex + 1, lineIndex do
+        local line = linePool[i]
+        if line.expandZone and line.expandZone:IsShown() then
+            break
+        end
+
+        local expandQuest = line.expandQuest
+        if expandQuest and expandQuest.zoneId == zoneId and expandQuest.questId then
+            questIds[expandQuest.questId] = true
+        end
+    end
+
+    if not next(questIds) then
+        return
+    end
+
+    if Questie.db.char.minAllQuestsInZone[zoneId] and not Questie.db.char.minAllQuestsInZone[zoneId].isTrue then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:minAllQuestsInZone] - Maximize")
+        for questId, _ in pairs(questIds) do
+            Questie.db.char.collapsedQuests[questId] = nil
+        end
+
+        Questie.db.char.minAllQuestsInZone[zoneId] = nil
+    else
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:minAllQuestsInZone] - Minimize")
+        Questie.db.char.minAllQuestsInZone[zoneId] = questIds
+        for questId, _ in pairs(questIds) do
+            Questie.db.char.collapsedQuests[questId] = true
+        end
+    end
+
+    QuestieCombatQueue:Queue(function()
+        QuestieTracker:Update()
+    end)
+end
 
 ---@param questFrame Frame
 function TrackerLinePool.Initialize(questFrame)
@@ -172,8 +229,10 @@ function TrackerLinePool.Initialize(questFrame)
         end
 
         line:EnableMouse(true)
+        line:EnableMouseWheel(true)
         line:RegisterForDrag("LeftButton")
         line:RegisterForClicks("RightButtonUp", "LeftButtonUp")
+        line:SetScript("OnMouseWheel", TrackerQuestFrame.OnMouseWheel)
 
         function line:SetOnClick(onClickmode)
             if onClickmode == "quest" then
@@ -251,57 +310,10 @@ function TrackerLinePool.Initialize(questFrame)
         expandZone:RegisterForDrag("LeftButton")
         expandZone:RegisterForClicks("LeftButtonUp", "LeftButtonDown", "RightButtonUp", "RightButtonDown")
 
-        expandZone:SetScript("OnMouseDown", function(self, button)
-            if button == "LeftButton" then
-                if IsShiftKeyDown() then
-                    -- This sets up the minAllQuestsInZone table upon first click
-                    if not Questie.db.char.collapsedZones[self.zoneId] then
-                        if not Questie.db.char.minAllQuestsInZone[self.zoneId] then
-                            Questie.db.char.minAllQuestsInZone[self.zoneId] = {}
-                            -- This flag prevents repopulating QuestID's where we don't want them.
-                            Questie.db.char.minAllQuestsInZone[self.zoneId].isTrue = true
-
-                            QuestieCombatQueue:Queue(function()
-                                QuestieTracker:Update()
-                            end)
-                        end
-                    end
-                end
-            end
-        end)
-
         expandZone:SetScript("OnMouseUp", function(self, button)
             if button == "LeftButton" then
                 if IsShiftKeyDown() then
-                    if not Questie.db.char.collapsedZones[self.zoneId] then
-                        C_Timer.After(0.1, function()
-                            if Questie.db.char.minAllQuestsInZone[self.zoneId].isTrue then
-                                -- Places all QuestID's into the collapsedQuests table and keeps the Min/Max buttons in sync.
-                                Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:minAllQuestsInZone] - Minimize")
-                                for questId, _ in pairs(Questie.db.char.minAllQuestsInZone[self.zoneId]) do
-                                    if type(questId) == "number" then
-                                        Questie.db.char.collapsedQuests[questId] = true
-                                    end
-                                end
-
-                                Questie.db.char.minAllQuestsInZone[self.zoneId].isTrue = nil
-                            else
-                                -- Removes all QuestID's from the collapsedQuests table.
-                                Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:minAllQuestsInZone] - Maximize")
-                                for questId, _ in pairs(Questie.db.char.minAllQuestsInZone[self.zoneId]) do
-                                    if type(questId) == "number" then
-                                        Questie.db.char.collapsedQuests[questId] = nil
-                                    end
-                                end
-
-                                Questie.db.char.minAllQuestsInZone[self.zoneId] = nil
-                            end
-
-                            QuestieCombatQueue:Queue(function()
-                                QuestieTracker:Update()
-                            end)
-                        end)
-                    end
+                    ToggleAllQuestsInZone(self)
                 else
                     if self.mode == 1 then
                         self:SetMode(0)
@@ -485,6 +497,21 @@ function TrackerLinePool.Initialize(questFrame)
         end)
 
         expandQuest:Hide()
+
+        -- create a small status icon to the left of the expand/minimize button
+        local statusIcon = CreateFrame("Button", "linePool.statusIcon" .. i, line)
+        statusIcon.texture = statusIcon:CreateTexture(nil, "OVERLAY", nil, 0)
+        statusIcon.texture:SetWidth(trackerFontSizeQuest)
+        statusIcon.texture:SetHeight(trackerFontSizeQuest)
+        statusIcon.texture:SetAllPoints(statusIcon)
+        statusIcon:SetWidth(trackerFontSizeQuest + 3)
+        statusIcon:SetHeight(trackerFontSizeQuest + 3)
+        statusIcon:SetPoint("RIGHT", expandQuest, "LEFT", -2, 0)
+        statusIcon:SetFrameLevel(100)
+        statusIcon:EnableMouse(false)
+        statusIcon:Hide()
+
+        line.statusIcon = statusIcon
 
         line.expandQuest = expandQuest
 
@@ -775,6 +802,7 @@ function TrackerLinePool.ResetLinesForChange()
         if line.expandQuest then
             line.expandQuest.mode = nil
             line.expandQuest.questId = nil
+            line.expandQuest.zoneId = nil
         end
         if line.expandZone then
             line.expandZone.mode = nil
@@ -839,7 +867,7 @@ function TrackerLinePool.UpdateWrappedLineWidths(trackerLineWidth)
     for _, line in pairs(linePool) do
         if Questie.db.profile.TrackerWidth == 0 then
             if line.mode == "objective" then
-                if line.label:GetNumLines() > 1 and line:GetHeight() > Questie.db.profile.trackerFontSizeObjective then
+                if line.label:GetUnboundedStringWidth() > line.label:GetWidth() + 1 and line:GetHeight() > Questie.db.profile.trackerFontSizeObjective then
                     line.label:SetText(line.label:GetText())
 
                     if line.altButton then
@@ -850,8 +878,10 @@ function TrackerLinePool.UpdateWrappedLineWidths(trackerLineWidth)
                         line:SetWidth(trackerLineWidth)
                     end
 
-                    line:SetHeight(line.label:GetStringHeight() + 2 + Questie.db.profile.trackerQuestPadding)
-                    line.label:SetHeight(line:GetHeight() - 2 - Questie.db.profile.trackerQuestPadding)
+                    local _, fontSize = line.label:GetFont()
+                    local lineHeight = (fontSize * line.label:GetNumLines()) + 1
+                    line.label:SetHeight(lineHeight)
+                    line:SetHeight(lineHeight + 1)
                 end
             end
         end
@@ -920,6 +950,9 @@ function TrackerLinePool.HideUnusedLines()
         local line = linePool[i]
         if line then -- Safe Guard to really concurrent triggers
             line:Hide()
+            if line.statusIcon then
+                line.statusIcon:Hide()
+            end
             line.mode = nil
             line.ZoneId = nil
             line.Quest = nil
@@ -933,6 +966,7 @@ function TrackerLinePool.HideUnusedLines()
             line:RefreshTimedQuestUpdater()
             line.expandQuest.mode = nil
             line.expandQuest.questId = nil
+            line.expandQuest.zoneId = nil
             line.expandZone.mode = nil
             line.expandZone.zoneId = nil
             line.criteriaMark.mode = nil
@@ -1051,6 +1085,27 @@ function TrackerLinePool.SetAllItemButtonAlpha(alpha)
     --]]
 end
 
+---@param alpha number
+function TrackerLinePool.SetAllStatusIconAlpha(alpha)
+    local highestIndex = TrackerLinePool.GetHighestIndex()
+    for i = 1, highestIndex do
+        local line = linePool[i]
+        if line and line.statusIcon then
+            line.statusIcon:SetAlpha(alpha)
+        end
+    end
+end
+
+function TrackerLinePool.HideAllStatusIcons()
+    local highestIndex = TrackerLinePool.GetHighestIndex()
+    for i = 1, highestIndex do
+        local line = linePool[i]
+        if line and line.statusIcon then
+            line.statusIcon:Hide()
+        end
+    end
+end
+
 ---@param button string
 TrackerLinePool.OnClickQuest = function(self, button)
     Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool:_OnClickQuest]")
@@ -1066,10 +1121,12 @@ TrackerLinePool.OnClickQuest = function(self, button)
         local spawn, zone, name = QuestieMap:GetNearestQuestSpawn(self.Quest)
         if spawn then
             TrackerUtils:SetTomTomTarget(name, zone, spawn[1], spawn[2])
+        else
+            TrackerUtils:SetTomTomTargetToDungeonEntrance(self.Quest)
         end
     elseif TrackerUtils:IsBindTrue(Questie.db.profile.trackerbindUntrack, button) then
         if (IsModifiedClick("CHATLINK") and ChatEdit_GetActiveWindow()) then
-            ChatEdit_InsertLink(QuestieLink:GetQuestInsertString(self.Quest.level, self.Quest.name, self.Quest.Id))
+            ChatEdit_InsertLink(QuestieLink:GetQuestInsertStringById(self.Quest.Id))
         else
             QuestieTracker:UntrackQuestId(self.Quest.Id)
             local questLogFrame = QuestLogExFrame or ClassicQuestLog or QuestLogFrame
@@ -1168,15 +1225,38 @@ TrackerLinePool.SetMode = function(self, mode)
             local trackerFontSizeZone = Questie.db.profile.trackerFontSizeZone
             self.label:SetFont(LSM30:Fetch("font", Questie.db.profile.trackerFontZone), trackerFontSizeZone, Questie.db.profile.trackerFontOutline)
             self.label:SetHeight(trackerFontSizeZone)
+            if self.statusIcon then
+                self.statusIcon:Hide()
+            end
         elseif mode == "quest" or mode == "achieve" then
             local trackerFontSizeQuest = Questie.db.profile.trackerFontSizeQuest
             self.label:SetFont(LSM30:Fetch("font", Questie.db.profile.trackerFontQuest), trackerFontSizeQuest, Questie.db.profile.trackerFontOutline)
             self.label:SetHeight(trackerFontSizeQuest)
             self.button = nil
+            if self.statusIcon then
+                if mode == "quest" then
+                    self.statusIcon.texture:SetWidth(trackerFontSizeQuest)
+                    self.statusIcon.texture:SetHeight(trackerFontSizeQuest)
+                    self.statusIcon:SetWidth(trackerFontSizeQuest)
+                    self.statusIcon:SetHeight(trackerFontSizeQuest)
+                    self.statusIcon:ClearAllPoints()
+                    if self.expandQuest then
+                        self.statusIcon:SetPoint("RIGHT", self.expandQuest, "LEFT", -2, 0)
+                    else
+                        self.statusIcon:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0)
+                    end
+                    self.statusIcon:Show()
+                else
+                    self.statusIcon:Hide()
+                end
+            end
         elseif mode == "objective" then
             local trackerFontSizeObjective = Questie.db.profile.trackerFontSizeObjective
             self.label:SetFont(LSM30:Fetch("font", Questie.db.profile.trackerFontObjective), trackerFontSizeObjective, Questie.db.profile.trackerFontOutline)
             self.label:SetHeight(trackerFontSizeObjective)
+            if self.statusIcon then
+                self.statusIcon:Hide()
+            end
         end
     end
 end

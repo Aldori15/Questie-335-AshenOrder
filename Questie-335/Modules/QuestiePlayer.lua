@@ -18,13 +18,14 @@ local UnitInParty = QuestieCompat.UnitInParty
 local IsInGroup = QuestieCompat.IsInGroup
 local GetHomePartyInfo = QuestieCompat.GetHomePartyInfo
 local GetClassColor = QuestieCompat.GetClassColor
+local GetGroupUnitByName = QuestieCompat.GetGroupUnitByName
 local LE_PARTY_CATEGORY_INSTANCE = QuestieCompat.LE_PARTY_CATEGORY_INSTANCE
 local GetTime = GetTime
 local UI_MAP_TYPE_COSMIC = 0
 local UI_MAP_TYPE_WORLD = 1
 local UI_MAP_TYPE_CONTINENT = 2
 
-QuestiePlayer.currentQuestlog = {} --Gets populated by QuestieQuest:GetAllQuestIds(), this is either an object to the quest in question, or the ID if the object doesn't exist.
+QuestiePlayer.currentQuestlog = {} -- Gets populated by QuestieQuest:GetAllQuestIds() with quest objects.
 _QuestiePlayer.playerLevel = -1
 _QuestiePlayer.playerLevelSetAt = 0
 local playerRaceId = -1
@@ -47,6 +48,8 @@ function QuestiePlayer:Initialize()
     local classId = select(3, UnitClass("player"))
     playerClassFlag = 2 ^ (classId - 1)
     playerClassFlagX2 = 2 * playerClassFlag
+
+    QuestiePlayer.faction = UnitFactionGroup("player")
 end
 
 -- Cache player level from events (or fallback UnitLevel when event value is unavailable).
@@ -134,7 +137,7 @@ function QuestiePlayer:GetCurrentZoneId()
 
     local instanceId = select(8, GetInstanceInfo())
     if instanceId then
-        return ZoneDB.instanceIdToUiMapId[instanceId]
+        return ZoneDB.instanceIdToAreaId[instanceId]
     end
 
     return nil
@@ -177,24 +180,19 @@ function QuestiePlayer:GetPartyMembers()
 end
 
 function QuestiePlayer:GetPartyMemberByName(playerName)
-    if(UnitInParty("player") or UnitInRaid("player")) then
-        local player = {}
-        for index=1, 40 do
-            local name = UnitName("party"..index);
-            local _, classFilename = UnitClass("party"..index);
-            if name == playerName then
-                player.name = playerName;
-                player.class = classFilename;
-                local rPerc, gPerc, bPerc, argbHex = GetClassColor(classFilename)
-                player.r = rPerc;
-                player.g = gPerc;
-                player.b = bPerc;
-                player.colorHex = argbHex;
-                return player;
-            end
-            if(index > 6 and not UnitInRaid("player")) then
-                break;
-            end
+    local unit = GetGroupUnitByName(playerName)
+    if unit then
+        local _, classFilename = UnitClass(unit);
+        if classFilename then
+            local rPerc, gPerc, bPerc, argbHex = GetClassColor(classFilename)
+            return {
+                name = playerName,
+                class = classFilename,
+                r = rPerc,
+                g = gPerc,
+                b = bPerc,
+                colorHex = argbHex,
+            };
         end
     end
     return nil;
@@ -215,5 +213,3 @@ function QuestiePlayer:GetPartyMemberList()
     end
     return members
 end
-
-return QuestiePlayer

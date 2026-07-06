@@ -69,7 +69,7 @@ local zoneSectionLocales = {
         ["koKR"] = "전문 기술들",
         ["esMX"] = "Profesiones",
         ["enUS"] = true,
-        ["frFR"] = true,
+        ["frFR"] = "Métiers",
         ["esES"] = "Profesiones",
         ["zhTW"] = "專業技能",
         ["zhCN"] = "专业",
@@ -121,6 +121,18 @@ local zoneSectionLocales = {
         ["ruRU"] = "Подземелье",
         ["zhCN"] = "副本",
         ["zhTW"] = "副本",
+    },
+    ["Unknown Zone"] = {
+        ["enUS"] = true,
+        ["deDE"] = "Unbekannte Zone",
+        ["esES"] = "Zona desconocida",
+        ["esMX"] = "Zona desconocida",
+        ["frFR"] = "Zone inconnue",
+        ["koKR"] = "알 수 없는 지역",
+        ["ptBR"] = "Zona desconhecida",
+        ["ruRU"] = "Неизвестная зона",
+        ["zhCN"] = "未知区域",
+        ["zhTW"] = "未知區域",
     },
 }
 

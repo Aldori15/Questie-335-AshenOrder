@@ -47,12 +47,32 @@ function l10n:InitializeLocaleOverride()
     end
 end
 
+function l10n:CompactTranslations()
+    for _, translationEntry in pairs(l10n.translations) do
+        if type(translationEntry) == "table" then
+            for translationLocale in pairs(translationEntry) do
+                if translationLocale ~= locale then
+                    translationEntry[translationLocale] = nil
+                end
+            end
+        end
+    end
+end
+
 local function GetLookupEntries(lookup)
     if type(lookup) == "function" then
         return lookup() or {}
     end
 
     return lookup or {}
+end
+
+local function ReleaseUnusedLookupLocales(lookup)
+    for lookupLocale in pairs(lookup) do
+        if lookupLocale ~= locale then
+            lookup[lookupLocale] = nil
+        end
+    end
 end
 
 function l10n:Initialize()
@@ -125,6 +145,30 @@ function l10n:Initialize()
             QuestieDB.objectData[id][QuestieDB.objectKeys.name] = name
         end
     end
+
+    ReleaseUnusedLookupLocales(l10n.itemLookup)
+    ReleaseUnusedLookupLocales(l10n.questLookup)
+    ReleaseUnusedLookupLocales(l10n.npcNameLookup)
+    ReleaseUnusedLookupLocales(l10n.objectLookup)
+end
+
+function l10n:BuildObjectNameCache()
+    if l10n._objectCacheBuilt then return end
+    l10n._objectCacheBuilt = true
+    Questie:Debug(Questie.DEBUG_INFO, "[l10n:BuildObjectNameCache] Building object name reverse-lookup cache...")
+    for id in pairs(QuestieDB.ObjectPointers) do
+        local objName = QuestieDB.QueryObjectSingle(id, "name")
+        if objName then
+            local existing = l10n.objectNameLookup[objName]
+            if existing == nil then
+                l10n.objectNameLookup[objName] = id
+            elseif type(existing) == "number" then
+                l10n.objectNameLookup[objName] = { existing, id }
+            else
+                existing[#existing + 1] = id
+            end
+        end
+    end
 end
 
 function l10n:GetObjectNameLookup(name)
@@ -137,21 +181,18 @@ function l10n:GetObjectNameLookup(name)
         return cachedEntry or nil
     end
 
-    local entry = false
-    for id in pairs(QuestieDB.ObjectPointers) do
-        if QuestieDB.QueryObjectSingle(id, "name") == name then
-            if entry == false then
-                entry = id
-            elseif type(entry) == "number" then
-                entry = { entry, id }
-            else
-                entry[#entry + 1] = id
-            end
-        end
+    if l10n._objectCacheBuilt then
+        l10n.objectNameLookup[name] = false
+        return nil
     end
 
-    l10n.objectNameLookup[name] = entry
-    return entry or nil
+    -- Cache not built yet (shouldn't happen in normal flow, but handle it).
+    l10n:BuildObjectNameCache()
+    if l10n.objectNameLookup[name] == nil then
+        l10n.objectNameLookup[name] = false
+    end
+    local entry = l10n.objectNameLookup[name]
+    return (entry ~= false) and entry or nil
 end
 
 local format, unpack, tostring = string.format, unpack, tostring

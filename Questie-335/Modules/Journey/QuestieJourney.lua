@@ -60,9 +60,17 @@ function QuestieJourney:Initialize()
 
     coroutine.yield()
     self.continents = continents
-    self.zoneMap = ZoneDB:GetZonesWithQuests(true)
-    self.zones = ZoneDB:GetRelevantZones()
+    self:RefreshQuestZoneData(true)
     coroutine.yield()
+
+    -- Set up default keybinding for Journey window
+    self:SetupKeybinding()
+end
+
+---@param yield boolean?
+function QuestieJourney:RefreshQuestZoneData(yield)
+    self.zoneMap = ZoneDB:RebuildZonesWithQuests(yield)
+    self.zones = ZoneDB:GetRelevantZones()
 end
 
 function QuestieJourney:BuildMainFrame()
@@ -153,6 +161,29 @@ function QuestieJourney:ToggleJourneyWindow()
     else
         QuestieJourneyFrame:Hide()
         isWindowShown = false
+    end
+end
+
+function QuestieJourney:SetupKeybinding()
+    _G.BINDING_NAME_QUESTIE_TOGGLE_JOURNEY = l10n("Toggle My Journey")
+
+    -- Only ever attempt to set the default keybind once, so we never fight a user who later changes or removes their bindings
+    if Questie.db.global.journeyKeybindDefaultApplied then
+        return
+    end
+
+    local currentBinding = GetBindingKey("QUESTIE_TOGGLE_JOURNEY")
+    local semicolonBinding = GetBindingAction("SEMICOLON")
+    if currentBinding or (semicolonBinding and semicolonBinding ~= "") then
+        Questie.db.global.journeyKeybindDefaultApplied = true
+        return
+    end
+
+    local bindingSet = GetCurrentBindingSet()
+    if SetBinding("SEMICOLON", "QUESTIE_TOGGLE_JOURNEY") then
+        SaveBindings(bindingSet)
+        Questie.db.global.journeyKeybindDefaultApplied = true
+        Questie:Debug(Questie.DEBUG_INFO, "Set default keybind ';' for Questie Journey")
     end
 end
 

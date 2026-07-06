@@ -34,6 +34,14 @@ function MinimapIcon:Init()
         end
     end
     minimapButton = _LibDBIcon:GetMinimapButton("Questie")
+
+    -- Normalize icon appearance regardless of which LibDBIcon version was loaded.
+    if minimapButton and minimapButton.icon then
+        minimapButton.icon:SetWidth(18)
+        minimapButton.icon:SetHeight(18)
+        minimapButton.icon:ClearAllPoints()
+        minimapButton.icon:SetPoint("CENTER", minimapButton, "CENTER", 0, 1)
+    end
 end
 
 function _MinimapIcon:CreateDataBrokerObject()
@@ -48,7 +56,7 @@ function _MinimapIcon:CreateDataBrokerObject()
             end
 
             if button == "LeftButton" then
-                if IsControlKeyDown() then
+                if IsControlKeyDown() and IsShiftKeyDown() then
                     Questie.db.profile.enabled = (not Questie.db.profile.enabled)
                     QuestieQuest:ToggleNotes(Questie.db.profile.enabled)
 
@@ -63,18 +71,7 @@ function _MinimapIcon:CreateDataBrokerObject()
                     -- Close config window if it's open to avoid desyncing the Checkbox
                     QuestieOptions:HideFrame();
                     return;
-                end
-
-                QuestieMenu:Show()
-
-                if QuestieJourney:IsShown() then
-                    QuestieJourney:ToggleJourneyWindow();
-                end
-
-                return;
-            elseif button == "RightButton" then
-                if (not IsModifierKeyDown()) then
-                    -- CLose config window if it's open to avoid desyncing the Checkbox
+                elseif IsShiftKeyDown() then
                     QuestieOptions:HideFrame();
                     if InCombatLockdown() then
                         Questie:Print(l10n("Questie will open after combat ends."))
@@ -83,21 +80,40 @@ function _MinimapIcon:CreateDataBrokerObject()
                         QuestieOptions:OpenConfigWindow()
                     end)
                     return;
-                elseif IsControlKeyDown() then
+                elseif IsModifierKeyDown() then
+                    return;
+                end
+
+                QuestieOptions:HideFrame()
+                QuestieJourney:ToggleJourneyWindow()
+
+                return;
+            elseif button == "RightButton" then
+                if IsControlKeyDown() then
                     Questie.db.profile.minimap.hide = true;
                     Questie.minimapConfigIcon:Hide("Questie");
                     return;
+                elseif IsModifierKeyDown() then
+                    return;
                 end
+
+                QuestieMenu:Show()
+                if QuestieJourney:IsShown() then
+                    QuestieJourney:ToggleJourneyWindow();
+                end
+
+                return;
             end
         end,
 
         OnTooltipShow = function (tooltip)
             tooltip:AddDoubleLine(Questie:Colorize("Questie", 'gold'), Questie:Colorize(QuestieLib:GetAddonVersionString(), 'gray'))
             tooltip:AddLine(" ")
-            tooltip:AddDoubleLine(Questie:Colorize(l10n('Left Click'), 'lightBlue'), Questie:Colorize(l10n('Toggle Menu'), 'white'))
+            tooltip:AddDoubleLine(Questie:Colorize(l10n('Left Click'), 'lightBlue'), Questie:Colorize(l10n('Toggle My Journey'), 'white'))
+            tooltip:AddDoubleLine(Questie:Colorize(l10n('Right Click'), 'lightBlue'), Questie:Colorize(l10n('Toggle Menu'), 'white'))
+            tooltip:AddDoubleLine(Questie:Colorize(l10n('Shift') .. ' + ' .. l10n('Left Click'), 'lightBlue'), Questie:Colorize(l10n('Questie Options'), 'white'))
             local toggleLabel = Questie.db.profile.enabled and l10n('Hide Questie') or l10n('Show Questie')
-            tooltip:AddDoubleLine(Questie:Colorize(l10n('Ctrl + Left Click'), 'lightBlue'), Questie:Colorize(toggleLabel, 'white'))
-            tooltip:AddDoubleLine(Questie:Colorize(l10n('Right Click'), 'lightBlue'), Questie:Colorize(l10n('Questie Options'), 'white'))
+            tooltip:AddDoubleLine(Questie:Colorize(l10n('Ctrl + Shift + Left Click'), 'lightBlue'), Questie:Colorize(toggleLabel, 'white'))
             tooltip:AddDoubleLine(Questie:Colorize(l10n('Ctrl + Right Click'), 'lightBlue'), Questie:Colorize(l10n('Hide Minimap Button'), 'white'))
         end,
     });

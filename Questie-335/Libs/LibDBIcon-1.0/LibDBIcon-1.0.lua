@@ -117,7 +117,7 @@ do
 		["TRICORNER-BOTTOMRIGHT"] = {true, true, true, false},
 	}
 
-	local rad, cos, sin, sqrt, max, min = math.rad, math.cos, math.sin, math.sqrt, math.max, math.min
+	local rad, cos, sin, sqrt, math_max, math_min = math.rad, math.cos, math.sin, math.sqrt, math.max, math.min
 	function updatePosition(button, position)
 		local angle = rad(position or 225)
 		local x, y, q = cos(angle), sin(angle), 1
@@ -132,8 +132,8 @@ do
 		else
 			local diagRadiusW = sqrt(2*(w)^2)-10
 			local diagRadiusH = sqrt(2*(h)^2)-10
-			x = max(-w, min(x*diagRadiusW, w))
-			y = max(-h, min(y*diagRadiusH, h))
+			x = math_max(-w, math_min(x*diagRadiusW, w))
+			y = math_max(-h, math_min(y*diagRadiusH, h))
 		end
 		button:SetPoint("CENTER", Minimap, "CENTER", x, y)
 	end
@@ -261,13 +261,17 @@ local function createButton(name, object, db)
 	button:SetScript("OnMouseUp", onMouseUp)
 
 	button.fadeOut = button:CreateAnimationGroup()
-	local animOut = button.fadeOut:CreateAnimation("Alpha")
-	animOut:SetOrder(1)
-	animOut:SetDuration(0.2)
-	animOut:SetFromAlpha(1)
-	animOut:SetToAlpha(0)
-	animOut:SetStartDelay(1)
-	button.fadeOut:SetToFinalAlpha(true)
+	if button.fadeOut and button.fadeOut.CreateAnimation then
+		local animOut = button.fadeOut:CreateAnimation("Alpha")
+		if animOut then
+			if animOut.SetOrder then animOut:SetOrder(1) end
+			if animOut.SetDuration then animOut:SetDuration(0.2) end
+			if animOut.SetFromAlpha then animOut:SetFromAlpha(1) end
+			if animOut.SetToAlpha then animOut:SetToAlpha(0) end
+			if animOut.SetStartDelay then animOut:SetStartDelay(1) end
+		end
+		if button.fadeOut.SetToFinalAlpha then button.fadeOut:SetToFinalAlpha(true) end
+	end
 
 	lib.objects[name] = button
 
@@ -464,13 +468,17 @@ for name, button in next, lib.objects do
 
 	if not button.fadeOut then -- Upgrade to 39
 		button.fadeOut = button:CreateAnimationGroup()
-		local animOut = button.fadeOut:CreateAnimation("Alpha")
-		animOut:SetOrder(1)
-		animOut:SetDuration(0.2)
-		animOut:SetFromAlpha(1)
-		animOut:SetToAlpha(0)
-		animOut:SetStartDelay(1)
-		button.fadeOut:SetToFinalAlpha(true)
+		if button.fadeOut and button.fadeOut.CreateAnimation then
+			local animOut = button.fadeOut:CreateAnimation("Alpha")
+			if animOut then
+				if animOut.SetOrder then animOut:SetOrder(1) end
+				if animOut.SetDuration then animOut:SetDuration(0.2) end
+				if animOut.SetFromAlpha then animOut:SetFromAlpha(1) end
+				if animOut.SetToAlpha then animOut:SetToAlpha(0) end
+				if animOut.SetStartDelay then animOut:SetStartDelay(1) end
+			end
+			if button.fadeOut.SetToFinalAlpha then button.fadeOut:SetToFinalAlpha(true) end
+		end
 	end
 end
 lib:SetButtonRadius(lib.radius) -- Upgrade to 40

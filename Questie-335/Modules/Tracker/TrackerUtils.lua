@@ -5,6 +5,8 @@ local TrackerUtils = QuestieLoader:ImportModule("TrackerUtils")
 -------------------------
 ---@type QuestieTracker
 local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
+---@type Sorter
+local Sorter = QuestieLoader:ImportModule("Sorter")
 ---@type TrackerLinePool
 local TrackerLinePool = QuestieLoader:ImportModule("TrackerLinePool")
 ---@type TrackerFadeTicker
@@ -24,6 +26,8 @@ local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
 local QuestieCoords = QuestieLoader:ImportModule("QuestieCoords")
 ---@type ZoneDB
 local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
+---@type QuestieLib
+local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
@@ -76,6 +80,11 @@ function TrackerUtils:ShowQuestLog(quest)
     local questFrame = QuestLogExFrame or ClassicQuestLog or QuestLogFrame
     --HideUIPanel(questFrame) -- don't use as I don't see why to use and protected function taints in combat
     local questLogIndex = GetQuestLogIndexByID(quest.Id)
+    if (not questLogIndex) then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:ShowQuestLog] Missing quest log index for tracked quest:", quest.Id)
+        QuestieTracker:UntrackQuestId(quest.Id)
+        return
+    end
     SelectQuestLogEntry(questLogIndex)
 
     -- Scroll to the quest in the quest log
@@ -113,9 +122,23 @@ function TrackerUtils:SetTomTomTarget(title, zone, x, y)
         if QuestieCompat.Is335 then
             Questie.db.char._tom_waypoint = QuestieCompat.TomTom_AddWaypoint(title, uiMapId, x, y)
         else
-            Questie.db.char._tom_waypoint = TomTom:AddWaypoint(uiMapId, x / 100, y / 100, { title = title, crazy = true })
+            Questie.db.char._tom_waypoint = TomTom:AddWaypoint(uiMapId, x / 100, y / 100, { title = title, crazy = true, from = "Questie" })
         end
     end
+end
+
+---@param quest Quest
+---@return boolean
+function TrackerUtils:SetTomTomTargetToDungeonEntrance(quest)
+    local dungeonLocation = quest and quest.zoneOrSort and ZoneDB:GetDungeonLocation(quest.zoneOrSort)
+    local entrance = dungeonLocation and dungeonLocation[1]
+    if not entrance then
+        return false
+    end
+
+    local title = ZoneDB:GetLocalizedDungeonName(quest.zoneOrSort) or quest.name
+    TrackerUtils:SetTomTomTarget(title, entrance[1], entrance[2], entrance[3])
+    return true
 end
 
 ---@param objective table The table provided by QuestieDB.GetQuest(questId).Objectives[objective]
@@ -393,7 +416,9 @@ function TrackerUtils:GetCompletionText(quest)
     local completionText
     if GetQuestLogCompletionText then
         local questIndex = GetQuestLogIndexByID(quest.Id)
-        completionText = GetQuestLogCompletionText(questIndex)
+        if questIndex then
+            completionText = GetQuestLogCompletionText(questIndex)
+        end
     end
 
     if completionText then
@@ -406,7 +431,7 @@ end
 
 ---@param zoneId number Zone ID number
 ---@return string @Zone Name (Localized) or "Unknown Zone"
-local function GetZoneNameByIDFallback(zoneId)
+local function GetLocalizedZoneNameFromLookup(zoneId)
     if zoneCache[zoneId] then
         return zoneCache[zoneId]
     end
@@ -417,9 +442,20 @@ local function GetZoneNameByIDFallback(zoneId)
 
     for _, zone in pairs(l10n.zoneLookup) do
         if zone[zoneId] then
-            zoneCache[zoneId] = zone[zoneId]
+            zoneCache[zoneId] = l10n(zone[zoneId])
             return zoneCache[zoneId]
         end
+    end
+
+    return nil
+end
+
+---@param zoneId number Zone ID number
+---@return string @Zone Name (Localized) or "Unknown Zone"
+local function GetZoneNameByIDFallback(zoneId)
+    local localizedZoneName = GetLocalizedZoneNameFromLookup(zoneId)
+    if localizedZoneName then
+        return localizedZoneName
     end
 
     Questie:Debug(Questie.DEBUG_CRITICAL, "[GetZoneNameByIDFallback]: Unable to find a zone name for zoneId", zoneId)
@@ -434,10 +470,13 @@ function TrackerUtils:GetZoneNameByID(zoneId)
         return zoneCache[zoneId]
     end
 
-    if C_Map.GetAreaInfo(zoneId) then
+    local localizedZoneName = GetLocalizedZoneNameFromLookup(zoneId)
+    if localizedZoneName then
+        zoneCache[zoneId] = localizedZoneName
+    elseif C_Map.GetAreaInfo(zoneId) then
         zoneCache[zoneId] = C_Map.GetAreaInfo(zoneId)
     elseif ZoneDB:GetLocalizedDungeonName(zoneId) then
-        zoneCache[zoneId] = ZoneDB:GetLocalizedDungeonName(zoneId)
+        zoneCache[zoneId] = l10n(ZoneDB:GetLocalizedDungeonName(zoneId))
     else
         zoneCache[zoneId] = GetZoneNameByIDFallback(zoneId)
     end
@@ -591,10 +630,10 @@ local function _GetDistance(x1, y1, x2, y2)
 end
 
 ---@param uiMapId number Continent ID number
----@return string Continent Returns Continent Name or "UNKNOW"
+---@return string Continent Returns Continent Name or "UNKNOWN"
 local function _GetContinent(uiMapId)
     if (not uiMapId) then
-        return
+        return "UNKNOWN"
     end
 
     local useUiMapId = uiMapId
@@ -642,8 +681,15 @@ local function _DidQuestOrderChange(sortedQuestIds, orderCopy)
     return false
 end
 
+---@param zoneOrSort ZoneOrSort
+---@param questId QuestId
+---@return string zoneName Returns the zone name for a quest based on the quests zoneOrSort value and the current tracker sorting method. If the quest has no explicit zone or category, it will return "Unknown Zone".
+--- If the sorting method is not byZone, it will return a custom zone name based on the sorting type.
 local function _GetZoneName(zoneOrSort, questId)
-    if not zoneOrSort then return end
+    if not zoneOrSort then
+        return "Unknown Zone"
+    end
+
     local zoneName
     local sortObj = Questie.db.profile.trackerSortObjectives
     if sortObj == "byZone" or sortObj == "byZonePlayerProximity" or sortObj == "byZonePlayerProximityReversed" then
@@ -674,86 +720,54 @@ local function _GetZoneName(zoneOrSort, questId)
             zoneName = "Quests (By Proximity Reversed)"
         end
     end
-    return zoneName
+    return zoneName or "Unknown Zone"
 end
 
 ---@return table sortedQuestIds Table with sorted Quest ID's by Sort Type
 ---@return table questDetails Table with raw quest table from QuestiePlayer.currentQuestLog, percentage completed value per quest, and a "translated" zoneName
 function TrackerUtils:GetSortedQuestIds()
+    ---@type QuestId[]
     local sortedQuestIds = {}
+    ---@type table<QuestId, QuestSortDetails>
     local questDetails = {}
     local sortObj = Questie.db.profile.trackerSortObjectives
+
     -- Update quest objectives
     for questId, quest in pairs(QuestiePlayer.currentQuestlog) do
         if quest then
-            -- Insert Quest Ids into sortedQuestIds table
             tinsert(sortedQuestIds, questId)
 
-            -- Create questDetails table keys and insert values
-            questDetails[quest.Id] = {}
-            questDetails[quest.Id].quest = quest
-            questDetails[quest.Id].zoneName = _GetZoneName(quest.zoneOrSort, quest.Id)
-
+            local percent = 0
             if quest:IsComplete() == 1 or (not next(quest.Objectives)) then
-                questDetails[quest.Id].questCompletePercent = 1
+                percent = 1
             else
-                local percent = 0
                 local count = 0
                 for _, Objective in pairs(quest.Objectives) do
                     percent = percent + (Objective.Collected / Objective.Needed)
                     count = count + 1
                 end
                 percent = percent / count
-
-                questDetails[quest.Id].questCompletePercent = percent
             end
+
+            questDetails[questId] = {
+                quest = quest,
+                zoneName = _GetZoneName(quest.zoneOrSort, questId),
+                questCompletePercent = percent,
+            }
         end
     end
 
     -- Quests and objectives sort
-    if sortObj == "byComplete" or sortObj == "byCompleteReversed" then
-        table.sort(sortedQuestIds, function(a, b)
-            local vA, vB = questDetails[a].questCompletePercent, questDetails[b].questCompletePercent
-            if vA == vB then
-                local qA = questDetails[a].quest
-                local qB = questDetails[b].quest
-                return qA and qB and qA.level < qB.level
-            end
-
-            if sortObj == "byComplete" then
-                return vB < vA
-            else
-                return vB > vA
-            end
-        end)
-    elseif sortObj == "byLevel" or sortObj == "byLevelReversed" then
-        table.sort(sortedQuestIds, function(a, b)
-            local qA = questDetails[a].quest
-            local qB = questDetails[b].quest
-            if sortObj == "byLevel" then
-                return qA and qB and qA.level < qB.level
-            else
-                return qA and qB and qA.level > qB.level
-            end
-        end)
-    elseif sortObj == "byZone" then
-        table.sort(sortedQuestIds, function(a, b)
-            local qA = questDetails[a].quest
-            local qB = questDetails[b].quest
-            local qAZone = questDetails[a].zoneName
-            local qBZone = questDetails[b].zoneName
-
-            -- Sort by Zone then by Level to mimic QuestLog sorting
-            if qAZone == qBZone then
-                return qA.level < qB.level
-            else
-                if qAZone ~= nil and qBZone ~= nil then
-                    return qAZone < qBZone
-                else
-                    return qAZone and qBZone
-                end
-            end
-        end)
+    if sortObj == "byZone" then
+        Sorter.byZone(sortedQuestIds, questDetails)
+    elseif sortObj == "byComplete" then
+        Sorter.byComplete(sortedQuestIds, questDetails)
+    elseif sortObj == "byCompleteReversed" then
+        Sorter.byCompleteReverse(sortedQuestIds, questDetails)
+    elseif sortObj == "byLevel" then
+        Sorter.byLevel(sortedQuestIds, questDetails)
+    elseif sortObj == "byLevelReversed" then
+        Sorter.byLevelReverse(sortedQuestIds, questDetails)
     elseif sortObj == "byZonePlayerProximity" or sortObj == "byZonePlayerProximityReversed" then
         local toSort = {}
         local continent = _GetContinent(C_Map.GetBestMapForUnit("player"))
@@ -796,12 +810,7 @@ function TrackerUtils:GetSortedQuestIds()
                     return false
                 end
             else
-                -- Sort by Zone
-                if qAZone ~= nil and qBZone ~= nil then
-                    return qAZone < qBZone
-                else
-                    return qAZone and qBZone
-                end
+                return qAZone < qBZone
             end
         end
 
@@ -832,12 +841,7 @@ function TrackerUtils:GetSortedQuestIds()
                     return true
                 end
             else
-                -- Sort by Zone
-                if qAZone ~= nil and qBZone ~= nil then
-                    return qAZone < qBZone
-                else
-                    return qAZone and qBZone
-                end
+                return qAZone < qBZone
             end
         end
 
@@ -854,7 +858,7 @@ function TrackerUtils:GetSortedQuestIds()
             local playerPosition
             questZoneProximityTimer = C_Timer.NewTicker(5.0, function()
                 if IsInInstance() and questZoneProximityTimer then
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stoped!")
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stopped!")
                     questZoneProximityTimer:Cancel()
                     questZoneProximityTimer = nil
                 else
@@ -959,7 +963,7 @@ function TrackerUtils:GetSortedQuestIds()
             local playerPosition
             questProximityTimer = C_Timer.NewTicker(5.0, function()
                 if IsInInstance() and questProximityTimer then
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Stoped!")
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Stopped!")
                     questProximityTimer:Cancel()
                     questProximityTimer = nil
                 else
@@ -996,14 +1000,14 @@ function TrackerUtils:GetSortedQuestIds()
 
 
     if (sortObj ~= strmatch(sortObj, "byProximity.*")) and questProximityTimer and questProximityTimer ~= nil then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Stoped!")
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Stopped!")
         questProximityTimer:Cancel()
         TrackerUtils.FilterProximityTimer = nil
         questProximityTimer = nil
     end
 
     if (sortObj ~= strmatch(sortObj, "byZonePlayerProximity.*")) and questZoneProximityTimer and questZoneProximityTimer ~= nil then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stoped!")
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stopped!")
         questZoneProximityTimer:Cancel()
         TrackerUtils.FilterProximityTimer = nil
         questZoneProximityTimer = nil

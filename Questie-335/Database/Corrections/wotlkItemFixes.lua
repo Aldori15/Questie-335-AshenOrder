@@ -9,8 +9,6 @@ local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 -- https://github.com/Questie/Questie/wiki/Corrections
 
 function QuestieWotlkItemFixes:Load()
-    _QuestieWotlkItemFixes:InsertMissingItemIds()
-
     local itemKeys = QuestieDB.itemKeys
     local itemClasses = QuestieDB.itemClasses
 
@@ -47,6 +45,11 @@ function QuestieWotlkItemFixes:Load()
         },
         [18423] = {
             [itemKeys.npcDrops] = {10184},
+        },
+        [19016] = { -- Vessel of Rebirth
+            [itemKeys.relatedQuests] = {7785},
+            [itemKeys.npcDrops] = {},
+            [itemKeys.objectDrops] = {},
         },
         [19236] = {
             [itemKeys.npcDrops] = {1805,1827,1834,7461,7463,8889,8890,8891,8892,8893,8894,8895,8898,8899,8903,8912,8914,9043,9044,9045,9046,9097,9098,9197,9198,9199,9200,9201,9216,9239,9240,9241,9257,9258,9259,9261,9262,9263,9265,9266,9267,9268,9441,9447,9448,9449,9450,9451,9452,9583,9678,9692,9693,9716,9717,9817,9818,9819,10316,10317,10318,10319,10381,10382,10384,10385,10394,10398,10399,10400,10405,10406,10407,10414,10416,10417,10418,10419,10420,10421,10422,10423,10424,10425,10426,10463,10464,10469,10470,10471,10476,10477,10478,10486,10487,10488,10489,10491,10495,10498,10500,10608,10680,10681,10742,10762,10983,10987,11032,11043,11257,11284,11338,11339,11340,11346,11350,11351,11352,11353,11356,11440,11441,11442,11443,11444,11445,11448,11450,11453,11454,11455,11456,11457,11469,11471,11472,11473,11582,11830,11831,11898,12051,12052,12128,12457,12459,13139,13145,13146,13147,13153,13154,13299,13320,13448,13576,13577,13996,14684,14695,14750,14825,14883,15551,16389,16408,16425,16459,16470,16471,16481,16482,16540,16544,16594,17427,17517,17670,18057,18495,19191,19312,19389,19712,20302,20576,20579,20588,20857,20883,21528,21585,21615,24818,24819},
@@ -163,7 +166,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {},
         },
         [33096] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
             [itemKeys.objectDrops] = {186189},
         },
         [33109] = {
@@ -179,10 +182,10 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {},
         },
         [33284] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [33290] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [33330] = {
             [itemKeys.npcDrops] = {23954},
@@ -197,16 +200,16 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {23967},
         },
         [33621] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [33634] = {
             [itemKeys.class] = itemClasses.QUEST,
         },
         [34023] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [34024] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [34070] = {
             [itemKeys.npcDrops] = {},
@@ -266,7 +269,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {25342,25343},
         },
         [34908] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [34909] = {
             [itemKeys.npcDrops] = {},
@@ -354,7 +357,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {26608},
         },
         [36760] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [36765] = {
             [itemKeys.npcDrops] = {26809},
@@ -363,7 +366,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {26358,26359},
         },
         [36771] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [36772] = {
             [itemKeys.objectDrops] = {190510},
@@ -384,7 +387,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {},
         },
         [37173] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [37248] = {
             [itemKeys.npcDrops] = {27410},
@@ -393,7 +396,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.objectDrops] = {188666},
         },
         [37265] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [37303] = {
             [itemKeys.objectDrops] = {188694},
@@ -414,22 +417,22 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {},
         },
         [37708] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [37661] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [37727] = {
             [itemKeys.npcDrops] = {},
         },
         [37877] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [37879] = {
             [itemKeys.npcDrops] = {},
         },
         [37888] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [38303] = {
             [itemKeys.npcDrops] = {26620,26639,27431},
@@ -468,7 +471,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {},
         },
         [38657] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [38677] = {
             [itemKeys.npcDrops] = {},
@@ -486,13 +489,13 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {29079},
         },
         [40390] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [40641] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [40652] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [40728] = {
             [itemKeys.npcDrops] = {29402},
@@ -501,7 +504,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.npcDrops] = {},
         },
         [40732] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [41399] = {
             [itemKeys.npcDrops] = {},
@@ -517,7 +520,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.objectDrops] = {192124,192127},
         },
         [42422] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [42423] = {
             [itemKeys.npcDrops] = {30163,30208},
@@ -658,7 +661,7 @@ function QuestieWotlkItemFixes:Load()
             [itemKeys.objectDrops] = {},
         },
         [46895] = {
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [48418] = {
             [itemKeys.npcDrops] = {35451},
@@ -706,64 +709,26 @@ function QuestieWotlkItemFixes:Load()
         [53510] = {
             [itemKeys.npcDrops] = {40176},
         },
-
-        -- Boost quest items
-        [199335] = {
-            [itemKeys.name] = 'Teleport Scroll: Menethil Harbor',
-            [itemKeys.relatedQuests] = {70411},
-            [itemKeys.class] = 12,
-            [itemKeys.flags] = 64,
-        },
-        [199336] = {
-            [itemKeys.name] = 'Teleport Scroll: Stormwind Harbor',
-            [itemKeys.relatedQuests] = {70411},
-            [itemKeys.class] = 12,
-            [itemKeys.flags] = 64,
-        },
-        [199777] = {
-            [itemKeys.name] = 'Teleport Scroll: Orgrimmar Zeppelin Tower',
-            [itemKeys.relatedQuests] = {70737},
-            [itemKeys.class] = 12,
-            [itemKeys.flags] = 64,
-        },
-        [199778] = {
-            [itemKeys.name] = 'Teleport Scroll: Undercity Zeppelin Tower',
-            [itemKeys.relatedQuests] = {70737},
-            [itemKeys.class] = 12,
-            [itemKeys.flags] = 64,
-        },
-        [200068] = {
-            [itemKeys.name] = 'Teleport Scroll: Shattrath City',
-            [itemKeys.relatedQuests] = {70865},
-            [itemKeys.class] = 12,
-            [itemKeys.flags] = 64,
-        },
-        [211206] = {
-            [itemKeys.name] = 'Defiler\'s Medallion',
-            [itemKeys.relatedQuests] = {78752},
-            [itemKeys.class] = 12,
-            [itemKeys.npcDrops] = {23954,26723,26861,26632,29306,27978,28923,29120,29311,31134,35451,36502,36658},
-            [itemKeys.objectDrops] = {193597,193603,202336},
-        },
-        [211207] = {
-            [itemKeys.name] = 'Mysterious Artifact',
-            [itemKeys.relatedQuests] = {78753},
-            [itemKeys.class] = 12,
-            [itemKeys.npcDrops] = {23954,26723,26861,26632,29306,27978,28923,29120,29311,31134,35451,36502,36658},
-            [itemKeys.objectDrops] = {193597,193603,202336},
-        },
     }
 end
 
-function _QuestieWotlkItemFixes:InsertMissingItemIds()
-    -- Boost quest items
-    QuestieDB.itemData[199335] = {} -- Teleport Scroll: Menethil Harbor
-    QuestieDB.itemData[199336] = {} -- Teleport Scroll: Stormwind Harbor
-    QuestieDB.itemData[199777] = {} -- Teleport Scroll: Orgrimmar Zeppelin Tower
-    QuestieDB.itemData[199778] = {} -- Teleport Scroll: Undercity Zeppelin Tower
-    QuestieDB.itemData[200068] = {} -- Teleport Scroll: Shattrath City
-    QuestieDB.itemData[211206] = {} -- Defiler's Medallion
-    QuestieDB.itemData[211207] = {} -- Mysterious Artifact
+function QuestieWotlkItemFixes:LoadReverseStartQuestFixes()
+    local itemKeys = QuestieDB.itemKeys
+
+    return {
+        [18513] = {
+            [itemKeys.startQuest] = 7508,
+        },
+        [18565] = {
+            [itemKeys.startQuest] = 7522,
+        },
+        [49643] = {
+            [itemKeys.startQuest] = 24429,
+        },
+        [49644] = {
+            [itemKeys.startQuest] = 24428,
+        },
+    }
 end
 
 -- This should allow manual fix for item availability

@@ -16,6 +16,7 @@ QuestieOptions.tabs = { ... }
 QuestieConfigFrame = nil
 
 local AceGUI = LibStub("AceGUI-3.0")
+---@type AceConfigDialog-3.0
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 
 -- Forward declaration
@@ -109,8 +110,7 @@ function QuestieOptions:OpenConfigWindow()
     if not QuestieConfigFrame:IsShown() then
         _TrySkinJourneyButton()
         PlaySound(882)
-        -- AceConfigDialog:Open("Questie", QuestieConfigFrame)
-        QuestieConfigFrame:Show()
+        AceConfigDialog:Open("Questie", QuestieConfigFrame)
     else
         QuestieConfigFrame:Hide()
     end
@@ -129,55 +129,34 @@ function QuestieOptions:SetProfileValue(info, value)
     Questie.db.profile[info[#info]] = value
 end
 
-function QuestieOptions:ClusterRedraw()
-    Questie:Debug(Questie.DEBUG_INFO, "Clustering changed, redrawing!")
-    --Redraw clusters here
-    QuestieQuest:SmoothReset();
-end
-
 ---@return table
 _CreateOptionsTable = function()
     local general_tab = QuestieOptions.tabs.general:Initialize()
     coroutine.yield()
-    --local social_tab = QuestieOptions.tabs.social:Initialize()
-    --coroutine.yield()
-    --local minimap_tab = QuestieOptions.tabs.minimap:Initialize()
-    --coroutine.yield()
-    --local map_tab = QuestieOptions.tabs.map:Initialize()
-    --coroutine.yield()
+    local map_tab = QuestieOptions.tabs.map:Initialize()
+    coroutine.yield()
     local icons_tab = QuestieOptions.tabs.icons:Initialize()
     coroutine.yield()
     local tracker_tab = QuestieOptions.tabs.tracker:Initialize()
     coroutine.yield()
     local auto_tab = QuestieOptions.tabs.auto:Initialize()
     coroutine.yield()
-    --local tooltip_tab = QuestieOptions.tabs.tooltip:Initialize()
-    --coroutine.yield()
-    --local sounds_tab = QuestieOptions.tabs.sounds:Initialize()
-    --coroutine.yield()
     local nameplate_tab = QuestieOptions.tabs.nameplate:Initialize()
-    coroutine.yield()
-    local dbm_hud_tab = QuestieOptions.tabs.dbm:Initialize()
     coroutine.yield()
     local advanced_tab = QuestieOptions.tabs.advanced:Initialize()
     coroutine.yield()
     return {
-        name = "Questie",
+        name = "Questie-335",
         handler = Questie,
         type = "group",
         childGroups = "tab",
         args = {
             general_tab = general_tab,
-            --social_tab = social_tab,
-            --minimap_tab = minimap_tab,
-            --map_tab = map_tab,
+            map_tab = map_tab,
             icons_tab = icons_tab,
             tracker_tab = tracker_tab,
             auto_tab = auto_tab,
-            --tooltip_tab = tooltip_tab,
-            --sounds_tab = sounds_tab,
             nameplate_tab = nameplate_tab,
-            dbm_hud_tab = dbm_hud_tab,
             advanced_tab = advanced_tab,
             profiles_tab = LibStub("AceDBOptions-3.0"):GetOptionsTable(Questie.db)
         }

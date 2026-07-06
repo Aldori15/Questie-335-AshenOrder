@@ -20,12 +20,13 @@ local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
 local l10n = QuestieLoader:ImportModule("l10n")
 ---@type QuestLogCache
 local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
+---@type QuestiePartyObjectives
+local QuestiePartyObjectives = QuestieLoader:ImportModule("QuestiePartyObjectives")
 
 --- COMPATIBILITY ---
 local C_Timer = QuestieCompat.C_Timer
 local C_Map = QuestieCompat.C_Map
-local UnitInParty = QuestieCompat.UnitInParty
-local IsInRaid = QuestieCompat.IsInRaid
+local GetGroupUnitByName = QuestieCompat.GetGroupUnitByName
 
 local HBD = QuestieCompat.HBD or LibStub("HereBeDragonsQuestie-2.0")
 
@@ -200,7 +201,7 @@ local function _BuildSortedFullSyncEntries(partyType)
     for questId, data in pairs(QuestLogCache.questLog_DO_NOT_MODIFY) do -- DO NOT MODIFY THE RETURNED TABLE
         if (not QuestieDB.QuestPointers[questId]) then
             if not Questie._sessionWarnings[questId] then
-                if not Questie.IsSoD then Questie:Error(l10n("The quest %s is missing from Questie's database. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.", tostring(questId))) end
+                Questie:Error(l10n("The quest %s is missing from Questie's database. Please contact @Aldori on Discord or report this as a bug on the 'Questie-335-AshenOrder' GitHub repo.", tostring(questId)))
                 Questie._sessionWarnings[questId] = true
             end
         else
@@ -333,7 +334,9 @@ local _classToIndex = {
     ["ROGUE"] = 5,
     ["SHAMAN"] = 6,
     ["WARLOCK"] = 7,
-    ["WARRIOR"] = 8
+    ["WARRIOR"] = 8,
+    ["PALADIN"] = 9,
+    ["DEATHKNIGHT"] = 10,
 }
 local _indexToClass = {}
 for class, index in pairs(_classToIndex) do
@@ -383,8 +386,8 @@ function QuestieComms:PopulateQuestDataPacketV2(questId, quest, offset)
     if questObject and next(questObject.Objectives) then
         quest[offset] = questId
         local countOffset = offset+1
-        local _, classFilename = UnitClass("player")
-        quest[offset+2] = _classToIndex[classFilename]
+        local _, playerClass = UnitClassBase("player")
+        quest[offset+2] = _classToIndex[playerClass]
 
         offset = offset + 3
         for objectiveIndex, objective in pairs(rawObjectives) do -- DO NOT MODIFY THE RETURNED TABLE
@@ -449,6 +452,8 @@ function QuestieComms:InsertQuestDataPacketV2_noclass_RenameMe(questPacket, play
                 --Write to tooltip data
                 QuestieComms.data:RegisterTooltip(questPacketid, playerName, objectives)
             end
+
+            QuestiePartyObjectives:ScheduleUpdate(questPacketid)
         end
     end
     return offset, allDone
@@ -503,13 +508,15 @@ function QuestieComms:InsertQuestDataPacketV2(questPacket, playerName, offset, d
                     QuestieComms.remoteQuestLogs[questPacketid][playerName] = nil
                 end
             end
+
+            QuestiePartyObjectives:ScheduleUpdate(questPacketid)
         end
     end
     return offset, allDone
 end
 
 function QuestieComms:CheckInGroup(name)
-    return IsInRaid() and UnitInRaid(name) or UnitInParty(name)
+    return GetGroupUnitByName(name) ~= nil
 end
 
 function QuestieComms:RemoveAllRemotePlayers()
@@ -527,6 +534,7 @@ function QuestieComms:RemoveRemotePlayer(name)
             players[name] = nil
         end
     end
+    QuestiePartyObjectives:ScheduleUpdate()
 end
 
 function QuestieComms:SortRemotePlayers()
@@ -559,7 +567,7 @@ local _loadupTime_removeme = GetTime() -- this will be removed in 6.0.1 or 6.1, 
 -- yelling quests on login. Not enough time to make and test a proper fix
 
 function QuestieComms:YellProgress(questId)
-    if Questie.db.profile.disableYellComms or badYellLocations[C_Map.GetBestMapForUnit("player")] or QuestiePlayer.numberOfGroupMembers > 4 or GetTime() - _loadupTime_removeme < 8 then
+    if Questie.db.profile.disableYellComms or badYellLocations[C_Map.GetBestMapForUnit("player")] or QuestiePlayer.numberOfGroupMembers > 5 or GetTime() - _loadupTime_removeme < 8 then
         return
     end
     if not QuestieComms._yellWaitingQuests[questId] then
@@ -845,6 +853,8 @@ function QuestieComms:InsertQuestDataPacket(questPacket, playerName)
 
             --Write to tooltip data
             QuestieComms.data:RegisterTooltip(questPacket.id, playerName, objectives);
+
+            QuestiePartyObjectives:ScheduleUpdate(questPacket.id)
         end
     end
 end
@@ -887,6 +897,7 @@ _QuestieComms.packets = {
             QuestieComms.remoteQuestLogs[questId][playerName] = nil;
         end
         QuestieComms.data:RemoveQuestFromPlayer(questId, playerName);
+        QuestiePartyObjectives:ScheduleUpdate(questId)
       end
     },
     [_QuestieComms.QC_ID_BROADCAST_FULL_QUESTLIST] = { --10
@@ -1035,7 +1046,7 @@ function _QuestieComms.OnCommReceived_unsafe(prefix, message, distribution, send
         end
 
         --Check if the message version is the same base value
-        if distribution == "YELL" and decompressedData.msgId and _QuestieComms.packets[decompressedData.msgId] then
+        if distribution == "YELL" and decompressedData and decompressedData.msgId and _QuestieComms.packets[decompressedData.msgId] then
             decompressedData.playerName = sender;
             Questie:Debug(Questie.DEBUG_DEVELOP, "Executing message ID: ", decompressedData.msgId, "From: ", sender)
             _QuestieComms.packets[decompressedData.msgId].read(decompressedData)
@@ -1046,9 +1057,10 @@ function _QuestieComms.OnCommReceived_unsafe(prefix, message, distribution, send
                 if(suggestUpdate) then
                     local major, minor, patch = strsplit(".", decompressedData.ver);
                     local majorOwn, minorOwn, patchOwn = QuestieLib:GetAddonVersionInfo();
-                    if(majorOwn < tonumber(major) or (majorOwn == tonumber(major) and minorOwn < tonumber(minor)) or (majorOwn == tonumber(major) and minorOwn == tonumber(minor) and patchOwn < tonumber(patch)) and (not UnitAffectingCombat("player"))) then
+                    major, minor, patch = tonumber(major), tonumber(minor), tonumber(patch);
+                    if((majorOwn < major or (majorOwn == major and minorOwn < minor) or (majorOwn == major and minorOwn == minor and patchOwn < patch)) and (not UnitAffectingCombat("player"))) then
                         suggestUpdate = false;
-                        if(majorOwn < tonumber(major)) then
+                        if(majorOwn < major) then
                             Questie:Print("|cffff0000", l10n("A Major patch for Questie exists!"), "|r");
                             Questie:Print("|cffff0000", l10n("Please update as soon as possible!"), "|r");
                         else
@@ -1103,6 +1115,5 @@ end
 function QuestieComms:ResetAll()
     QuestieComms.data:ResetAll()
     QuestieComms.remoteQuestLogs = {}
+    QuestiePartyObjectives:ScheduleUpdate()
 end
-
-return QuestieComms

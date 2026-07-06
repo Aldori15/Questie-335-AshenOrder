@@ -7,25 +7,13 @@ QuestieCompat.Is335 = (select(4, GetBuildInfo()) == 30300)
 
 local errorMsg = "Questie tried to call a blizzard API function that does not exist..."
 
+local function GetWatchFrame()
+    return QuestWatchFrame or WatchFrame
+end
+
 ------------------------------------------
 -- Older client compatibility (pre 1.14.1)
 ------------------------------------------
-
--- Add missing Seasons object, if not available (e.g. 1.14.0 and below is missing it)
-if not C_Seasons then
-    C_Seasons = {
-        ---[C_Seasons.HasActiveSeason Documentation](https://wowpedia.fandom.com/wiki/API_C_Seasons.HasActiveSeason)
-        ---Returns true if the player is on a seasonal realm.
-        HasActiveSeason = function()
-            return false
-        end,
-        ---[C_Seasons.GetActiveSeason Documentation](https://wowpedia.fandom.com/wiki/API_C_Seasons.GetActiveSeason)
-        ---Returns the ID of the season that is active on the current realm.
-        GetActiveSeason = function()
-            return 0
-        end
-    }
-end
 
 -- Specific subclass of this mixin was added in a minor version and is missing in earlier patches, functionality this makes next to no visual difference
 if not TooltipBackdropTemplateMixin then
@@ -203,5 +191,26 @@ function QuestieCompat.GetItemCooldown(itemID)
         return C_Container.GetItemCooldown(itemID)
     else
         return GetItemCooldown(itemID)
+    end
+end
+
+function QuestieCompat.HideWatchFrame()
+    local watchFrame = GetWatchFrame()
+    if watchFrame then
+        watchFrame:Hide()
+    end
+end
+
+function QuestieCompat.ShowWatchFrame()
+    local watchFrame = GetWatchFrame()
+    if watchFrame then
+        watchFrame:Show()
+    end
+end
+
+function QuestieCompat.GetWatchFramePoint()
+    local watchFrame = GetWatchFrame()
+    if watchFrame then
+        return watchFrame:GetPoint()
     end
 end

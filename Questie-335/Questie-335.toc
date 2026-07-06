@@ -1,12 +1,12 @@
 ## Interface: 30300
-## Title: Questie-335|cFF00FF00 v1.3.0|r
+## Title: Questie-335|cFF00FF00 v1.3.1|r
 ## Author: Aero/Logon/Muehe/TheCrux(BreakBB)/Drejjmit/Dyaxler/Schaka/Zoey/Everyone else
-## Notes: A standalone Classic QuestHelper updated for the Ashen Order repack.  It cannot be used independently from Questie-335-AshenOrder v1.3.0 and both need to be used together.
+## Notes: A standalone Classic QuestHelper updated for the Ashen Order repack.  It cannot be used independently from Questie-335-AshenOrder v1.3.1 and both need to be used together.
 ## Notes-esMX: Ayundante de misión
 ## Notes-esES: Ayundante de misión
 ## Notes-ptBR: Ajudante de missão
 ## Notes-frFR: Assistant de quête
-## Version: 1.3.0-AshenOrder
+## Version: 1.3.1-AshenOrder
 ## RequiredDeps:
 ## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu
 ## SavedVariables: QuestieConfig
@@ -26,9 +26,6 @@ Modules\VersionCheck.lua
 
 # Thread Manager
 Modules\Libs\ThreadLib.lua
-
-# Message Handler
-#Modules\Libs\MessageHandler.lua
 
 #Quest XP
 Database\QuestXP\QuestieXP.lua
@@ -60,7 +57,6 @@ Database\Corrections\QuestieCorrections.lua
 Database\Corrections\QuestieItemBlacklist.lua
 Database\Corrections\QuestieNPCBlacklist.lua
 Database\Corrections\QuestieQuestBlacklist.lua
-#Database\Corrections\SoMPhases.lua
 Database\Corrections\QuestieEvent.lua
 
 # Automatic General Corrections
@@ -89,6 +85,7 @@ Database\Corrections\wotlkObjectFixes.lua
 Database\DropTables\dropDB.lua
 Database\DropTables\data\itemDropCorrections.lua
 Database\DropTables\data\wotlkItemDrops.lua
+Database\DropTables\data\wotlkAcoreItemDrops.lua
 
 # Compiler
 Database\compiler.lua
@@ -106,6 +103,8 @@ Localization\lookups\Wotlk\lookupObjects\lookupObjects.xml
 Localization\lookups\Wotlk\lookupQuests\lookupQuests.xml
 
 # Libs
+Modules\Libs\utf8.lua
+Modules\Libs\WrappedText.lua
 Modules\Libs\QuestieLib.lua
 Modules\Libs\QuestieSerializer.lua
 Modules\Libs\QuestieCombatQueue.lua
@@ -113,6 +112,7 @@ Modules\Libs\RamerDouglasPeucker.lua
 
 # Modules
 Modules\QuestieValidateGameCache.lua
+Modules\QuestieIconVisibility.lua
 Modules\QuestieInit.lua
 Modules\MinimapIcon.lua
 Modules\QuestieProfessions.lua
@@ -130,7 +130,6 @@ Modules\QuestieAnnounce.lua
 Modules\QuestieShutUp.lua
 Modules\Sounds.lua
 Modules\QuestiePlayer.lua
-#Modules\QuestieDebugOffer.lua
 Modules\WorldMapButton\WorldMapButton.lua
 #Modules\WorldMapButton\QuestieWorldMapButtonTemplate.xml
 
@@ -141,6 +140,7 @@ Modules\QuestLinks\Link.lua
 
 # Tooltips
 Modules\Tooltips\Tooltip.lua
+Modules\Tooltips\TooltipLayout.lua
 Modules\Tooltips\MapIconTooltip.lua
 Modules\Tooltips\TooltipHandler.lua
 
@@ -159,6 +159,7 @@ Modules\Map\QuestieMapUtils.lua
 #Modules\Map\HBDHooks.lua
 Modules\Map\WeaponMasterSkills.lua
 Modules\Map\Moonwell.lua
+Modules\Map\InstanceLocations.lua
 
 # Quest
 Modules\Quest\AvailableQuests.lua
@@ -178,6 +179,7 @@ Modules\QuestieCoordinates.lua
 Modules\Network\Comms.lua
 Modules\Network\QuestieComms.lua
 Modules\Network\QuestieCommsData.lua
+Modules\Network\QuestiePartyObjectives.lua
 
 # Journey
 Modules\Journey\QuestieJourney.lua
@@ -185,6 +187,7 @@ Modules\Journey\QuestieJourneyPrivates.lua
 Modules\Journey\QuestieJourneyUtils.lua
 Modules\Journey\QuestieJourneyFactions.lua
 Modules\Journey\History.lua
+Modules\Journey\QuestieJourneyShare.lua
 Modules\Journey\QuestDetailsFrame.lua
 Modules\Journey\tabs\MyJourney\Note.lua
 Modules\Journey\tabs\MyJourney\MyJourney.lua
@@ -200,6 +203,10 @@ Modules\Journey\QuestieSearchResults.lua
 
 # Tracker
 Modules\Tracker\QuestieTracker.lua
+Modules\Tracker\Sorter\Sorter.lua
+Modules\Tracker\Sorter\byComplete.lua
+Modules\Tracker\Sorter\byLevel.lua
+Modules\Tracker\Sorter\byZone.lua
 Modules\Tracker\TrackerUtils.lua
 Modules\Tracker\TrackerMenu.lua
 Modules\Tracker\TrackerFadeTicker.lua
@@ -222,9 +229,9 @@ Modules\Options\QuestieOptionsDefaults.lua
 Modules\Options\QuestieOptionsUtils.lua
 Modules\Options\AdvancedTab\QuestieOptionsAdvanced.lua
 Modules\Options\AutoTab\QuestieOptionsAuto.lua
-Modules\Options\DBMTab\QuestieOptionsDBM.lua
 Modules\Options\GeneralTab\QuestieOptionsGeneral.lua
 Modules\Options\IconsTab\QuestieOptionsIcons.lua
+Modules\Options\MapTab\QuestieOptionsMap.lua
 Modules\Options\NameplateTab\QuestieOptionsNameplate.lua
 Modules\Options\TrackerTab\QuestieOptionsTracker.lua
 

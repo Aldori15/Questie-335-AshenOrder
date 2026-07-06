@@ -3,6 +3,8 @@ local QuestieCoords = QuestieLoader:CreateModule("QuestieCoords");
 
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
+---@type ZoneDB
+local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
 
 --- COMPATIBILITY ---
 local C_Timer = QuestieCompat.C_Timer
@@ -176,13 +178,16 @@ function QuestieCoords:WriteCoords()
         curY = (top - curY) / height * 100;
         local precision = "%.".. Questie.db.profile.mapCoordinatePrecision .."f";
 
-        if QuestieCompat.Is335 and (not canvas:IsMouseOver()) or (position.uiMapID == 946)then
+        if QuestieCompat.Is335 and ((not canvas:IsMouseOver()) or (position.uiMapID == 946)) then
             curX, curY = 0, 0
         end
 
         local worldmapCoordsText = "Cursor: "..format(precision.. " X, ".. precision .." Y  ", curX, curY);
 
-        worldmapCoordsText = worldmapCoordsText.."|  Player: "..format(precision.. " X , ".. precision .." Y", posX, posY);
+        worldmapCoordsText = worldmapCoordsText.." | Player: "..format(precision.. " X , ".. precision .." Y", posX, posY);
+        worldmapCoordsText = worldmapCoordsText.." | UIMapID: "..position.uiMapID;
+        worldmapCoordsText = worldmapCoordsText.." | MapAreaID: "..GetCurrentMapAreaID();
+
         -- Add text to world map
         if QuestieCompat.Is335 and WorldMapFrameTitle then
             if WorldMapFrameTitle:IsShown() then
@@ -225,7 +230,7 @@ function QuestieCoords:Initialize()
 end
 
 function QuestieCoords:Update()
-    if (Questie.db.profile.minimapCoordinatesEnabled) or (Questie.db.profile.mapCoordinatesEnabled) then
+    if (Questie.db.profile.minimapCoordinatesEnabled and Minimap:IsVisible()) or (Questie.db.profile.mapCoordinatesEnabled and WorldMapFrame:IsVisible()) then
         QuestieCoords:WriteCoords();
     end
 end

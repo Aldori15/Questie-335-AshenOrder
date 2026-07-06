@@ -10,6 +10,8 @@ local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 --- COMPATIBILITY ---
 local UnitGUID = QuestieCompat.UnitGUID
 
+local strfind = string.find
+
 local lastGuid
 
 local function _AreQuestieTooltipsEnabled()
@@ -38,14 +40,16 @@ function _QuestieTooltips:AddUnitDataToTooltip()
         lastGuid ~= guid
     ) then
         QuestieTooltips.lastGametooltipUnit = name
+        if Questie.db.profile.enableTooltipsNPCID then
+            GameTooltip:AddDoubleLine(l10n("NPC ID"), "|cFFFFFFFF" .. npcId .. "|r")
+        end
+
         local tooltipData = QuestieTooltips:GetTooltip("m_" .. npcId);
         if tooltipData then
-            if Questie.db.profile.enableTooltipsNPCID == true then
-                GameTooltip:AddDoubleLine("NPC ID", "|cFFFFFFFF" .. npcId .. "|r")
-            end
             for _, v in pairs (tooltipData) do
                 GameTooltip:AddLine(v)
             end
+            self:Show()
         end
         QuestieTooltips.lastGametooltipCount = _QuestieTooltips:CountTooltip()
     end
@@ -55,8 +59,20 @@ end
 
 local checkedQuestStartItems = {} -- cache item IDs that were already checked if they start a quest
 local lastItemId = 0;
+
+local function _IsLootTooltip(tooltip)
+    if tooltip ~= GameTooltip or not tooltip.GetOwner then
+        return false
+    end
+
+    local owner = tooltip:GetOwner()
+    local ownerName = owner and owner.GetName and owner:GetName()
+
+    return ownerName and (string.match(ownerName, "^LootButton%d+$") or string.match(ownerName, "^GroupLootFrame%d+$"))
+end
+
 function _QuestieTooltips:AddItemDataToTooltip()
-    if (self.IsForbidden and self:IsForbidden()) or (not _AreQuestieTooltipsEnabled()) then
+    if (self.IsForbidden and self:IsForbidden()) or (not _AreQuestieTooltipsEnabled()) or _IsLootTooltip(self) then
         return
     end
 
@@ -74,27 +90,28 @@ function _QuestieTooltips:AddItemDataToTooltip()
         QuestieTooltips.lastFrameName ~= self:GetName()
     ) then
         QuestieTooltips.lastGametooltipItem = name
-        local tooltipData = QuestieTooltips:GetTooltip("i_" .. (itemId or 0));
-        if tooltipData then
-            if Questie.db.profile.enableTooltipsItemID == true then
-                GameTooltip:AddDoubleLine("Item ID", "|cFFFFFFFF" .. itemId .. "|r")
-            end
+        if Questie.db.profile.enableTooltipsItemID then
+            self:AddDoubleLine(l10n("Item ID"), "|cFFFFFFFF" .. itemId .. "|r")
+        end
 
-            if (not checkedQuestStartItems[itemId]) then
-                checkedQuestStartItems[itemId] = true
-                local itemIdAsNumber = tonumber(itemId)
-                if itemIdAsNumber then
-                    local startQuestId = QuestieDB.QueryItemSingle(itemIdAsNumber, "startQuest")
-                    local itemName = QuestieDB.QueryItemSingle(itemIdAsNumber, "name")
-                    if startQuestId and startQuestId ~= 0 and itemName then
-                        QuestieTooltips:RegisterQuestStartTooltip(startQuestId, itemName, itemIdAsNumber, "i_"..itemId, "itemFromMonster")
-                    end
+        if (not checkedQuestStartItems[itemId]) then
+            checkedQuestStartItems[itemId] = true
+            local itemIdAsNumber = tonumber(itemId)
+            if itemIdAsNumber then
+                local startQuestId = QuestieDB.QueryItemSingle(itemIdAsNumber, "startQuest")
+                local itemName = QuestieDB.QueryItemSingle(itemIdAsNumber, "name")
+                if startQuestId and startQuestId ~= 0 and itemName then
+                    QuestieTooltips:RegisterQuestStartTooltip(startQuestId, itemName, itemIdAsNumber, "i_"..itemId, "itemFromMonster")
                 end
             end
+        end
 
+        local tooltipData = QuestieTooltips:GetTooltip("i_" .. (itemId or 0));
+        if tooltipData then
             for _, v in pairs (tooltipData) do
                 self:AddLine(v)
             end
+            self:Show()
         end
         QuestieTooltips.lastGametooltipCount = _QuestieTooltips:CountTooltip()
     end
@@ -134,7 +151,7 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
                     -- Quest has objectives
                     for index, line in pairs (tooltipData) do
                         if index > 1 and (not alreadyAddedObjectiveLines[line]) then -- skip the first entry, it's the title
-                            local _, _, acquired, needed = string.find(line, "(%d+)/(%d+)")
+                            local _, _, acquired, needed = strfind(line, "(%d+)/(%d+)")
                             -- We need "tonumber", because acquired can contain parts of the color string
                             if acquired and tonumber(acquired) == tonumber(needed) then
                                 -- We don't want to show completed objectives on game objects

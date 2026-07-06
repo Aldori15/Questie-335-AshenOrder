@@ -42,7 +42,7 @@ function QuestieItemFixes:Load()
         [1262] = { -- Keg of Thunderbrew
             [itemKeys.relatedQuests] = {116, 117},
             [itemKeys.vendors] = {239},
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
             [itemKeys.name] = "Keg of Thunderbrew",
         },
         [1357] = { -- Captain Sander's Treasure Map
@@ -55,6 +55,8 @@ function QuestieItemFixes:Load()
             [itemKeys.npcDrops] = {},
         },
         [1708] = { -- Sweet Nectar
+            [itemKeys.npcDrops] = {},
+            [itemKeys.objectDrops] = {},
             [itemKeys.vendors] = {258, 274, 295, 465, 734, 955, 982, 1149, 1237, 1247, 1285, 1328, 1464, 1697, 2084, 2303, 2352, 2364, 2366, 2388, 2401, 2803, 2806, 2808, 2820, 2832, 2908, 3086, 3298, 3313, 3350, 3411, 3541, 3546, 3577, 3621, 3625, 3689, 3708, 3881, 3882, 3883, 3884, 3934, 3937, 3959, 3961, 4167, 4169, 4170, 4181, 4190, 4191, 4192, 4195, 4241, 4255, 4266, 4554, 4555, 4571, 4782, 4875, 4879, 4893, 4896, 4963, 4981, 5101, 5111, 5112, 5134, 5140, 5611, 5620, 5688, 5814, 5871, 6091, 6272, 6495, 6727, 6734, 6735, 6736, 6737, 6738, 6739, 6740, 6741, 6746, 6747, 6790, 6791, 6807, 6928, 6929, 6930, 7485, 7714, 7731, 7733, 7736, 7737, 7744, 7941, 7942, 7943, 8125, 8137, 8139, 8143, 8150, 8152, 8362, 8931, 9356, 9501, 10367, 11038, 11103, 11106, 11116, 11118, 11187, 11287, 11555, 12019, 12021, 12026, 12027, 12196, 12246, 12794, 12959, 12960, 14371, 14624, 14731, 14963, 14964, 15124, 15125, 15174, 16256, 16458},
         },
         [1939] = { -- Skin of Sweet Rum
@@ -217,10 +219,18 @@ function QuestieItemFixes:Load()
         [3823] = { -- Lesser Invisibility Potion
             [itemKeys.relatedQuests] = {715},
         },
+        [3827] = { -- Mana Potion
+            [itemKeys.npcDrops] = {},
+            [itemKeys.objectDrops] = {},
+        },
         [3829] = { -- Frost Oil
             [itemKeys.relatedQuests] = {713, 1193},
             [itemKeys.npcDrops] = {},
             [itemKeys.itemDrops] = {11887},
+        },
+        [3857] = { -- Coal
+            [itemKeys.npcDrops] = {},
+            [itemKeys.objectDrops] = {},
         },
         [3864] = { -- Citrine
             [itemKeys.npcDrops] = {},
@@ -464,7 +474,7 @@ function QuestieItemFixes:Load()
             [itemKeys.npcDrops] = {4130, 4131, 4133},
         },
         [5880] = { -- Crate With Holes
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [5942] = { -- Jeweled Pendant
             [itemKeys.npcDrops] = {4405, 4401, 4404, 4402, 4403, 14236},
@@ -578,7 +588,7 @@ function QuestieItemFixes:Load()
             [itemKeys.objectDrops] = {},
         },
         [7297] = { -- Morbent's Bane
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [7628] = { -- Nondescript Letter
             [itemKeys.relatedQuests] = {8},
@@ -679,6 +689,9 @@ function QuestieItemFixes:Load()
             [itemKeys.npcDrops] = {},
             [itemKeys.objectDrops] = {144063},
         },
+        [9316] = { -- Prismatic Punch Card
+            [itemKeys.objectDrops] = {142696},
+        },
         [9330] = { -- Snapshot of Gammerita
             [itemKeys.relatedQuests] = {2944},
             [itemKeys.npcDrops] = {7977},
@@ -778,7 +791,7 @@ function QuestieItemFixes:Load()
             [itemKeys.objectDrops] = {152606},
         },
         [10757] = { -- Ward of the Defiler
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [11018] = { -- Un'Goro Soil
             [itemKeys.npcDrops] = {},
@@ -789,7 +802,7 @@ function QuestieItemFixes:Load()
             [itemKeys.objectDrops] = {},
         },
         [11078] = { -- Relic Coffer Key
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [11113] = { -- Crate of Foodstuffs
             [itemKeys.objectDrops] = {161526},
@@ -803,7 +816,7 @@ function QuestieItemFixes:Load()
             [itemKeys.objectDrops] = {174793},
         },
         [11148] = { -- Samophlange Manual Page
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [11149] = { -- Samophlange Manual
             [itemKeys.relatedQuests] = {3924},
@@ -853,7 +866,7 @@ function QuestieItemFixes:Load()
         },
         [11914] = { -- Empty Cursed Ooze Jar
             [itemKeys.npcDrops] = {},
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [11947] = { -- Filled Cursed Ooze Jar (#1315)
             [itemKeys.relatedQuests] = {4512},
@@ -862,7 +875,7 @@ function QuestieItemFixes:Load()
         },
         [11948] = { -- Empty Tainted Ooze Jar
             [itemKeys.npcDrops] = {},
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [11949] = { -- Filled Tainted Ooze Jar (#1315)
             [itemKeys.relatedQuests] = {4512},
@@ -870,7 +883,7 @@ function QuestieItemFixes:Load()
             [itemKeys.objectDrops] = {},
         },
         [11953] = { -- Empty Pure Sample Jar
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [11954] = { -- Filled Pure Sample Jar (#1070)
             [itemKeys.relatedQuests] = {4513},
@@ -968,7 +981,7 @@ function QuestieItemFixes:Load()
             [itemKeys.objectDrops] = {},
         },
         [12886] = { -- Pamela's Doll's Head
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [12907] = { -- Corrupt Moonwell Water (#1083)
             [itemKeys.relatedQuests] = {5157},
@@ -979,10 +992,10 @@ function QuestieItemFixes:Load()
             [itemKeys.relatedQuests] = {5157},
             [itemKeys.npcDrops] = {},
             [itemKeys.objectDrops] = {},
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [13156] = { -- Mystic Crystal
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [13172] = { -- Grimm's Premium Tobacco
             [itemKeys.name] = "Grimm's Premium Tobacco",
@@ -1217,14 +1230,14 @@ function QuestieItemFixes:Load()
             [itemKeys.npcDrops] = {},
         },
         [18335] = { -- Pristine Black Diamond
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [18401] = { -- Nostro's Compendium of Dragon Slaying
             [itemKeys.name] = "Nostro's Compendium of Dragon Slaying",
             [itemKeys.startQuest] = 7507,
         },
-        [18605] = { -- Imprisoned Doomguard (#7583)
-            [itemKeys.npcDrops] = {12396},
+        [18513] = { -- A Dull and Flat Elven Blade
+            [itemKeys.startQuest] = 7508,
         },
         [18642] = { -- Jaina's Autograph
             [itemKeys.npcDrops] = {4968},
@@ -1306,7 +1319,7 @@ function QuestieItemFixes:Load()
             [itemKeys.npcDrops] = {},
         },
         [20464] = { -- Glyphs of Calling
-            [itemKeys.class] = 12,
+            [itemKeys.class] = itemClasses.QUEST,
         },
         [20490] = { -- Ironforge Mint
             [itemKeys.npcDrops] = {5111},
@@ -1462,7 +1475,8 @@ function QuestieItemFixes:Load()
             [itemKeys.npcDrops] = {6520, 6521, 7031, 7032, 7132, 8519, 8520, 8521, 8522, 8909, 8910, 8911, 9017, 9025, 9026, 9816, 9878, 9879, 11480, 11483, 11484, 11744, 11745, 11746, 11747, 13279, 13280, 14399, 14400, 14455, 14458, 14460, 14462},
         },
         [22719] = { -- Omarion's Handbook
-            [itemKeys.npcDrops] = {16365},
+            --[itemKeys.npcDrops] = {16365}, -- hiding until logic is fixed
+            [itemKeys.npcDrops] = {},
             [itemKeys.startQuest] = 9233,
         },
         [23179] = { -- Flame of Orgrimmar
@@ -1542,7 +1556,7 @@ function QuestieItemFixes:Load()
     }
 end
 
--- some quest items are shared across factions but require different sources for each faction (not sure if there is a better way to implement this)
+-- some quest items are shared across factions but require different sources for each faction
 function QuestieItemFixes:LoadFactionFixes()
     local itemKeys = QuestieDB.itemKeys
 

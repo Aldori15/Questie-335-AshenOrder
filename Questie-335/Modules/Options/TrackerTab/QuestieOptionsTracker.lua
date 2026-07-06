@@ -345,6 +345,32 @@ function QuestieOptions.tabs.tracker:Initialize()
                                     QuestieTracker:Update()
                                 end
                             },
+                            showQuestProgressFirst = {
+                                type = "toggle",
+                                order = 4.1,
+                                width = 1.5,
+                                name = function() return l10n('Show Objective Progress First') end,
+                                desc = function() return l10n('When checked, objective progress will be displayed at the beginning of each objective line.') end,
+                                disabled = function() return not Questie.db.profile.trackerEnabled end,
+                                get = function() return Questie.db.profile.showQuestProgressFirst end,
+                                set = function(_, value)
+                                    Questie.db.profile.showQuestProgressFirst = value
+                                    QuestieTracker:Update()
+                                end
+                            },
+                            showQuestPercent = {
+                                type = "toggle",
+                                order = 4.2,
+                                width = 1.5,
+                                name = function() return l10n('Show Quest Percentage') end,
+                                desc = function() return l10n('When checked, a percentage based on quest completion will be displayed next to the quest name and colored by completion.') end,
+                                disabled = function() return not Questie.db.profile.trackerEnabled end,
+                                get = function() return Questie.db.profile.showQuestPercent end,
+                                set = function(_, value)
+                                    Questie.db.profile.showQuestPercent = value
+                                    QuestieTracker:Update()
+                                end
+                            },
                             Spacer_X = QuestieOptionsUtils:Spacer(5),
                             colorObjectives = {
                                 type = "select",
@@ -1040,8 +1066,13 @@ function QuestieOptions.tabs.tracker:Initialize()
                         name = function() return l10n('Outline for Zones, Titles, and Objectives') end,
                         desc = function() return l10n('The outline used for Quest Zones, Titles, and Objectives in the Questie Tracker.') end,
                         disabled = function() return not Questie.db.profile.trackerEnabled end,
-                        get = function() return Questie.db.profile.trackerFontOutline end,
+                        get = function()
+                            return Questie.db.profile.trackerFontOutline == "" and "None" or Questie.db.profile.trackerFontOutline
+                        end,
                         set = function(_, value)
+                            if value == "None" then
+                                value = ""
+                            end
                             Questie.db.profile.trackerFontOutline = value
                             QuestieTracker:Update()
                         end

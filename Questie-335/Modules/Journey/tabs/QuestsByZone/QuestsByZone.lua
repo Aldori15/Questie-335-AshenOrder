@@ -2,14 +2,15 @@
 local QuestieJourney = QuestieLoader:CreateModule("QuestieJourney")
 local _QuestieJourney = QuestieJourney.private
 
+---@type QuestDetailsFrame
+local QuestDetailsFrame = QuestieLoader:ImportModule("QuestDetailsFrame")
+
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestieLib
 local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 ---@type QuestiePlayer
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
----@type QuestieReputation
-local QuestieReputation = QuestieLoader:ImportModule("QuestieReputation")
 ---@type QuestieCorrections
 local QuestieCorrections = QuestieLoader:ImportModule("QuestieCorrections")
 ---@type QuestieQuestBlacklist
@@ -18,8 +19,6 @@ local QuestieQuestBlacklist = QuestieLoader:ImportModule("QuestieQuestBlacklist"
 local QuestieEvent = QuestieLoader:ImportModule("QuestieEvent")
 ---@type QuestieLink
 local QuestieLink = QuestieLoader:ImportModule("QuestieLink")
----@type QuestieProfessions
-local QuestieProfessions = QuestieLoader:ImportModule("QuestieProfessions")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
@@ -35,7 +34,7 @@ local C_Timer = QuestieCompat.C_Timer
 ---@param zoneTree table @The zone tree table
 function _QuestieJourney.questsByZone:RestoreSavedQuestSelection(treeFrame, zoneTree)
     local savedSelection = _QuestieJourney.lastZoneSelection[3]
-    if not savedSelection then return end
+    if not savedSelection or not zoneTree then return end
 
     local sel, questId = strsplit("\001", savedSelection)
     if not questId then return end
@@ -86,7 +85,7 @@ function _QuestieJourney.questsByZone:RestoreSavedQuestSelection(treeFrame, zone
                 scrollFrame:SetFullHeight(true)
                 master:AddChild(scrollFrame)
 
-                _QuestieJourney:DrawQuestDetailsFrame(scrollFrame, quest)
+                QuestDetailsFrame:Draw(scrollFrame, quest)
             end
         end)
     else
@@ -108,6 +107,7 @@ function _QuestieJourney.questsByZone:ManageTree(container, zoneTree)
     zoneTreeFrame = AceGUI:Create("TreeGroup")
     zoneTreeFrame:SetFullWidth(true)
     zoneTreeFrame:SetFullHeight(true)
+    zoneTreeFrame:EnableButtonTooltips(false)
     zoneTreeFrame:SetTree(zoneTree)
 
     zoneTreeFrame.treeframe:SetWidth(220)
@@ -149,10 +149,10 @@ function _QuestieJourney.questsByZone:ManageTree(container, zoneTree)
 
         -- Add the quest to the open chat window if it was a shift click
         if (IsModifiedClick("CHATLINK") and ChatEdit_GetActiveWindow()) then
-            ChatEdit_InsertLink(QuestieLink:GetQuestInsertString(quest.level, quest.name, quest.Id))
+            ChatEdit_InsertLink(QuestieLink:GetQuestInsertStringById(quest.Id))
         end
 
-        _QuestieJourney:DrawQuestDetailsFrame(scrollFrame, quest)
+        QuestDetailsFrame:Draw(scrollFrame, quest)
     end)
 
     container:AddChild(zoneTreeFrame)
@@ -222,8 +222,7 @@ function _QuestieJourney.questsByZone:CategorizeQuests(quests)
     local breadcrumbCounter = 0
     local hiddenCounter = 0
 
-    local temp = {}
-
+    local HIDE_ON_MAP = QuestieQuestBlacklist.HIDE_ON_MAP
     local hiddenQuests = QuestieCorrections.hiddenQuests
     local playerlevel = UnitLevel("player")
     local DoableStates = QuestieDB.DoableStates
@@ -232,9 +231,21 @@ function _QuestieJourney.questsByZone:CategorizeQuests(quests)
         ---@type number
         local questId = levelAndQuest[2]
         -- Only show quests which are not hidden
-        if hiddenQuests and ((not hiddenQuests[questId]) or QuestieEvent:IsEventQuest(questId)) and QuestieDB.QuestPointers[questId] then
-            temp.value = questId
-            temp.text = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, false)
+        if hiddenQuests and (((not hiddenQuests[questId]) or hiddenQuests[questId] == HIDE_ON_MAP) or QuestieEvent:IsEventQuest(questId)) and QuestieDB.QuestPointers[questId] then
+            local temp = {
+                value = questId,
+                text = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, false),
+            }
+            temp.iconSize = 14
+            temp.useIconGutter = true
+            temp.iconGutterOffset = -3
+            if QuestiePlayer.currentQuestlog[questId] then
+                if QuestieDB.IsComplete(questId) == 1 then
+                    temp.icon = Questie.icons["complete"]
+                else
+                    temp.icon = Questie.icons["incomplete"]
+                end
+            end
 
             local breadcrumbForQuestId = QuestieDB.QueryQuest(questId,{"breadcrumbForQuestId"})[1] or {}
             local eligibilityText, _, returnReason = QuestieDB.IsDoableVerbose(questId, false, true, true)
@@ -276,7 +287,7 @@ function _QuestieJourney.questsByZone:CategorizeQuests(quests)
                 -- reused the logic from AvailableQuests.lua _DrawChildQuests
                 -- if this is modified, also make sure the changes are reflected in the other file(s)
                     local requiredRaces = QuestieDB.QueryQuestSingle(questId, "requiredRaces")
-                    if (not Questie.db.char.complete[questId]) and (not hiddenQuests[questId]) and (QuestiePlayer.HasRequiredRace(requiredRaces)) then
+                    if (not Questie.db.char.complete[questId]) and ((not hiddenQuests[questId]) or hiddenQuests[questId] == HIDE_ON_MAP) and (QuestiePlayer.HasRequiredRace(requiredRaces)) then
                         -- some childQuest remain completed after abandoning and retaking parentQuest
                         -- here we are checking against 
                         local childQuestExclusiveTo = QuestieDB.QueryQuestSingle(questId, "exclusiveTo")
@@ -285,6 +296,7 @@ function _QuestieJourney.questsByZone:CategorizeQuests(quests)
                             if QuestiePlayer.currentQuestlog[exclusiveToQuestId] or Questie.db.char.complete[exclusiveToQuestId] then
                                 tinsert(zoneTree[4].children, temp)
                                 completedCounter = completedCounter + 1
+                                blockedByExclusiveTo = true
                             end
                         end
                         if (not blockedByExclusiveTo) then
@@ -399,8 +411,11 @@ function _QuestieJourney.questsByZone:CategorizeQuests(quests)
                     end
                     -- "Regular" exclusives
                     if not questDecidedCategory then
-                        tinsert(zoneTree[4].children, temp)
-                        if not QuestieDB.IsRepeatable(questId) then
+                        if QuestieDB.IsRepeatable(questId) then
+                            tinsert(zoneTree[6].children, temp)
+                            unobtainableCounter = unobtainableCounter + 1
+                        else
+                            tinsert(zoneTree[4].children, temp)
                             completedCounter = completedCounter + 1
                         end
                     end
@@ -454,14 +469,30 @@ function _QuestieJourney.questsByZone:CategorizeQuests(quests)
                     if not QuestieDB.IsRepeatable(questId) then
                         prequestMissingCounter = prequestMissingCounter + 1
                     end
+                elseif returnReason == DoableStates.MISSING_START_ITEM then -- item-start quest without the start item
+                    tinsert(zoneTree[5].children, temp)
+                    if not QuestieDB.IsRepeatable(questId) then
+                        prequestMissingCounter = prequestMissingCounter + 1
+                    end
                 elseif returnReason == DoableStates.PROFESSION_MISSING then -- profession missing completely
                     tinsert(zoneTree[6].children, temp)
                     unobtainableCounter = unobtainableCounter + 1
+                elseif returnReason == DoableStates.DISABLED_BY then -- disabling quest is active
+                    tinsert(zoneTree[5].children, temp)
+                    if not QuestieDB.IsRepeatable(questId) then
+                        prequestMissingCounter = prequestMissingCounter + 1
+                    end
                 end
             end
 
             -- AQ War Effort quests (one-time world event that has ended for all realms)
-            if (not Questie.IsSoD) and QuestieQuestBlacklist.AQWarEffortQuests[questId] then
+            if QuestieQuestBlacklist.AQWarEffortQuests[questId] then
+                tinsert(zoneTree[6].children, temp)
+                unobtainableCounter = unobtainableCounter + 1
+            end
+
+            -- Scourge Invasion quests (Acore worldstate event)
+            if QuestieQuestBlacklist.ScourgeInvasionQuests[questId] then
                 tinsert(zoneTree[6].children, temp)
                 unobtainableCounter = unobtainableCounter + 1
             end

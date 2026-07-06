@@ -42,6 +42,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [100] = {
+            [questKeys.startedBy] = {{7007},{113791}},
             [questKeys.childQuests] = {},
         },
         [123] = { -- The Collector
@@ -125,15 +126,6 @@ function QuestieTBCQuestFixes:Load()
         [729] = {
             [questKeys.requiredLevel] = 15,
         },
-        [748] = {
-            [questKeys.requiredRaces] = raceIDs.TAUREN,
-        },
-        [756] = {
-            [questKeys.requiredRaces] = raceIDs.TAUREN,
-        },
-        [759] = {
-            [questKeys.requiredRaces] = raceIDs.TAUREN,
-        },
         [794] = { -- Burning Blade Medallion
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
@@ -200,8 +192,8 @@ function QuestieTBCQuestFixes:Load()
         [1048] = {
             [questKeys.requiredLevel] = 30,
         },
-        [1049] = { -- Not available to UNDEAD
-            [questKeys.requiredRaces] = raceIDs.ORC + raceIDs.TAUREN + raceIDs.TROLL + raceIDs.BLOOD_ELF,
+        [1049] = { -- Compendium of the Fallen
+            [questKeys.requiredRaces] = raceIDs.ALL_HORDE - raceIDs.UNDEAD,
         },
         [1090] = { -- Gerenzo's Orders
             [questKeys.requiredRaces] = raceIDs.NONE,
@@ -226,8 +218,11 @@ function QuestieTBCQuestFixes:Load()
         [1177] = {
             [questKeys.objectivesText] = {"Mudcrush Durtfeet in northern Dustwallow wants 8 Mirefin Heads."},
         },
+        [1206] = { -- Jarl Needs Eyes
+            [questKeys.objectivesText] = {"Bring 20 Unpopped Darkmist Eyes to \"Swamp Eye\" Jarl at the Swamplight Manor.",},
+        },
         [1220] = {
-            [questKeys.startedBy] = {{23951}},
+            [questKeys.startedBy] = {{4947,23951}},
         },
         [1268] = { -- Suspicious Hoofprints
             [questKeys.startedBy] = {nil,{187273}},
@@ -390,9 +385,6 @@ function QuestieTBCQuestFixes:Load()
         [1782] = { -- Furen's Armor
             [questKeys.zoneOrSort] = sortKeys.WARRIOR,
         },
-        [1799] = {
-            [questKeys.preQuestSingle] = {4967,4969},
-        },
         [1800] = {
             [questKeys.questLevel] = -1,
         },
@@ -465,6 +457,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.requiredRaces] = raceIDs.ORC + raceIDs.TROLL,
         },
         [1978] = { -- The Deathstalkers
+            [questKeys.startedBy] = {{6467}},
             [questKeys.requiredRaces] = raceIDs.UNDEAD,
         },
         [1998] = { -- Fenwick Thatros
@@ -487,9 +480,6 @@ function QuestieTBCQuestFixes:Load()
         },
         [2239] = { -- Onin's Report
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
-        },
-        [2240] = {
-            [questKeys.triggerEnd] = {"Explore the Hidden Chamber", {[zoneIDs.BADLANDS]={{35.22,10.32}}}},
         },
         [2279] = {
             [questKeys.requiredLevel] = 40,
@@ -615,6 +605,18 @@ function QuestieTBCQuestFixes:Load()
         [3741] = {
             [questKeys.requiredRaces] = raceIDs.NONE,
         },
+        [3763] = { -- Assisting Arch Druid Staghelm
+            [questKeys.exclusiveTo] = {3789,3790,10520},
+        },
+        [3764] = { -- Un'Goro Soil
+            [questKeys.breadcrumbs] = {3763,3789,3790,10520},
+        },
+        [3789] = { -- Assisting Arch Druid Staghelm
+            [questKeys.exclusiveTo] = {3763,3790,10520},
+        },
+        [3790] = { -- Assisting Arch Druid Staghelm
+            [questKeys.exclusiveTo] = {3763,3789,10520},
+        },
         [3803] = { -- Morrowgrain to Darnassus
             [questKeys.startedBy] = {{4217}},
         },
@@ -689,21 +691,66 @@ function QuestieTBCQuestFixes:Load()
         [5056] = { -- Shy-Rotam
             [questKeys.requiredRaces] = raceIDs.NONE,
         },
+        [5066] = { -- A Call to Arms: The Plaguelands!
+            [questKeys.exclusiveTo] = {5090,5091,10373},
+        },
+        [5090] = { -- A Call to Arms: The Plaguelands!
+            [questKeys.exclusiveTo] = {5066,5091,10373},
+        },
+        [5091] = { -- A Call to Arms: The Plaguelands!
+            [questKeys.exclusiveTo] = {5066,5090,10373},
+        },
+        [5092] = { -- Clear the Way
+            [questKeys.breadcrumbs] = {5066,5090,5091,10373},
+        },
+        [5093] = { -- A Call to Arms: The Plaguelands!
+            [questKeys.exclusiveTo] = {5094,5095,10374},
+        },
+        [5094] = { -- A Call to Arms: The Plaguelands!
+            [questKeys.exclusiveTo] = {5093,5095,10374},
+        },
+        [5095] = { -- A Call to Arms: The Plaguelands!
+            [questKeys.exclusiveTo] = {5093,5094,10374},
+        },
+        [5096] = { -- Scarlet Diversions
+            [questKeys.breadcrumbs] = {5093,5094,5095,10374},
+        },
+        [5149] = { -- Pamela's Doll
+            [questKeys.reputationReward] = {},
+        },
         [5168] = {
             [questKeys.preQuestSingle] = {5210},
         },
-        [5401] = {
-            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
+        [5401] = { -- Argent Dawn Commission
             [questKeys.exclusiveTo] = {5405,5503},
         },
-        [5405] = {
-            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
+        [5402] = { -- Minion's Scourgestones
+            [questKeys.startedBy] = {{10840}},
+            [questKeys.finishedBy] = {{10840}},
+        },
+        [5403] = { -- Invader's Scourgestones
+            [questKeys.startedBy] = {{10840}},
+            [questKeys.finishedBy] = {{10840}},
+        },
+        [5405] = { -- Argent Dawn Commission
+            [questKeys.startedBy] = {{10839}},
+            [questKeys.finishedBy] = {{10839}},
             [questKeys.exclusiveTo] = {5401,5503},
+        },
+        [5407] = { -- Invader's Scourgestones
+            [questKeys.startedBy] = {{10839}},
+            [questKeys.finishedBy] = {{10839}},
+        },
+        [5408] = { -- Minion's Scourgestones
+            [questKeys.startedBy] = {{10839}},
+            [questKeys.finishedBy] = {{10839}},
         },
         [5502] = {
             [questKeys.questLevel] = -1,
         },
-        [5503] = {
+        [5503] = { -- Argent Dawn Commission
+            [questKeys.startedBy] = {{11039}},
+            [questKeys.finishedBy] = {{11039}},
             [questKeys.exclusiveTo] = {5401,5405},
         },
         [5621] = { -- Garments of the Moon
@@ -919,13 +966,22 @@ function QuestieTBCQuestFixes:Load()
         [6983] = { -- You're a Mean One...
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
-        [7484] = {
-            [questKeys.specialFlags] = specialFlags.REPEATABLE,
+        [7483] = { -- Libram of Rapidity
+            [questKeys.reputationReward] = {{factionIDs.SHEN_DRALAR,500}},
         },
-        [7583] = {
+        [7484] = { -- Libram of Focus
+            [questKeys.reputationReward] = {{factionIDs.SHEN_DRALAR,500}},
+        },
+        [7485] = { -- Libram of Protection
+            [questKeys.reputationReward] = {{factionIDs.SHEN_DRALAR,500}},
+        },
+        [7508] = { -- The Forging of Quel'Serrar
+            [questKeys.requiredLevel] = 60,
+        },
+        [7583] = { -- Suppression
             [questKeys.preQuestGroup] = {7581,7582},
         },
-        [7623] = {
+        [7623] = { -- Lord Banehollow
             [questKeys.preQuestSingle] = {},
         },
         [7792] = {
@@ -999,6 +1055,29 @@ function QuestieTBCQuestFixes:Load()
         },
         [8122] = {
             [questKeys.triggerEnd] = {"Hold Five Bases in Arathi Basin", {[zoneIDs.ARATHI_HIGHLANDS]={{73.2,30}}}},
+        },
+        [8193] = { -- Master Angler
+            [questKeys.questLevel] = -1,
+        },
+        [8194] = { -- Apprentice Angler
+            [questKeys.questLevel] = -1,
+        },
+        [8221] = { -- Rare Fish - Keefer's Angelfish
+            [questKeys.questLevel] = -1,
+        },
+        [8224] = { -- Rare Fish - Dezian Queenfish
+            [questKeys.questLevel] = -1,
+        },
+        [8225] = { -- Rare Fish - Brownell's Blue Striped Racer
+            [questKeys.questLevel] = -1,
+        },
+        [8228] = { -- Could I get a Fishing Flier?
+            [questKeys.questLevel] = -1,
+            [questKeys.zoneOrSort] = sortKeys.FISHING,
+        },
+        [8229] = { -- Could I get a Fishing Flier?
+            [questKeys.questLevel] = -1,
+            [questKeys.zoneOrSort] = sortKeys.FISHING,
         },
         [8233] = { -- A Simple Request
             [questKeys.requiredRaces] = raceIDs.NONE,
@@ -1094,7 +1173,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.requiredLevel] = 61,
         },
         [8410] = {
-            [questKeys.startedBy] = {{3032,13417,20407,23127,},nil,nil,},
+            [questKeys.startedBy] = {{986,3030,3031,3032,3344,3403,13417,17219,17519,17520,20407,23127}},
         },
         [8411] = { -- Mastering the Elements
             [questKeys.name] = "Mastering the Elements",
@@ -1104,6 +1183,9 @@ function QuestieTBCQuestFixes:Load()
         },
         [8413] = {
             [questKeys.requiredRaces] = raceIDs.NONE,
+        },
+        [8419] = { -- An Imp's Request
+            [questKeys.startedBy] = {{461,988,3326,4563,4565,5171,5172,5173,16646,16647,16648,23534}},
         },
         [8423] = {
             [questKeys.preQuestSingle] = {},
@@ -1771,7 +1853,7 @@ function QuestieTBCQuestFixes:Load()
         [9339] = {
             [questKeys.objectivesText] = {},
         },
-        [9355] = {
+        [9355] = { -- A Job for an Intelligent Man
             [questKeys.preQuestSingle] = {10143,10483},
         },
         [9358] = { -- Ranger Sareyn
@@ -2039,7 +2121,7 @@ function QuestieTBCQuestFixes:Load()
         [9555] = { -- Call of Fire
             [questKeys.requiredRaces] = raceIDs.DRAENEI,
         },
-        [9558] = {
+        [9558] = { -- The Longbeards
             [questKeys.preQuestSingle] = {10143,10483},
         },
         [9560] = {
@@ -2081,11 +2163,11 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.objectives] = {{{17551,nil,Questie.ICON_TYPE_INTERACT}}},
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [9587] = {
-            [questKeys.startedBy] = {nil,nil,{23890}},
+        [9587] = { -- Dark Tidings
+            [questKeys.nextQuestInChain] = 9589,
         },
-        [9588] = {
-            [questKeys.startedBy] = {nil,nil,{23892}},
+        [9588] = { -- Dark Tidings
+            [questKeys.nextQuestInChain] = 9590,
         },
         [9589] = { -- The Blood is Life
             [questKeys.zoneOrSort] = zoneIDs.HELLFIRE_CITADEL,
@@ -2222,6 +2304,7 @@ function QuestieTBCQuestFixes:Load()
         },
         [9685] = {
             [questKeys.preQuestSingle] = {9684,63866},
+            [questKeys.objectives] = {{{17768,nil,Questie.ICON_TYPE_INTERACT}}},
         },
         [9686] = {
             [questKeys.triggerEnd] = {"Complete the Second Trial", {[zoneIDs.EVERSONG_WOODS]={{43.34,28.7}}}},
@@ -2241,8 +2324,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.requiredLevel] = 61,
         },
         [9704] = { -- Slain by the Wretched
-            [questKeys.breadcrumbs] = {8347},
-            [questKeys.preQuestSingle] = {},
+            [questKeys.preQuestSingle] = {8347},
         },
         [9711] = {
             [questKeys.objectives] = {{{17664,nil,Questie.ICON_TYPE_INTERACT}}},
@@ -2297,6 +2379,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.objectives] = {{{17824,nil,Questie.ICON_TYPE_TALK}}},
         },
         [9757] = { -- Seek Huntress Kella Nightbow
+            [questKeys.startedBy] = {{895,3596,4146,4205,5117,5515,11807,16738,17110}},
             [questKeys.requiredRaces] = raceIDs.DRAENEI,
             [questKeys.breadcrumbForQuestId] = 9591,
         },
@@ -2444,9 +2527,13 @@ function QuestieTBCQuestFixes:Load()
         [9923] = {
             [questKeys.requiredMinRep] = {978,0},
             [questKeys.requiredSourceItems] = {25490},
+            [questKeys.objectives] = {{{18369,nil,Questie.ICON_TYPE_EVENT}}},
+            [questKeys.extraObjectives] = {{nil,Questie.ICON_TYPE_INTERACT,l10n("Open the cage"),0,{{"object",182349}}}},
         },
         [9924] = {
             [questKeys.requiredSourceItems] = {25509},
+            [questKeys.objectives] = {{{20812,nil,Questie.ICON_TYPE_EVENT}}},
+            [questKeys.extraObjectives] = {{nil,Questie.ICON_TYPE_INTERACT,l10n("Open the cage"),0,{{"object",182350}}}},
         },
         [9927] = {
             [questKeys.objectives] = {nil,nil,nil,nil,{{{17146,17147,17148},17147,nil,Questie.ICON_TYPE_INTERACT}}},
@@ -2498,6 +2585,7 @@ function QuestieTBCQuestFixes:Load()
         },
         [9955] = {
             [questKeys.objectives] = {{{18445,nil,Questie.ICON_TYPE_EVENT}}},
+            [questKeys.extraObjectives] = {{nil,Questie.ICON_TYPE_INTERACT,l10n("Open the cage"),0,{{"object",182521}}}},
         },
         [9956] = {
             [questKeys.requiredMinRep] = {978,0},
@@ -2594,10 +2682,10 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.preQuestGroup] = {9934,9868,10011},
             [questKeys.preQuestSingle] = {},
         },
-        [10047] = {
+        [10047] = { -- The Path of Glory
             [questKeys.preQuestSingle] = {10143,10483},
         },
-        [10050] = {
+        [10050] = { -- Unyielding Souls
             [questKeys.preQuestSingle] = {10143,10483},
         },
         [10051] = {
@@ -2606,7 +2694,7 @@ function QuestieTBCQuestFixes:Load()
         [10052] = {
             [questKeys.triggerEnd] = {"Escort Isla Starmane to safety", {[zoneIDs.TEROKKAR_FOREST]={{67.51,37.28}}}},
         },
-        [10058] = {
+        [10058] = { -- An Old Gift
             [questKeys.preQuestSingle] = {10143,10483},
         },
         [10063] = {
@@ -2669,7 +2757,7 @@ function QuestieTBCQuestFixes:Load()
         [10077] = {
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [10079] = {
+        [10079] = { -- When This Mine's a-Rockin'
             [questKeys.preQuestSingle] = {10143,10483},
         },
         [10085] = {
@@ -2693,8 +2781,9 @@ function QuestieTBCQuestFixes:Load()
         [10105] = {
             [questKeys.exclusiveTo] = {9796},
         },
-        [10106] = {
+        [10106] = { -- Hellfire Fortifications A
             [questKeys.questLevel] = -1,
+            [questKeys.preQuestSingle] = {10143,10483}, -- double check 10143
             [questKeys.requiredMaxRep] = {},
             [questKeys.objectives] = {{{19028,nil,Questie.ICON_TYPE_EVENT},{19029,nil,Questie.ICON_TYPE_EVENT},{19032,nil,Questie.ICON_TYPE_EVENT}}},
         },
@@ -2704,8 +2793,9 @@ function QuestieTBCQuestFixes:Load()
         [10108] = {
             [questKeys.objectives] = {{{18261,nil,Questie.ICON_TYPE_TALK}}},
         },
-        [10110] = {
+        [10110] = { -- Hellfire Fortifications H
             [questKeys.questLevel] = -1,
+            [questKeys.preQuestSingle] = {10124}, -- double check. if there are others, put them in addition to existing
             [questKeys.requiredMaxRep] = {},
             [questKeys.objectives] = {{{19028,nil,Questie.ICON_TYPE_EVENT},{19029,nil,Questie.ICON_TYPE_EVENT},{19032,nil,Questie.ICON_TYPE_EVENT}}},
         },
@@ -2718,6 +2808,9 @@ function QuestieTBCQuestFixes:Load()
         },
         [10114] = {
             [questKeys.exclusiveTo] = {9854,9857,9789},
+        },
+        [10119] = { -- Through the Dark Portal
+            [questKeys.breadcrumbForQuestId] = 10288,
         },
         [10120] = {
             [questKeys.preQuestSingle] = {},
@@ -2732,6 +2825,9 @@ function QuestieTBCQuestFixes:Load()
         [10146] = {
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_TALK, l10n("Speak with Wing Commander Dabir'ee"), 0, {{"monster", 19409}}}},
             [questKeys.objectives] = {nil,{{183350},{183351}}},
+        },
+        [10160] = { -- Know your Enemy
+            [questKeys.breadcrumbForQuestId] = 10482,
         },
         [10162] = {
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_TALK, l10n("Speak with Wing Commander Brack"), 0, {{"monster", 19401}}}},
@@ -2860,9 +2956,9 @@ function QuestieTBCQuestFixes:Load()
         [10283] = {
             [questKeys.objectives] = {nil,{{182589}}},
         },
-        [10288] = {
+        [10288] = { -- Arrival in Outland
             [questKeys.preQuestSingle] = {},
-            [questKeys.nextQuestInChain] = 0,
+            [questKeys.breadcrumbs] = {10119},
         },
         [10291] = {
             [questKeys.preQuestSingle] = {},
@@ -2959,11 +3055,13 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.finishedBy] = {{14725}},
             [questKeys.reputationReward] = {{factionIDs.DARNASSUS,350}},
         },
-        [10357] = {
+        [10357] = { -- A Donation of Runecloth
             [questKeys.preQuestGroup] = {7792,7798,10356},
+            [questKeys.nextQuestInChain] = 10358,
         },
-        [10362] = {
+        [10362] = { -- A Donation of Runecloth
             [questKeys.preQuestGroup] = {10359,10360,10361},
+            [questKeys.nextQuestInChain] = 10363,
         },
         [10365] = {
             [questKeys.objectives] = {nil,{{184312}},{{29411}}},
@@ -2989,13 +3087,13 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.requiredLevel] = 16,
             [questKeys.breadcrumbForQuestId] = 9491,
         },
-        [10373] = {
-            [questKeys.startedBy] = {{20722}},
+        [10373] = { -- A Call to Arms: The Plaguelands!
             [questKeys.exclusiveTo] = {5066,5090,5091},
+            [questKeys.breadcrumbForQuestId] = 5092,
         },
-        [10374] = {
-            [questKeys.startedBy] = {{20724}},
+        [10374] = { -- A Call to Arms: The Plaguelands!
             [questKeys.exclusiveTo] = {5093,5094,5095},
+            [questKeys.breadcrumbForQuestId] = 5096,
         },
         [10382] = {
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_EVENT, l10n("Speak with Gryphoneer Windbellow"), 0, {{"monster", 20235}}}},
@@ -3092,7 +3190,10 @@ function QuestieTBCQuestFixes:Load()
         [10458] = {
             [questKeys.preQuestSingle] = {},
             [questKeys.objectives] = {{{21050,nil,Questie.ICON_TYPE_INTERACT},{21061,nil,Questie.ICON_TYPE_INTERACT}}},
-            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_EVENT, l10n("Use the Totem of Spirits on Enraged Earth and Fiery Spirits"), 0, {{"monster", 21050}, {"monster", 21061}}}},
+            [questKeys.extraObjectives] = {
+                {nil, Questie.ICON_TYPE_EVENT, l10n("Use the Totem of Spirits on Enraged Earth and Fiery Spirits"), 1, {{"monster", 21050}}},
+                {nil, Questie.ICON_TYPE_EVENT, l10n("Use the Totem of Spirits on Enraged Earth and Fiery Spirits"), 2, {{"monster", 21061}}},
+            },
         },
         [10460] = {
             [questKeys.startedBy] = {{19935,19936}},
@@ -3186,6 +3287,12 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.objectives] = {{{21060,nil,Questie.ICON_TYPE_INTERACT}}},
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_EVENT, l10n("Use the Totem of Spirits on Enraged Air Spirits"), 0, {{"monster", 21060}}}},
         },
+        [10482] = { -- Fel Orc Scavengers
+            [questKeys.breadcrumbs] = {10160},
+        },
+        [10483] = { -- Ill Omens
+            [questKeys.nextQuestInChain] = 10484,
+        },
         [10488] = {
             [questKeys.objectives] = {{{20748,nil,Questie.ICON_TYPE_INTERACT}}},
         },
@@ -3195,6 +3302,12 @@ function QuestieTBCQuestFixes:Load()
         },
         [10491] = { -- Call of Air
             [questKeys.breadcrumbForQuestId] = 9552,
+        },
+        [10492] = { -- An Earnest Proposition
+            [questKeys.nextQuestInChain] = 8922,
+        },
+        [10493] = { -- An Earnest Proposition
+            [questKeys.nextQuestInChain] = 8922,
         },
         [10506] = {
             [questKeys.objectives] = {{{20058,nil,Questie.ICON_TYPE_INTERACT}}},
@@ -3218,9 +3331,10 @@ function QuestieTBCQuestFixes:Load()
         [10519] = {
             [questKeys.objectives] = {{{21183,nil,Questie.ICON_TYPE_TALK}}},
         },
-        [10520] = {
-            [questKeys.startedBy] = {{16739}},
-            [questKeys.exclusiveTo] = {3516,3789,3790},
+        [10520] = { -- Assisting Arch Druid Staghelm
+            [questKeys.requiredLevel] = 47,
+            [questKeys.exclusiveTo] = {3763,3789,3790},
+            [questKeys.breadcrumbForQuestId] = 3764,
         },
         [10522] = {
             [questKeys.requiredSourceItems] = {30426},
@@ -3424,6 +3538,22 @@ function QuestieTBCQuestFixes:Load()
         [10687] = {
             [questKeys.preQuestSingle] = {10552},
         },
+        [10693] = {
+            [questKeys.startedBy] = {{21968}},
+            [questKeys.finishedBy] = {{21968}},
+        },
+        [10698] = {
+            [questKeys.startedBy] = {{21968}},
+            [questKeys.finishedBy] = {{21968}},
+        },
+        [10699] = {
+            [questKeys.startedBy] = {{21969}},
+            [questKeys.finishedBy] = {{21969}},
+        },
+        [10700] = {
+            [questKeys.startedBy] = {{21969}},
+            [questKeys.finishedBy] = {{21969}},
+        },
         [10707] = { -- The Ata'mal Terrace
             [questKeys.objectivesText] = {"Go to the top of the Ata'mal Terrace in Shadowmoon Valley and obtain the Heart of Fury. Return to Akama at the Warden's Cage in Shadowmoon Valley when you've completed this task."},
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_EVENT, l10n("Kill the 3 Shadowmoon Soulstealers to force Shadowlord Deathwail to land"), 0, {{"object", 185125}}}},
@@ -3556,6 +3686,9 @@ function QuestieTBCQuestFixes:Load()
         [10755] = {
             [questKeys.startedBy] = {{22037}},
         },
+        [10764] = {
+            [questKeys.objectives] = {nil,nil,{{31252,nil,Questie.ICON_TYPE_INTERACT}}},
+        },
         [10772] = {
             [questKeys.triggerEnd] = {"The Path of Conquest Discovered", {[zoneIDs.SHADOWMOON_VALLEY]={{51.23,62.75},{52.45,59.19}}}},
         },
@@ -3674,6 +3807,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.preQuestSingle] = {10915,10852},
         },
         [10842] = {
+            [questKeys.finishedBy] = {{21638,22278}},
             [questKeys.preQuestSingle] = {10915,10852},
             [questKeys.objectives] = {{{21638}}},
         },
@@ -3712,6 +3846,9 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_SLAY, l10n("Kill Razaani ethereals to lure Nexus-Prince Razaan out"), 0, {{"monster", 20601}, {"monster", 20609}, {"monster", 20614}}},
                                            {nil, Questie.ICON_TYPE_SLAY, l10n("Kill Nexus-Prince Razaan to spawn the Collection of Souls"), 0, {{"monster", 21057}}},
             },
+        },
+        [10871] = {
+            [questKeys.startedBy] = {{22112}},
         },
         [10872] = {
             [questKeys.name] = "Zuluhed the Whacked",
@@ -3905,6 +4042,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_OBJECT, l10n("Open the prison"), 0, {{"object", 184998}}}},
         },
         [10974] = {
+            [questKeys.finishedBy] = {{20482,22919}},
             [questKeys.requiredMinRep] = {933,21000},
         },
         [10975] = {
@@ -4504,12 +4642,12 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.preQuestSingle] = {11220},
         },
         [11439] = {
-            [questKeys.startedBy] = {},
+            [questKeys.startedBy] = {{24519}},
             [questKeys.exclusiveTo] = {11360,11440},
             [questKeys.requiredSourceItems] = {32971},
         },
         [11440] = {
-            [questKeys.startedBy] = {},
+            [questKeys.startedBy] = {{24519}},
             [questKeys.exclusiveTo] = {11360,11439},
             [questKeys.requiredSourceItems] = {32971},
         },
@@ -4534,12 +4672,12 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.finishedBy] = {{24711}},
         },
         [11449] = {
-            [questKeys.startedBy] = {},
+            [questKeys.startedBy] = {{23973}},
             [questKeys.exclusiveTo] = {11361,11450},
             [questKeys.requiredSourceItems] = {32971},
         },
         [11450] = {
-            [questKeys.startedBy] = {},
+            [questKeys.startedBy] = {{23973}},
             [questKeys.exclusiveTo] = {11361,11449},
             [questKeys.requiredSourceItems] = {32971},
         },
@@ -5265,7 +5403,7 @@ function QuestieTBCQuestFixes:Load()
         },
         [11882] = {
             [questKeys.startedBy] = {{25962}},
-            [questKeys.finishedBy] = {{25975}},
+            [questKeys.finishedBy] = {{25975,26113}},
         },
         [11885] = {
             [questKeys.objectives] = {{{23161},{23165},{23163},{23162}}},
@@ -6249,7 +6387,7 @@ function QuestieTBCQuestFixes:Load()
         [12513] = {
             [questKeys.zoneOrSort] = zoneIDs.CAVERNS_OF_TIME,
             [questKeys.exclusiveTo] = {12515},
-            [questKeys.requiredRaces] = raceIDs.GNOME + raceIDs.HUMAN + raceIDs.DWARF,
+            [questKeys.requiredRaces] = raceIDs.NONE,
         },
         [12515] = {
             [questKeys.zoneOrSort] = zoneIDs.CAVERNS_OF_TIME,
@@ -6258,561 +6396,6 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.finishedBy] = {{28126}},
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE + raceIDs.ALL_ALLIANCE - raceIDs.GNOME - raceIDs.HUMAN - raceIDs.DWARF, -- future proof
         },
-
-        -- Below are quests that were not originally in TBC or in a different form
-
-        -- Deluxe promotion quests
-        [63448] = {
-            [questKeys.name] = "A Deluxe Delivery",
-            [questKeys.startedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.finishedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [63450] = {
-            [questKeys.name] = "A Deluxe Delivery",
-            [questKeys.startedBy] = {{17249}},
-            [questKeys.finishedBy] = {{17249}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [63767] = {
-            [questKeys.name] = "Imp in a Ball",
-            [questKeys.startedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.finishedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [63768] = {
-            [questKeys.name] = "Imp in a Ball",
-            [questKeys.startedBy] = {{17249}},
-            [questKeys.finishedBy] = {{17249}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [65284] = {
-            [questKeys.name] = "Goblin Gumbo Kettle",
-            [questKeys.startedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.finishedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [65285] = {
-            [questKeys.name] = "Goblin Gumbo Kettle",
-            [questKeys.startedBy] = {{17249}},
-            [questKeys.finishedBy] = {{17249}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [65561] = {
-            [questKeys.name] = "Tabard of Flame",
-            [questKeys.startedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.finishedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [65562] = {
-            [questKeys.name] = "Tabard of Flame",
-            [questKeys.startedBy] = {{17249}},
-            [questKeys.finishedBy] = {{17249}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [93823] = {
-            [questKeys.name] = "A Grand Delivery",
-            [questKeys.startedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.finishedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [93824] = {
-            [questKeys.name] = "A Grand Delivery",
-            [questKeys.startedBy] = {{17249}},
-            [questKeys.finishedBy] = {{17249}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [96253] = { -- An Unexpected Delivery
-            [questKeys.name] = "An Unexpected Delivery",
-            [questKeys.startedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.finishedBy] = {{5111,6735,6740,6741,6746,6929,16618,16739,17630,19046,19232}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        [96254] = { -- An Unexpected Delivery
-            [questKeys.name] = "An Unexpected Delivery",
-            [questKeys.startedBy] = {{17249}},
-            [questKeys.finishedBy] = {{17249}},
-            [questKeys.requiredLevel] = 1,
-            [questKeys.questLevel] = 70,
-            [questKeys.requiredRaces] = raceIDs.NONE,
-            [questKeys.requiredClasses] = classIDs.NONE,
-            [questKeys.objectivesText] = {},
-            [questKeys.objectives] = {},
-            [questKeys.zoneOrSort] = sortKeys.SPECIAL,
-        },
-        -- Alliance only BG encouragement quest
-        [64845] = {
-            [questKeys.name] = "Alliance War Effort",
-            [questKeys.startedBy] = {{15351}},
-            [questKeys.finishedBy] = {{15351}},
-            [questKeys.requiredLevel] = 70,
-            [questKeys.questLevel] = -1,
-            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
-            [questKeys.objectivesText] = {"Win a battleground match and return to an Alliance Brigadier General at any Alliance capital city or Shattrath."},
-            [questKeys.triggerEnd] = {"Victory in a battleground match", {
-                [zoneIDs.SHATTRATH_CITY] = {{67.41,33.86}},
-                [zoneIDs.IRONFORGE] = {{69.8,90.6}},
-                [zoneIDs.DARNASSUS] = {{58,34.4}},
-                [zoneIDs.STORMWIND_CITY] = {{79.4,18.0}},
-                [zoneIDs.ALTERAC_MOUNTAINS] = {{39.4,82.2}},
-                [zoneIDs.ARATHI_HIGHLANDS] = {{45.6,45.8}},
-                [zoneIDs.ASHENVALE] = {{61.8,83.8}},
-                [zoneIDs.THE_EXODAR]={{26.6,50.1}},
-            }},
-            [questKeys.zoneOrSort] = sortKeys.BATTLEGROUNDS,
-            [questKeys.questFlags] = questFlags.RAID,
-            [questKeys.specialFlags] = specialFlags.REPEATABLE,
-        },
-        -- Blood Elf Paladin Epic Mount quest
-        [63866] = {
-            [questKeys.name] = "Claiming the Light",
-            [questKeys.startedBy] = {{178420}},
-            [questKeys.finishedBy] = {{17717}},
-            [questKeys.requiredLevel] = 12,
-            [questKeys.questLevel] = -1,
-            [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
-            [questKeys.requiredClasses] = classIDs.PALADIN,
-            [questKeys.objectivesText] = {"Use the Shimmering Vessel on M'uru to fill it and return to Knight-Lord Bloodvalor in Silvermoon City."},
-            [questKeys.objectives] = {nil,nil,{{24156}}},
-            [questKeys.sourceItemId] = 24157,
-            [questKeys.preQuestSingle] = {9681,64319},
-            [questKeys.zoneOrSort] = sortKeys.PALADIN,
-            [questKeys.nextQuestInChain] = 9685,
-            [questKeys.questFlags] = 128,
-        },
-        [64139] = {
-            [questKeys.name] = "A Summons from Lady Liadrin",
-            [questKeys.startedBy] = {{17717}},
-            [questKeys.finishedBy] = {{17076}},
-            [questKeys.requiredLevel] = 60,
-            [questKeys.questLevel] = 60,
-            [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
-            [questKeys.requiredClasses] = classIDs.PALADIN,
-            [questKeys.objectivesText] = {"Speak with Lady Liadrin in Silvermoon City."},
-            [questKeys.zoneOrSort] = sortKeys.PALADIN,
-            [questKeys.nextQuestInChain] = 64140,
-            [questKeys.questFlags] = 136,
-        },
-        [64140] = {
-            [questKeys.name] = "The Master's Path",
-            [questKeys.startedBy] = {{17076}},
-            [questKeys.finishedBy] = {{17076}},
-            [questKeys.requiredLevel] = 60,
-            [questKeys.questLevel] = 60,
-            [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
-            [questKeys.requiredClasses] = classIDs.PALADIN,
-            [questKeys.objectivesText] = {"Speak with Lady Liadrin again to accept her offer of sponsorship."},
-            [questKeys.preQuestSingle] = {64139},
-            [questKeys.zoneOrSort] = sortKeys.PALADIN,
-            [questKeys.nextQuestInChain] = 64141,
-            [questKeys.questFlags] = 136,
-        },
-        [64141] = {
-            [questKeys.name] = "A Gesture of Commitment",
-            [questKeys.startedBy] = {{17076}},
-            [questKeys.finishedBy] = {{17076}},
-            [questKeys.requiredLevel] = 60,
-            [questKeys.questLevel] = 60,
-            [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
-            [questKeys.requiredClasses] = classIDs.PALADIN,
-            [questKeys.objectivesText] = {"Bring 40 Runecloth, 6 Arcanite Bars, 10 Sungrass, 5 Dark Runes, and 150 Gold to Lady Liadrin in Silvermoon City. "},
-            [questKeys.objectives] = {nil,nil,{{14047},{12360},{8838},{20520}}},
-            [questKeys.sourceItemId] = 24277,
-            [questKeys.preQuestSingle] = {64140},
-            [questKeys.zoneOrSort] = sortKeys.PALADIN,
-            [questKeys.nextQuestInChain] = 64142,
-            [questKeys.questFlags] = 128,
-        },
-        [64142] = {
-            [questKeys.name] = "A Demonstration of Loyalty",
-            [questKeys.startedBy] = {{17076}},
-            [questKeys.finishedBy] = {{17076}},
-            [questKeys.requiredLevel] = 60,
-            [questKeys.questLevel] = 60,
-            [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
-            [questKeys.requiredClasses] = classIDs.PALADIN,
-            [questKeys.objectivesText] = {"Lady Liadrin in Silvermoon City wants you to destroy 3 Scourge Meat Wagons and kill 15 Scourge Siege Engineers. "},
-            [questKeys.objectives] = {{{17878}},{{182058}}},
-            [questKeys.preQuestSingle] = {64141},
-            [questKeys.zoneOrSort] = sortKeys.PALADIN,
-            [questKeys.nextQuestInChain] = 64143,
-            [questKeys.questFlags] = 136,
-        },
-        [64143] = {
-            [questKeys.name] = "True Masters of the Light",
-            [questKeys.startedBy] = {{17076}},
-            [questKeys.finishedBy] = {{17076}},
-            [questKeys.requiredLevel] = 60,
-            [questKeys.questLevel] = 60,
-            [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
-            [questKeys.requiredClasses] = classIDs.PALADIN,
-            [questKeys.objectivesText] = {"Lady Liadrin in Silvermoon City wants you to bring her a vial of Tyr's Hand Holy Water. "},
-            [questKeys.objectives] = {nil,nil,{{24284}}},
-            [questKeys.preQuestSingle] = {64142},
-            [questKeys.zoneOrSort] = sortKeys.PALADIN,
-            [questKeys.nextQuestInChain] = 64144,
-            [questKeys.questFlags] = 136,
-        },
-        [64144] = {
-            [questKeys.name] = "True Masters of the Light",
-            [questKeys.startedBy] = {{17076}},
-            [questKeys.finishedBy] = {{17076}},
-            [questKeys.requiredLevel] = 60,
-            [questKeys.questLevel] = 60,
-            [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
-            [questKeys.requiredClasses] = classIDs.PALADIN,
-            [questKeys.objectivesText] = {"Lady Liadrin in Silvermoon City wants you to bring him 1 Arcane Catalyst, 1 Crepuscular Powder, 1 Azerothian Diamond, and 1 Pristine Black Diamond."},
-            [questKeys.objectives] = {nil,nil,{{24286},{24285},{12800},{18335}}},
-            [questKeys.preQuestSingle] = {64143},
-            [questKeys.zoneOrSort] = sortKeys.PALADIN,
-            [questKeys.nextQuestInChain] = 64145,
-            [questKeys.questFlags] = 136,
-        },
-        [64145] = {
-            [questKeys.name] = "True Masters of the Light",
-            [questKeys.startedBy] = {{17076}},
-            [questKeys.finishedBy] = {{17076}},
-            [questKeys.requiredLevel] = 60,
-            [questKeys.questLevel] = 60,
-            [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
-            [questKeys.requiredClasses] = classIDs.PALADIN,
-            [questKeys.objectivesText] = {"Use the Extinguishing Mixture near the eternal flame in the Alonsus Chapel to remove the Light's protection. Be prepared to fight anyone who may attempt to defend the chapel."},
-            [questKeys.objectives] = {nil,nil,nil,nil,{{{17910,17911,17912,17913,17914},17910}}},
-            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_OBJECT, l10n("Use the Extinguishing Mixture near the eternal flame"), 0, {{"object", 182068}}}},
-            [questKeys.sourceItemId] = 24287,
-            [questKeys.preQuestSingle] = {64144},
-            [questKeys.zoneOrSort] = sortKeys.PALADIN,
-            [questKeys.questFlags] = 128,
-        },
-        -------------
-        [64319] = {
-            [questKeys.name] = "A Study in Power",
-            [questKeys.startedBy] = {{17717}},
-            [questKeys.finishedBy] = {{178420}},
-            [questKeys.requiredLevel] = 12,
-            [questKeys.questLevel] = -1,
-            [questKeys.requiredRaces] = raceIDs.BLOOD_ELF,
-            [questKeys.requiredClasses] = classIDs.PALADIN,
-            [questKeys.objectivesText] = {"Speak with Magister Astalor Bloodsworn in the hidden chamber beneath Blood Knight headquarters."},
-            [questKeys.objectives] = {},
-            [questKeys.preQuestSingle] = {9678},
-            [questKeys.zoneOrSort] = sortKeys.PALADIN,
-            [questKeys.nextQuestInChain] = 63866,
-            [questKeys.questFlags] = 136,
-        },
-
-        ----- Boosted character quests -----
-        [64028] = {
-            [questKeys.name] = "A New Beginning",
-            [questKeys.startedBy] = {}, -- This quest is auto accept
-            [questKeys.finishedBy] = {{376,914,928,5495,5497,5505,5515,13283}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
-            [questKeys.objectivesText] = {"Meet with your class trainer in Stormwind."},
-            [questKeys.zoneOrSort] = zoneIDs.STORMWIND_CITY,
-        },
-        [64031] = {
-            [questKeys.name] = "Tools for Survival",
-            [questKeys.startedBy] = {{376,914,928,5495,5497,5505,5515,13283}},
-            [questKeys.finishedBy] = {{376,914,928,5495,5497,5505,5515,13283}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
-            [questKeys.objectivesText] = {"Open the survival kit and equip a weapon."},
-            [questKeys.objectives] = {nil,{{410010}, {410011}}},
-            [questKeys.preQuestSingle] = {64028},
-            [questKeys.zoneOrSort] = zoneIDs.STORMWIND_CITY,
-        },
-        [64034] = {
-            [questKeys.name] = "Combat Training",
-            [questKeys.startedBy] = {{376,914,928,5495,5497,5505,5515,13283}},
-            [questKeys.finishedBy] = {{376,914,928,5495,5497,5505,5515,13283}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
-            [questKeys.objectivesText] = {"Train a spell by speaking to your class trainer."},
-            [questKeys.objectives] = {nil,{{410012}}},
-            [questKeys.preQuestSingle] = {64031},
-            [questKeys.zoneOrSort] = zoneIDs.STORMWIND_CITY,
-        },
-        [64035] = {
-            [questKeys.name] = "Talented",
-            [questKeys.startedBy] = {{376,914,928,5495,5497,5505,5515,13283}},
-            [questKeys.finishedBy] = {{376,914,928,5495,5497,5505,5515,13283}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
-            [questKeys.objectivesText] = {"Activate the Talents interface and allocate a Talent Point."},
-            [questKeys.objectives] = {nil,{{410013}}},
-            [questKeys.preQuestSingle] = {64034},
-            [questKeys.zoneOrSort] = zoneIDs.STORMWIND_CITY,
-        },
-        [64037] = {
-            [questKeys.name] = "Eastern Plaguelands",
-            [questKeys.startedBy] = {{376,914,928,5495,5497,5505,5515,13283}},
-            [questKeys.finishedBy] = {{11036}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
-            [questKeys.objectivesText] = {"Travel to the Eastern Plaguelands and find Leonid Barthalomew. He awaits your arrival at Light's Hope Chapel. "},
-            [questKeys.objectives] = {{{352,nil,Questie.ICON_TYPE_TALK}}},
-            [questKeys.preQuestSingle] = {64035},
-            [questKeys.exclusiveTo] = {64038},
-            [questKeys.zoneOrSort] = zoneIDs.EASTERN_PLAGUELANDS,
-        },
-        [64038] = {
-            [questKeys.name] = "The Dark Portal",
-            [questKeys.startedBy] = {{331,376,914,928,5495,5497,5505,5515,13283}},
-            [questKeys.finishedBy] = {{16841}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
-            [questKeys.objectivesText] = {"Find Watch Commander Relthorn Netherwane at the Blasted Lands. He awaits your arrival before the Dark Portal."},
-            [questKeys.objectives] = {{{352,nil,Questie.ICON_TYPE_TALK}}},
-            [questKeys.preQuestSingle] = {64035},
-            [questKeys.zoneOrSort] = zoneIDs.BLASTED_LANDS,
-        },
-        [64046] = {
-            [questKeys.name] = "A New Beginning",
-            [questKeys.startedBy] = {}, -- This quest is auto accept
-            [questKeys.finishedBy] = {{3324,3328,3344,3353,3406,5885,5994}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
-            [questKeys.objectivesText] = {"Meet with your class trainer in Orgrimmar."},
-            [questKeys.zoneOrSort] = zoneIDs.ORGRIMMAR,
-        },
-        [64047] = {
-            [questKeys.name] = "A New Beginning",
-            [questKeys.startedBy] = {}, -- This quest is auto accept
-            [questKeys.finishedBy] = {{3036}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.TAUREN,
-            [questKeys.requiredClasses] = classIDs.DRUID,
-            [questKeys.objectivesText] = {"Meet with your Druid trainer in Thunder Bluff."},
-            [questKeys.zoneOrSort] = zoneIDs.THUNDER_BLUFF,
-        },
-        [64048] = {
-            [questKeys.name] = "Tools for Survival",
-            [questKeys.startedBy] = {{3324,3328,3344,3353,3406,5885,5994}},
-            [questKeys.finishedBy] = {{3324,3328,3344,3353,3406,5885,5994}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
-            [questKeys.objectivesText] = {"Open the survival kit and equip a weapon."},
-            [questKeys.objectives] = {nil,{{410002}, {410003}}},
-            [questKeys.preQuestSingle] = {64046},
-            [questKeys.zoneOrSort] = zoneIDs.ORGRIMMAR,
-        },
-        [64049] = {
-            [questKeys.name] = "Tools for Survival",
-            [questKeys.startedBy] = {{3036}},
-            [questKeys.finishedBy] = {{3036}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.TAUREN,
-            [questKeys.requiredClasses] = classIDs.DRUID,
-            [questKeys.objectivesText] = {"Open the survival kit and equip a weapon."},
-            [questKeys.objectives] = {nil,{{410004}, {410005}}},
-            [questKeys.preQuestSingle] = {64047},
-            [questKeys.zoneOrSort] = zoneIDs.THUNDER_BLUFF,
-        },
-        [64050] = {
-            [questKeys.name] = "Combat Training",
-            [questKeys.startedBy] = {{3324,3328,3344,3353,3406,5885,5994}},
-            [questKeys.finishedBy] = {{3324,3328,3344,3353,3406,5885,5994}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
-            [questKeys.objectivesText] = {"Train a spell by speaking to your class trainer."},
-            [questKeys.objectives] = {nil,{{410006}}},
-            [questKeys.preQuestSingle] = {64048},
-            [questKeys.zoneOrSort] = zoneIDs.ORGRIMMAR,
-        },
-        [64051] = {
-            [questKeys.name] = "Combat Training",
-            [questKeys.startedBy] = {{3036}},
-            [questKeys.finishedBy] = {{3036}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.TAUREN,
-            [questKeys.requiredClasses] = classIDs.DRUID,
-            [questKeys.objectivesText] = {"Train a spell by speaking to your Druid trainer."},
-            [questKeys.objectives] = {nil,{{410007}}},
-            [questKeys.preQuestSingle] = {64049},
-            [questKeys.zoneOrSort] = zoneIDs.THUNDER_BLUFF,
-        },
-        [64052] = {
-            [questKeys.name] = "Talented",
-            [questKeys.startedBy] = {{3324,3328,3344,3353,3406,5885,5994}},
-            [questKeys.finishedBy] = {{3324,3328,3344,3353,3406,5885,5994}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
-            [questKeys.objectivesText] = {"Activate the Talents interface and allocate five Talent Points."},
-            [questKeys.objectives] = {nil,{{410008}}},
-            [questKeys.preQuestSingle] = {64050},
-            [questKeys.zoneOrSort] = zoneIDs.ORGRIMMAR,
-        },
-        [64053] = {
-            [questKeys.name] = "Talented",
-            [questKeys.startedBy] = {{3036}},
-            [questKeys.finishedBy] = {{3036}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.TAUREN,
-            [questKeys.requiredClasses] = classIDs.DRUID,
-            [questKeys.objectivesText] = {"Activate the Talents interface and allocate five Talent Points."},
-            [questKeys.objectives] = {nil,{{410009}}},
-            [questKeys.preQuestSingle] = {64051},
-            [questKeys.zoneOrSort] = zoneIDs.THUNDER_BLUFF,
-        },
-        [64063] = {
-            [questKeys.name] = "The Dark Portal",
-            [questKeys.startedBy] = {{3324,3328,3344,3353,3406,5885,5994}},
-            [questKeys.finishedBy] = {{19254}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
-            [questKeys.objectivesText] = {"Find Watch Warlord Dar'toon at the Blasted Lands. He awaits your arrival before the Dark Portal."},
-            [questKeys.objectives] = {{{12136,nil,Questie.ICON_TYPE_INTERACT},{1387,nil,Questie.ICON_TYPE_TALK}}},
-            [questKeys.preQuestSingle] = {64052},
-            [questKeys.exclusiveTo] = {64217},
-            [questKeys.zoneOrSort] = zoneIDs.BLASTED_LANDS,
-        },
-        [64064] = {
-            [questKeys.name] = "Eastern Plaguelands",
-            [questKeys.startedBy] = {{3324,3328,3344,3353,3406,5885,5994}},
-            [questKeys.finishedBy] = {{11036}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
-            [questKeys.objectivesText] = {"Travel to the Eastern Plaguelands and find Leonid Barthalomew. He awaits your arrival at Light's Hope Chapel. "},
-            [questKeys.objectives] = {{{9564,nil,Questie.ICON_TYPE_INTERACT}}},
-            [questKeys.preQuestSingle] = {64052},
-            [questKeys.exclusiveTo] = {64063,64217,64128},
-            [questKeys.zoneOrSort] = zoneIDs.EASTERN_PLAGUELANDS,
-        },
-        [64128] = {
-            [questKeys.name] = "Eastern Plaguelands",
-            [questKeys.startedBy] = {{3036}},
-            [questKeys.finishedBy] = {{11036}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.TAUREN,
-            [questKeys.requiredClasses] = classIDs.DRUID,
-            [questKeys.objectivesText] = {"Travel to the Eastern Plaguelands and find Leonid Barthalomew. He awaits your arrival at Light's Hope Chapel. "},
-            [questKeys.objectives] = {{{9564,nil,Questie.ICON_TYPE_TALK},{9564,nil,Questie.ICON_TYPE_INTERACT}}},
-            [questKeys.preQuestSingle] = {64053},
-            [questKeys.exclusiveTo] = {64063,64064,64217},
-            [questKeys.zoneOrSort] = zoneIDs.EASTERN_PLAGUELANDS,
-        },
-        [64217] = {
-            [questKeys.name] = "The Dark Portal",
-            [questKeys.startedBy] = {{3036}},
-            [questKeys.finishedBy] = {{19254}},
-            [questKeys.requiredLevel] = 58,
-            [questKeys.questLevel] = 58,
-            [questKeys.requiredRaces] = raceIDs.TAUREN,
-            [questKeys.objectivesText] = {"Find Watch Warlord Dar'toon at the Blasted Lands. He awaits your arrival before the Dark Portal."},
-            [questKeys.objectives] = {{{12136,nil,Questie.ICON_TYPE_INTERACT},{1387,nil,Questie.ICON_TYPE_TALK}}},
-            [questKeys.preQuestSingle] = {64053},
-            [questKeys.exclusiveTo] = {64063,64064,64128},
-            [questKeys.zoneOrSort] = zoneIDs.BLASTED_LANDS,
-        },
-        ----- TBC Anniversary quests -----
-        [95455] = { -- Concerted Efforts
-            [questKeys.name] = "Concerted Efforts",
-            [questKeys.startedBy] = {{15351}},
-            [questKeys.finishedBy] = {{15351}},
-            [questKeys.requiredLevel] = 51,
-            [questKeys.questLevel] = 60,
-            [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
-            [questKeys.objectivesText] = {"Bring 1 Alterac Valley Mark of Honor, 1 Arathi Basin Mark of Honor, 1 Warsong Gulch Mark of Honor and 1 Eye of the Storm Mark of Honor to an Alliance Brigadier General in any Alliance Capital City or Shattrath."},
-            [questKeys.objectives] = {nil,nil,{{20560},{20559},{20558}}},
-            [questKeys.zoneOrSort] = sortKeys.BATTLEGROUNDS,
-            [questKeys.specialFlags] = specialFlags.REPEATABLE,
-        },
-        [95457] = { -- For Great Honor
-            [questKeys.name] = "For Great Honor",
-            [questKeys.startedBy] = {{15350}},
-            [questKeys.finishedBy] = {{15350}},
-            [questKeys.requiredLevel] = 51,
-            [questKeys.questLevel] = 60,
-            [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
-            [questKeys.objectivesText] = {"Bring 1 Alterac Valley Mark of Honor, 1 Arathi Basin Mark of Honor, 1 Warsong Gulch Mark of Honor and 1 Eye of the Storm Mark of Honor to a Horde Warbringer in any Horde capital city or Shattrath."},
-            [questKeys.objectives] = {nil,nil,{{20560},{20559},{20558}}},
-            [questKeys.zoneOrSort] = sortKeys.BATTLEGROUNDS,
-            [questKeys.specialFlags] = specialFlags.REPEATABLE,
-        },
     }
 end
 
@@ -6820,37 +6403,6 @@ function _QuestieTBCQuestFixes:InsertMissingQuestIds()
     QuestieDB.questData[12192] = {} -- This One Time, When I Was Drunk... (Horde)
     QuestieDB.questData[12420] = {} -- Brew of the Month Club (Alliance)
     QuestieDB.questData[12421] = {} -- Brew of the Month Club (Horde)
-    QuestieDB.questData[63866] = {} -- Claiming the Light
-    QuestieDB.questData[64139] = {} -- A Summons from Lady Liadrin
-    QuestieDB.questData[64140] = {} -- The Master's Path
-    QuestieDB.questData[64141] = {} -- A Gesture of Commitment
-    QuestieDB.questData[64142] = {} -- A Demonstration of Loyalty
-    QuestieDB.questData[64143] = {} -- True Masters of the Light
-    QuestieDB.questData[64144] = {} -- True Masters of the Light
-    QuestieDB.questData[64145] = {} -- True Masters of the Light
-    QuestieDB.questData[64319] = {} -- A Study in Power
-    QuestieDB.questData[64845] = {} -- Alliance War Effort
-
-    -- Alliance boosted quests
-    QuestieDB.questData[64028] = {} -- A New Beginning
-    QuestieDB.questData[64031] = {} -- Tools for Survival
-    QuestieDB.questData[64034] = {} -- Combat Training
-    QuestieDB.questData[64035] = {} -- Talented
-    QuestieDB.questData[64037] = {} -- Eastern Plaguelands
-    QuestieDB.questData[64038] = {} -- The Dark Portal
-    -- Horde boosted quests
-    QuestieDB.questData[64046] = {} -- A New Beginning
-    QuestieDB.questData[64047] = {} -- A New Beginning
-    QuestieDB.questData[64048] = {} -- Tools for Survival
-    QuestieDB.questData[64049] = {} -- Tools for Survival
-    QuestieDB.questData[64050] = {} -- Combat Training
-    QuestieDB.questData[64051] = {} -- Combat Training
-    QuestieDB.questData[64052] = {} -- Talented
-    QuestieDB.questData[64053] = {} -- Talented
-    QuestieDB.questData[64063] = {} -- The Dark Portal
-    QuestieDB.questData[64064] = {} -- Eastern Plaguelands
-    QuestieDB.questData[64128] = {} -- Eastern Plaguelands
-    QuestieDB.questData[64217] = {} -- The Dark Portal
 
     -- Halloween Candy quests
     QuestieDB.questData[12133] = {} -- Smash the Pumpkin

@@ -5,6 +5,8 @@ local _DailyQuests = {}
 --- COMPATIBILITY ---
 local IsQuestFlaggedCompleted = QuestieCompat.IsQuestFlaggedCompleted or C_QuestLog.IsQuestFlaggedCompleted
 local GetQuestLogIndexByID = QuestieCompat.GetQuestLogIndexByID
+local GetDailyQuestsCompleted = GetDailyQuestsCompleted
+local GetMaxDailyQuests = GetMaxDailyQuests
 
 ---@type QuestieMap
 local QuestieMap = QuestieLoader:ImportModule("QuestieMap");
@@ -14,19 +16,22 @@ local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest");
 local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests");
 ---@type QuestiePlayer
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer");
+---@type QuestieIconVisibility
+local QuestieIconVisibility = QuestieLoader:ImportModule("QuestieIconVisibility");
 
 local nhcDailyIds, hcDailyIds, cookingDailyIds, fishingDailyIds, pvpDailyIds
 
 local lastCheck
+local strfind = string.find
 
 ---@param message string
 ---@return nil
 function DailyQuests:FilterDailies(message, _, _)
-    if message and Questie.db.profile.showRepeatableQuests and QuestiePlayer.GetPlayerLevel() == 70 then
+    if message and QuestieIconVisibility:IsEnabledAnywhere("repeatable") and QuestiePlayer.GetPlayerLevel() == 70 then
         -- If the REPUTABLE message is empty, i.e contains "::::::::::" we don't count it as a check.
-        if (not lastCheck) and not string.find(message, "::::::::::") then
+        if (not lastCheck) and not strfind(message, "::::::::::") then
             lastCheck = GetTime();
-        elseif lastCheck and GetTime() - lastCheck < 10 and not string.find(message, "::::::::::") then
+        elseif lastCheck and GetTime() - lastCheck < 10 and not strfind(message, "::::::::::") then
             lastCheck = GetTime();
             return;
         end
@@ -111,7 +116,7 @@ function _DailyQuests:HandleDailyQuests(possibleQuestIds, currentQuestId, type)
         else
             -- If the quest is not in the questlog remove all frames
             if (GetQuestLogIndexByID(questId) == 0) then
-                AvailableQuests.RemoveQuest(questId)
+                AvailableQuests.RemoveAvailableQuest(questId)
             end
             Questie.db.char.hiddenDailies[type][questId] = true;
         end
@@ -149,6 +154,32 @@ function DailyQuests:IsDailyQuest(questId)
             cookingDailyIds[questId] ~= nil or
             fishingDailyIds[questId] ~= nil or
             pvpDailyIds[questId] ~= nil;
+end
+
+---@return boolean
+function DailyQuests:IsAtDailyQuestLimit()
+    local maxDailyQuests = GetMaxDailyQuests and GetMaxDailyQuests() or 0
+    if maxDailyQuests <= 0 then
+        return false
+    end
+
+    if GetDailyQuestsCompleted then
+        local dailyQuestsCompleted = GetDailyQuestsCompleted()
+        if dailyQuestsCompleted and dailyQuestsCompleted >= maxDailyQuests then
+            return true
+        end
+    end
+
+    if not Questie.db.profile.resetDailyQuests then
+        return false
+    end
+
+    local dailyQuestsCompleted = 0
+    for _ in pairs(Questie.db.char.daily or {}) do
+        dailyQuestsCompleted = dailyQuestsCompleted + 1
+    end
+
+    return dailyQuestsCompleted >= maxDailyQuests
 end
 
 nhcDailyIds = {
