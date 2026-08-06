@@ -22,11 +22,13 @@ local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 local QuestXP = QuestieLoader:ImportModule("QuestXP")
 
 local math_max = math.max
+local bitband = bit.band
 local strfind = string.find
 local questLogCompatibilityInitialized = false
 local questObjectivesCache = {}
 local uiInfoChangedQuestIds = {}
 local QUEST_OBJECTIVE_CACHE_TTL_SECONDS = 3
+local QUEST_FLAGS_NO_MONEY_FROM_XP = 0x100
 
 -- Forward declarations for the 3.3.5 reward-completion fallback near the end
 -- of this file. The raw cache is kept before repeatable quests are filtered
@@ -89,17 +91,9 @@ local function applyObjectiveProgressToQuestieCache(objectiveName, numFulfilled)
     for questId, questData in pairs(QuestLogCache.questLog_DO_NOT_MODIFY or {}) do
         local objectives = questData and questData.objectives
         if objectives and #objectives > 0 then
-            for _, objective in ipairs(objectives) do
+            for objectiveIndex, objective in ipairs(objectives) do
                 if objective and objective.type == "item" and normalizeObjectiveName(objective.text) == objectiveName then
-                    local oldFulfilled = tonumber(objective.numFulfilled) or 0
-                    if numFulfilled > oldFulfilled then
-                        objective.numFulfilled = numFulfilled
-                        objective.raw_numFulfilled = math_max(tonumber(objective.raw_numFulfilled) or 0, numFulfilled)
-                        if objective.numRequired then
-                            local isFinished = numFulfilled >= objective.numRequired
-                            objective.finished = isFinished
-                            objective.raw_finished = objective.raw_finished or isFinished
-                        end
+                    if QuestLogCache.ApplyObjectiveProgress(questId, objectiveIndex, numFulfilled) then
                         uiInfoChangedQuestIds[questId] = true
                         hasChanges = true
                     end
@@ -242,22 +236,27 @@ end
 -- Returns the amount of money rewarded for a quest.
 function QuestieCompat.GetQuestLogRewardMoney(questID)
     local rewardMoney = QuestieCompat.RewardMoney[questID] or 0
-	local rewardMoneyDifficulty = QuestieCompat.RewardMoneyDifficulty[questID] or 0
-
-    if rewardMoney < 0 then -- required money
-        return rewardMoney
-    end
+    local rewardMoneyDifficulty = QuestieCompat.RewardMoneyDifficulty[questID] or 0
 
     local playerLevel = QuestiePlayer.GetPlayerLevel()
-    if playerLevel > 0 and rewardMoneyDifficulty > 0 then
-        rewardMoney = QuestieCompat.QuestMoneyReward[playerLevel][rewardMoneyDifficulty]
+    if rewardMoney >= 0 and playerLevel > 0 and rewardMoneyDifficulty > 0 then
+        local levelRewards = QuestieCompat.QuestMoneyReward[playerLevel]
+        local scaledRewardMoney = levelRewards and levelRewards[rewardMoneyDifficulty]
+        if scaledRewardMoney and scaledRewardMoney > 0 then
+            rewardMoney = scaledRewardMoney
+        end
     end
 
     -- https://wowpedia.fandom.com/wiki/Quest?oldid=1035002 Formula is XP gained * 6c
     if QuestiePlayer.IsMaxLevel() then
-        local xpReward = QuestXP:GetQuestLogRewardXP(questID, true)
-        if xpReward > 0 then
-            rewardMoney = rewardMoney + xpReward*6
+        local questFlags = QuestieDB.QueryQuestSingle(questID, "questFlags") or 0
+        if bitband(questFlags, QUEST_FLAGS_NO_MONEY_FROM_XP) == 0 then
+            -- AzerothCore's max-level XP-to-money conversion does not apply
+            -- player quest XP aura modifiers such as heirloom bonuses.
+            local xpReward = QuestXP:GetQuestLogRewardXP(questID, true, true)
+            if xpReward > 0 then
+                rewardMoney = rewardMoney + xpReward * 6
+            end
         end
     end
 
@@ -266,6 +265,8 @@ end
 
 local MAX_DAILY_RESET_SECONDS = 48 * 60 * 60
 local FALLBACK_DAILY_RESET_HOUR = 6
+local MONTHLY_RESET_HOUR = 6
+local SECONDS_PER_DAY = 24 * 60 * 60
 local warnedInvalidQuestResetTime = false
 
 local function _CalculateFallbackQuestResetTime(currentTime, currentDate)
@@ -295,6 +296,36 @@ local function _CalculateFallbackQuestResetTime(currentTime, currentDate)
     end
 
     return (nextResetTime or currentTime) - currentTime
+end
+
+local function _CalculateNextMonthlyResetTime(currentTime, currentDate)
+    local resetThisMonth = time({
+        year = currentDate.year,
+        month = currentDate.month,
+        day = 1,
+        hour = MONTHLY_RESET_HOUR,
+        min = 0,
+        sec = 0,
+    })
+    if resetThisMonth and currentTime < resetThisMonth then
+        return resetThisMonth
+    end
+
+    local nextMonth = currentDate.month + 1
+    local nextYear = currentDate.year
+    if nextMonth > 12 then
+        nextMonth = 1
+        nextYear = nextYear + 1
+    end
+
+    return time({
+        year = nextYear,
+        month = nextMonth,
+        day = 1,
+        hour = MONTHLY_RESET_HOUR,
+        min = 0,
+        sec = 0,
+    }) or (currentTime + (32 * SECONDS_PER_DAY))
 end
 
 function QuestieCompat.GetQuestResetTime()
@@ -350,7 +381,9 @@ function QuestieCompat.ResetDailyQuests(reset)
         for questId in pairs(Questie.db.char.daily) do
             Questie.db.char.daily[questId] = nil
             Questie.db.char.complete[questId] = nil
+            serverCompletedQuests[questId] = nil
         end
+        Questie.db.char.acoreDailyQuestCompletions = {}
         Questie.db.profile.dailyResetTime = nil
         QuestieCompat.CalculateNextResetTime()
         if Questie.started then
@@ -385,6 +418,51 @@ function QuestieCompat.ResetWeeklyQuests()
     end
 end
 
+local monthlyResetTimer
+function QuestieCompat.ResetMonthlyQuests()
+    local currentTime, currentDate = QuestieCompat.GetServerTime()
+    Questie.db.char.monthly = Questie.db.char.monthly or {}
+
+    -- Monthly completion state is character-specific, so its reset marker must
+    -- also be character-specific. Otherwise one character logging in after a
+    -- reset could advance a shared marker before the others clear their state.
+    local monthlyResetTime = Questie.db.char.monthlyResetTime
+
+    if type(monthlyResetTime) ~= "number" then
+        monthlyResetTime = _CalculateNextMonthlyResetTime(currentTime, currentDate)
+        Questie.db.char.monthlyResetTime = monthlyResetTime
+    end
+
+    local didReset = false
+    if currentTime >= monthlyResetTime then
+        for questId in pairs(Questie.db.char.monthly) do
+            Questie.db.char.monthly[questId] = nil
+            Questie.db.char.complete[questId] = nil
+            serverCompletedQuests[questId] = nil
+        end
+
+        Questie.db.char.monthlyResetTime = _CalculateNextMonthlyResetTime(currentTime, currentDate)
+        monthlyResetTime = Questie.db.char.monthlyResetTime
+        didReset = true
+
+        if Questie.started then
+            AvailableQuests.CalculateAndDrawAll()
+        end
+    end
+
+    if monthlyResetTimer then
+        monthlyResetTimer:Cancel()
+    end
+    monthlyResetTimer = QuestieCompat.C_Timer.After(math_max(0.01, monthlyResetTime - currentTime), function()
+        monthlyResetTimer = nil
+        QuestieCompat.ResetMonthlyQuests()
+    end)
+
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[ResetMonthlyQuests] Next monthly reset time: ", date("%m/%d/%y %H:%M:%S", monthlyResetTime))
+
+    return didReset
+end
+
 function QuestieCompat.SetQuestComplete(questId)
     if (not QuestieDB.IsRepeatable(questId)) then
         Questie.db.char.complete[questId] = true
@@ -396,6 +474,10 @@ function QuestieCompat.SetQuestComplete(questId)
             Questie.db.char.complete[questId] = true
         elseif QuestieDB.IsWeeklyQuest(questId) then
             Questie.db.char.weekly[questId] = true
+            Questie.db.char.complete[questId] = true
+        elseif QuestieDB.IsMonthlyQuest(questId) then
+            QuestieCompat.ResetMonthlyQuests()
+            Questie.db.char.monthly[questId] = true
             Questie.db.char.complete[questId] = true
         end
     end
@@ -410,6 +492,41 @@ function QuestieCompat.GetQuestsCompleted()
 
     QueryQuestsCompleted()
     return Questie.db.char.complete
+end
+
+---Returns the unfiltered completion state sent by the 3.3.5 server.
+---Unlike Questie.db.char.complete, this retains daily/repeatable entries long
+---enough for AzerothCore availability conditions to inspect them.
+---@param questId number
+---@return boolean
+function QuestieCompat.IsQuestCompletedOnServer(questId)
+    return serverCompletedQuests[questId] == true
+        or (Questie.db.char.complete and Questie.db.char.complete[questId] == true)
+end
+
+local function EnsureAzerothCoreDailyCompletionReset()
+    Questie.db.char.acoreDailyQuestCompletions = Questie.db.char.acoreDailyQuestCompletions or {}
+
+    local currentTime = QuestieCompat.GetServerTime()
+    local resetTime = Questie.db.profile.dailyResetTime
+    if type(resetTime) ~= "number" or resetTime <= currentTime then
+        Questie.db.char.acoreDailyQuestCompletions = {}
+        Questie.db.profile.dailyResetTime = nil
+        QuestieCompat.CalculateNextResetTime()
+    end
+end
+
+---@param questId number
+function QuestieCompat.SetAzerothCoreDailyQuestComplete(questId)
+    EnsureAzerothCoreDailyCompletionReset()
+    Questie.db.char.acoreDailyQuestCompletions[questId] = true
+end
+
+---@param questId number
+---@return boolean
+function QuestieCompat.IsAzerothCoreDailyQuestComplete(questId)
+    EnsureAzerothCoreDailyCompletionReset()
+    return Questie.db.char.acoreDailyQuestCompletions[questId] == true
 end
 
 -- Fires when the data requested by QueryQuestsCompleted() is available.
@@ -439,12 +556,21 @@ function QuestieCompat:QUEST_QUERY_COMPLETE(event)
         QuestieCompat.ResetDailyQuests()
         QuestieCompat.Merge(Questie.db.char.complete, Questie.db.char.daily)
 
-        if Questie.IsWotlk and QuestiePlayer.GetPlayerLevel() >= 78 then
+        if (Questie.IsWotlk or QuestieCompat.Is335) and QuestiePlayer.GetPlayerLevel() >= 78 then
             if (not QuestieCompat.ResetWeeklyQuests()) and (Questie.db.profile.weeklyResetDay == CalendarGetDate()) then
                 weeklyResetTimer = weeklyResetTimer or QuestieCompat.C_Timer.NewTicker(1800, QuestieCompat.ResetWeeklyQuests)
             end
             QuestieCompat.Merge(Questie.db.char.complete, Questie.db.char.weekly)
         end
+
+        QuestieCompat.ResetMonthlyQuests()
+        QuestieCompat.Merge(Questie.db.char.complete, Questie.db.char.monthly)
+    end
+
+    -- The completed-quest response is authoritative for AzerothCore quest
+    -- status conditions. It can arrive after Questie's initial map draw.
+    if Questie.started then
+        AvailableQuests.CalculateAndDrawAll()
     end
 end
 
@@ -804,6 +930,9 @@ local function CompleteRewardQuest(questId)
     -- Keep the raw cache in sync even when the normal chat path handled the
     -- turn-in before another completed-quest query was needed.
     serverCompletedQuests[questId] = true
+    if QuestieDB.IsDailyQuest(questId) then
+        QuestieCompat.SetAzerothCoreDailyQuestComplete(questId)
+    end
     _QuestEventHandler:QuestTurnedIn(questId)
     _QuestEventHandler:QuestRemoved(questId)
 end

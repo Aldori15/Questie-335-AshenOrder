@@ -115,7 +115,7 @@ TrackerMenu.addShowHideObjectivesOption = function(menu, quest, objective)
                 LibDropDown:CloseDropDownMenus()
                 objective.HideIcons = nil
                 Questie.db.char.TrackerHiddenObjectives[tostring(quest.Id) .. " " .. tostring(objective.Index)] = nil
-                QuestieQuest:ToggleNotes(true)
+                QuestieQuest.ToggleQuestNotes(true)
             end
         })
     else
@@ -125,7 +125,7 @@ TrackerMenu.addShowHideObjectivesOption = function(menu, quest, objective)
                 LibDropDown:CloseDropDownMenus()
                 objective.HideIcons = true
                 Questie.db.char.TrackerHiddenObjectives[tostring(quest.Id) .. " " .. tostring(objective.Index)] = true
-                QuestieQuest:ToggleNotes(false)
+                QuestieQuest.ToggleQuestNotes(false)
             end
         })
     end
@@ -138,7 +138,7 @@ TrackerMenu.addShowHideQuestsOption = function(menu, quest)
             func = function()
                 quest.HideIcons = nil
                 Questie.db.char.TrackerHiddenQuests[quest.Id] = nil
-                QuestieQuest:ToggleNotes(true)
+                QuestieQuest.ToggleQuestNotes(true)
             end
         })
     else
@@ -147,7 +147,7 @@ TrackerMenu.addShowHideQuestsOption = function(menu, quest)
             func = function()
                 quest.HideIcons = true
                 Questie.db.char.TrackerHiddenQuests[quest.Id] = true
-                QuestieQuest:ToggleNotes(false)
+                QuestieQuest.ToggleQuestNotes(false)
             end
         })
     end
@@ -177,7 +177,7 @@ TrackerMenu.addShowObjectivesOnMapOption = function(menu, quest, objective)
             end
 
             if needHiddenUpdate then
-                QuestieQuest:ToggleNotes(true)
+                QuestieQuest.ToggleQuestNotes(true)
             end
 
             TrackerUtils:ShowObjectiveOnMap(objective)
@@ -339,7 +339,7 @@ StaticPopupDialogs["QUESTIE_WOWHEAD_URL"] = {
         local name = quest_wow.name
 
         -- self.text:SetText(self.text:GetText() .. "\n\n|cffff7f00" .. name .. "|r")
-        self.text:SetFont("GameFontNormal", 12)
+        self.text:SetFont(GameFontNormal:GetFont(), 12)
         -- self.text:SetText(self.text:GetText() .. "\n\n|c FFFFB9 00" .. name .. "|r")
         self.text:SetText(self.text:GetText() .. Questie:Colorize("\n\n" .. name, "gold"))
 
@@ -349,7 +349,7 @@ StaticPopupDialogs["QUESTIE_WOWHEAD_URL"] = {
         end
 
         local wowheadLink
-        if Questie.IsWotlk then
+        if Questie.IsWotlk or QuestieCompat.Is335 then
             if langShort then
                 langShort = langShort:gsub("%.", "/") -- The Wotlk WoWHead URL differs to the other Classic URLs
             end
@@ -515,7 +515,7 @@ StaticPopupDialogs["QUESTIE_WOWHEAD_AURL"] = {
         local achieveID = self.text.text_arg1 or self.data
         local name = select(2, GetAchievementInfo(achieveID))
 
-        self.text:SetFont("GameFontNormal", 12)
+        self.text:SetFont(GameFontNormal:GetFont(), 12)
         self.text:SetText(self.text:GetText() .. Questie:Colorize("\n\n" .. name, "gold"))
 
         local langShort = string.sub(l10n:GetUILocale(), 1, 2) .. "."

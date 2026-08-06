@@ -1,12 +1,12 @@
 ## Interface: 30300
-## Title: Questie-335|cFF00FF00 v1.3.1|r
-## Author: Aero/Logon/Muehe/TheCrux(BreakBB)/Drejjmit/Dyaxler/Schaka/Zoey/Everyone else
-## Notes: A standalone Classic QuestHelper updated for the Ashen Order repack.  It cannot be used independently from Questie-335-AshenOrder v1.3.1 and both need to be used together.
+## Title: Questie-335|cFF00FF00 v1.3.2|r
+## Author: Aldori + Original Questie Team
+## Notes: A standalone Classic QuestHelper updated for the Ashen Order repack.  It cannot be used independently from Questie-335-AshenOrder v1.3.2 and both need to be used together.
 ## Notes-esMX: Ayundante de misión
 ## Notes-esES: Ayundante de misión
 ## Notes-ptBR: Ajudante de missão
 ## Notes-frFR: Assistant de quête
-## Version: 1.3.1-AshenOrder
+## Version: 1.3.2-AshenOrder
 ## RequiredDeps:
 ## OptionalDeps: Ace3, CallbackHandler-1.0, HereBeDragons, LibDataBroker-1.1, LibDBIcon-1.0, LibSharedMedia-3.0, LibStub, LibUIDropDownMenu
 ## SavedVariables: QuestieConfig
@@ -20,7 +20,8 @@ Modules\Libs\QuestieLoader.lua
 
 # COMPATIBILITY
 Modules\QuestieCompat.lua
-Compat\embeds.xml
+embeds.xml
+Compat\Compat.xml
 
 Modules\VersionCheck.lua
 
@@ -29,7 +30,7 @@ Modules\Libs\ThreadLib.lua
 
 #Quest XP
 Database\QuestXP\QuestieXP.lua
-Database\QuestXP\DB\xpDB-wotlk.lua
+Database\QuestXP\DB\xpDB-azerothcore-wotlk.lua
 
 # stream module (used by DB)
 Modules\QuestieStream.lua
@@ -83,8 +84,6 @@ Database\Corrections\wotlkObjectFixes.lua
 
 # Item Drops
 Database\DropTables\dropDB.lua
-Database\DropTables\data\itemDropCorrections.lua
-Database\DropTables\data\wotlkItemDrops.lua
 Database\DropTables\data\wotlkAcoreItemDrops.lua
 
 # Compiler

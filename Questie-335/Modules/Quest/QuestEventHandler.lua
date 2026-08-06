@@ -60,6 +60,44 @@ local eventFrame = CreateFrame("Frame", "QuestieQuestEventFrame")
 local questLog = {}
 local questLogUpdateQueueSize = 1
 local deletedQuestItem = false
+local requiredItemConditionStates = {}
+local requiredItemConditionUpdatePending = false
+local acoreAuraConditionStates = {}
+local acoreAuraConditionUpdatePending = false
+local acoreLocationConditionStates = {}
+local acoreLocationConditionUpdatePending = false
+local itemRegressionConfirmationPending = false
+local GetCursorInfo = GetCursorInfo
+
+local function CacheRequiredItemConditionStates()
+    QuestieDB:InitializeAzerothCoreAvailabilityConditionIndexes()
+    for questId in pairs(QuestieDB.requiredItemConditionQuestIds) do
+        requiredItemConditionStates[questId] = QuestieDB:GetAvailabilityItemConditionState(questId)
+    end
+
+    for questId in pairs(QuestieDB.acoreAuraConditionQuestIds) do
+        acoreAuraConditionStates[questId] = QuestieDB.IsDoable(questId)
+    end
+
+    for questId in pairs(QuestieDB.acoreLocationConditionQuestIds) do
+        acoreLocationConditionStates[questId] = QuestieDB.IsDoable(questId)
+    end
+end
+
+local function ScheduleItemRegressionConfirmation()
+    if itemRegressionConfirmationPending then
+        return
+    end
+
+    itemRegressionConfirmationPending = true
+    C_Timer.After(0.25, function()
+        itemRegressionConfirmationPending = false
+        local cursorType = GetCursorInfo()
+        if cursorType ~= "item" and QuestLogCache.HasPendingItemRegression() then
+            _QuestEventHandler:UpdateAllQuests(true)
+        end
+    end)
+end
 
 --- Registers all events that are required for questing (accepting, removing, objective updates, ...)
 function QuestEventHandler:RegisterEvents()
@@ -70,15 +108,22 @@ function QuestEventHandler:RegisterEvents()
     eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
     eventFrame:RegisterEvent("QUEST_WATCH_UPDATE")
     eventFrame:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
+    eventFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
+    eventFrame:RegisterEvent("ZONE_CHANGED")
+    eventFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
     eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-    eventFrame:RegisterEvent("NEW_RECIPE_LEARNED") -- Spell objectives
+    eventFrame:RegisterEvent("SPELLS_CHANGED") -- Spell objectives and availability conditions
     eventFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
-    --eventFrame:RegisterEvent("SPELLS_CHANGED") -- Spell objectives
-
+    eventFrame:RegisterEvent("BAG_UPDATE")
+    eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+    eventFrame:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
+    eventFrame:RegisterEvent("UNIT_AURA")
     eventFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
 
     eventFrame:RegisterEvent("CHAT_MSG_COMBAT_FACTION_CHANGE")
     eventFrame:SetScript("OnEvent", _QuestEventHandler.OnEvent)
+
+    CacheRequiredItemConditionStates()
 
     -- StaticPopup dialog hooks. Deleteing Quest items do not always trigger a Quest Log Update.
     hooksecurefunc("StaticPopup_Show", function(...)
@@ -287,7 +332,7 @@ function _QuestEventHandler:HandleQuestAccepted(questId)
     end
 
     -- We first check the quest objectives and retry in the next QLU event if they are not correct yet
-    local cacheMiss, _ = QuestLogCache.CheckForChanges({[questId] = true})
+    local cacheMiss, _ = QuestLogCache.CheckForChanges({[questId] = true}, false)
     if cacheMiss then
         -- if cacheMiss, no need to check changes as only 1 questId
         Questie:Debug(Questie.DEBUG_INFO, "Objectives are not cached yet")
@@ -444,7 +489,8 @@ end
 
 --- Does a full scan of the quest log and updates every quest that is in the QUEST_ACCEPTED state and which hash changed
 --- since the last check
-function _QuestEventHandler:UpdateAllQuests()
+---@param confirmItemRegressions boolean? @Whether a settled bag scan may accept item-count decreases.
+function _QuestEventHandler:UpdateAllQuests(confirmItemRegressions)
     Questie:Debug(Questie.DEBUG_INFO, "Running full questlog check")
     local questIdsToCheck = {}
 
@@ -455,7 +501,7 @@ function _QuestEventHandler:UpdateAllQuests()
         end
     end
 
-    local cacheMiss, changes = QuestLogCache.CheckForChanges(questIdsToCheck)
+    local cacheMiss, changes = QuestLogCache.CheckForChanges(questIdsToCheck, true, confirmItemRegressions)
 
     if next(changes) then
         for questId, objIds in pairs(changes) do
@@ -479,12 +525,20 @@ function _QuestEventHandler:UpdateAllQuests()
             QuestieQuest:UpdateQuest(questId)
         end
         QuestieCombatQueue:Queue(function()
-            C_Timer.After(1.0, function()
+            if confirmItemRegressions then
                 QuestieTracker:Update()
-            end)
+            else
+                C_Timer.After(1.0, function()
+                    QuestieTracker:Update()
+                end)
+            end
         end)
     else
         Questie:Debug(Questie.DEBUG_INFO, "Nothing to update")
+    end
+
+    if (not confirmItemRegressions) and QuestLogCache.HasPendingItemRegression() then
+        ScheduleItemRegressionConfirmation()
     end
 end
 
@@ -581,6 +635,83 @@ function _QuestEventHandler:ZoneChangedNewArea()
     end
 end
 
+function _QuestEventHandler:BagUpdate()
+    if requiredItemConditionUpdatePending then
+        return
+    end
+
+    requiredItemConditionUpdatePending = true
+    C_Timer.After(0.25, function()
+        requiredItemConditionUpdatePending = false
+        local availabilityChanged = false
+
+        for questId in pairs(QuestieDB.requiredItemConditionQuestIds) do
+            local itemConditionState = QuestieDB:GetAvailabilityItemConditionState(questId)
+            if requiredItemConditionStates[questId] ~= itemConditionState then
+                requiredItemConditionStates[questId] = itemConditionState
+                availabilityChanged = true
+            end
+        end
+
+        if availabilityChanged then
+            AvailableQuests.RebuildAll(nil, true)
+        end
+
+        local cursorType = GetCursorInfo()
+        if cursorType ~= "item" and QuestLogCache.HasPendingItemRegression() then
+            _QuestEventHandler:UpdateAllQuests(true)
+        end
+    end)
+end
+
+function _QuestEventHandler:AuraUpdate()
+    if acoreAuraConditionUpdatePending then
+        return
+    end
+
+    acoreAuraConditionUpdatePending = true
+    C_Timer.After(0.10, function()
+        acoreAuraConditionUpdatePending = false
+        local availabilityChanged = false
+
+        for questId in pairs(QuestieDB.acoreAuraConditionQuestIds) do
+            local isDoable = QuestieDB.IsDoable(questId)
+            if acoreAuraConditionStates[questId] ~= isDoable then
+                acoreAuraConditionStates[questId] = isDoable
+                availabilityChanged = true
+            end
+        end
+
+        if availabilityChanged then
+            AvailableQuests.RebuildAll(nil, true)
+        end
+    end)
+end
+
+function _QuestEventHandler:LocationUpdate()
+    if acoreLocationConditionUpdatePending then
+        return
+    end
+
+    acoreLocationConditionUpdatePending = true
+    C_Timer.After(0.10, function()
+        acoreLocationConditionUpdatePending = false
+        local availabilityChanged = false
+
+        for questId in pairs(QuestieDB.acoreLocationConditionQuestIds) do
+            local isDoable = QuestieDB.IsDoable(questId)
+            if acoreLocationConditionStates[questId] ~= isDoable then
+                acoreLocationConditionStates[questId] = isDoable
+                availabilityChanged = true
+            end
+        end
+
+        if availabilityChanged then
+            AvailableQuests.RebuildAll(nil, true)
+        end
+    end)
+end
+
 --- Is executed whenever an event is fired and triggers relevant event handling.
 ---@param event string
 function _QuestEventHandler:OnEvent(event, ...)
@@ -597,13 +728,27 @@ function _QuestEventHandler:OnEvent(event, ...)
         _QuestEventHandler:QuestWatchUpdate(...)
     elseif event == "UNIT_QUEST_LOG_CHANGED" and select(1, ...) == "player" then
         _QuestEventHandler:UnitQuestLogChanged(...)
-    elseif event == "ZONE_CHANGED_NEW_AREA" then
-        _QuestEventHandler:ZoneChangedNewArea()
-    elseif event == "NEW_RECIPE_LEARNED" then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] NEW_RECIPE_LEARNED (QuestEventHandler)")
-        -- If this event is related to a spell objective, a QUEST_LOG_UPDATE will be fired afterwards which calls UpdateAllQuests.
+    elseif event == "PLAYER_LEAVING_WORLD" then
+        QuestLogCache.OnPlayerLeavingWorld()
+    elseif event == "ZONE_CHANGED"
+        or event == "ZONE_CHANGED_INDOORS"
+        or event == "ZONE_CHANGED_NEW_AREA"
+    then
+        if event == "ZONE_CHANGED_NEW_AREA" then
+            _QuestEventHandler:ZoneChangedNewArea()
+        end
+        _QuestEventHandler:LocationUpdate()
+    elseif event == "SPELLS_CHANGED" then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] SPELLS_CHANGED (QuestEventHandler)")
+        -- AzerothCore can also use learned spells as quest availability
+        -- conditions (for example, Cold Weather Flying).
+        AvailableQuests.CalculateAndDrawAll()
     elseif event == "CURRENCY_DISPLAY_UPDATE" then
         _QuestEventHandler:CurrencyDisplayUpdate()
+    elseif event == "BAG_UPDATE" or event == "BAG_UPDATE_DELAYED" or event == "PLAYERBANKSLOTS_CHANGED" then
+        _QuestEventHandler:BagUpdate()
+    elseif event == "UNIT_AURA" and select(1, ...) == "player" then
+        _QuestEventHandler:AuraUpdate()
     elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
         local eventType = select(1, ...)
         if eventType == 1 then

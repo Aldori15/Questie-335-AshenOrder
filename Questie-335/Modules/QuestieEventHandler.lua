@@ -151,12 +151,6 @@ function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterBucketEvent("CHAT_MSG_COMBAT_FACTION_CHANGE", 2, _EventHandler.ChatMsgCompatFactionChange)
     Questie:RegisterEvent("CHAT_MSG_SYSTEM", _EventHandler.ChatMsgSystem)
 
-    -- Spell objectives
-    Questie:RegisterEvent("NEW_RECIPE_LEARNED", function() -- Needed for some spells that don't necessarily appear in the spellbook, but are definitely spells
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] NEW_RECIPE_LEARNED")
-        AvailableQuests.CalculateAndDrawAll()
-    end)
-
     -- UI Quest Events
     Questie:RegisterEvent("UI_INFO_MESSAGE", _EventHandler.UiInfoMessage)
     Questie:RegisterEvent("QUEST_FINISHED", QuestieAuto.QUEST_FINISHED)
@@ -199,6 +193,10 @@ function QuestieEventHandler:RegisterLateEvents()
             QuestieCombatQueue:Queue(function()
                 QuestieTracker:Update()
             end)
+
+            -- AzerothCore can gate quest availability directly on earned
+            -- achievements, so refresh quest markers immediately.
+            AvailableQuests.CalculateAndDrawAll()
         end)
 
         -- Track/Untrack Achievement updates
@@ -393,21 +391,21 @@ function _EventHandler:ChatMsgSystem(message)
     end
 end
 
+local _QuestProgressMessages = {
+    ["ERR_QUEST_OBJECTIVE_COMPLETE_S"] = true,
+    ["ERR_QUEST_UNKNOWN_COMPLETE"] = true,
+    ["ERR_QUEST_ADD_KILL_SII"] = true,
+    ["ERR_QUEST_ADD_FOUND_SII"] = true,
+    ["ERR_QUEST_ADD_ITEM_SII"] = true,
+    ["ERR_QUEST_ADD_PLAYER_KILL_SII"] = true,
+    ["ERR_QUEST_FAILED_S"] = true,
+}
+
 --- Fires when a UI Info Message (yellow text) appears near the top of the screen
 ---@param errorType number The error type value from the UI_INFO_MESSAGE event
 ---@param message string The message value from the UI_INFO_MESSAGE event
 function _EventHandler:UiInfoMessage(errorType, message)
-    local messages = {
-        ["ERR_QUEST_OBJECTIVE_COMPLETE_S"] = true,
-        ["ERR_QUEST_UNKNOWN_COMPLETE"] = true,
-        ["ERR_QUEST_ADD_KILL_SII"] = true,
-        ["ERR_QUEST_ADD_FOUND_SII"] = true,
-        ["ERR_QUEST_ADD_ITEM_SII"] = true,
-        ["ERR_QUEST_ADD_PLAYER_KILL_SII "] = true,
-        ["ERR_QUEST_FAILED_S"] = true,
-    }
-
-    if messages[GetGameMessageInfo(errorType)] then
+    if _QuestProgressMessages[GetGameMessageInfo(errorType)] then
         MinimapIcon:UpdateText(message)
     end
 end

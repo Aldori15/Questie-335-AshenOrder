@@ -13,7 +13,7 @@ local GetFactionInfo = QuestieCompat.GetFactionInfo
 local playerReputations = {}
 local factionNameCache = {}
 
-local _ReachedNewStanding, _WinterSaberChanged, _FilterShaTarRewards, _GetRewardMultiplier
+local _ReachedNewStanding, _WinterSaberChanged, _FilterShaTarRewards, _GetRewardMultiplier, _GetFactionQuestRewardRate
 
 -- Fast local references
 local ExpandFactionHeader, GetNumFactions = ExpandFactionHeader, GetNumFactions
@@ -45,6 +45,37 @@ function QuestieReputation:Update(isInit)
                     or _WinterSaberChanged(factionID, previousValues, barValue)) then
                 Questie:Debug(Questie.DEBUG_DEVELOP, "QuestieReputation: Update - faction \"" .. name .. "\" (" .. factionID .. ") changed")
                 factionChanged = true
+            end
+        end
+    end
+
+    -- The client may omit undiscovered Aldor and Scryer reputations from the
+    -- reputation pane. Initialize their race specific base values so related
+    -- quest conditions still match the server before either faction is shown.
+    if isInit then
+        local aldorFactionId = QuestieDB.factionIDs.THE_ALDOR
+        local scryersFactionId = QuestieDB.factionIDs.THE_SCRYERS
+
+        if not playerReputations[aldorFactionId] or not playerReputations[scryersFactionId] then
+            local raceId = QuestiePlayer:GetRaceId()
+            local aldorReputation = {4, 0}      -- standingID 4, 0 reputation (Neutral)
+            local scryersReputation = {4, 0}    -- standingID 4, 0 reputation (Neutral)
+
+            if raceId == 10 then -- Blood Elf
+                aldorReputation = {2, -3500}    -- standingID 2, -3500 reputation (Hostile)
+                scryersReputation = {5, 3500}   -- standingID 5, 3500 reputation (Friendly)
+            elseif raceId == 11 then -- Draenei
+                aldorReputation = {5, 3500}     -- standingID 5, 3500 reputation (Friendly)
+                scryersReputation = {2, -3500}  -- standingID 2, -3500 reputation (Hostile)
+            end
+
+            if not playerReputations[aldorFactionId] then
+                playerReputations[aldorFactionId] = aldorReputation
+                newFaction = true
+            end
+            if not playerReputations[scryersFactionId] then
+                playerReputations[scryersFactionId] = scryersReputation
+                newFaction = true
             end
         end
     end
@@ -135,6 +166,23 @@ function QuestieReputation:HasFactionAndReputationLevel(requiredMinRep, required
     return aboveMinRep, hasMinFaction, belowMaxRep, hasMaxFaction
 end
 
+---@param factionId number
+---@return number standingId @Client standing IDs range from 1 (Hated) to 8 (Exalted).
+function QuestieReputation:GetFactionStandingId(factionId)
+    local reputation = playerReputations[factionId]
+    if reputation then
+        return reputation[1]
+    end
+
+    -- Match the defaults used by HasFactionAndReputationLevel for factions
+    -- that have not appeared in the client's reputation pane yet.
+    if QuestieReputation.factionsStartingBelowNeutral[factionId] then
+        return 1
+    end
+
+    return 4
+end
+
 --- Checkout https://github.com/Questie/Questie/wiki/Corrections#reputation-levels for more information
 ---@return boolean HasReputation Is the player within the required reputation ranges specified by the parameters
 function QuestieReputation:HasReputation(requiredMinRep, requiredMaxRep)
@@ -205,22 +253,29 @@ function QuestieReputation.GetReputationReward(questId)
 
     local reputationMultiplier = _GetRewardMultiplier()
     local aldorPenalty, scryersPenalty
+    local adjustedRewards = {}
 
     for _, rewardPair in pairs(rewards) do
         local factionId = rewardPair[1]
-        local rewardValue = rewardPair[2]
+        local rewardValue = rewardPair[2] * _GetFactionQuestRewardRate(questId, factionId)
 
         if rewardValue > 0 and reputationMultiplier ~= 1 then
             rewardValue = floor(rewardValue * reputationMultiplier)
-            rewardPair[2] = rewardValue
         end
 
-        if factionId == factionIDs.THE_ALDOR then
-            scryersPenalty = {factionIDs.THE_SCRYERS, 0 - floor(rewardValue * 1.1)}
-        elseif factionId == factionIDs.THE_SCRYERS then
-            aldorPenalty = {factionIDs.THE_ALDOR, 0 - floor(rewardValue * 1.1)}
+        rewardValue = floor(rewardValue)
+        if rewardValue ~= 0 then
+            rewardPair[2] = rewardValue
+            adjustedRewards[#adjustedRewards + 1] = rewardPair
+
+            if factionId == factionIDs.THE_ALDOR then
+                scryersPenalty = {factionIDs.THE_SCRYERS, 0 - floor(rewardValue * 1.1)}
+            elseif factionId == factionIDs.THE_SCRYERS then
+                aldorPenalty = {factionIDs.THE_ALDOR, 0 - floor(rewardValue * 1.1)}
+            end
         end
     end
+    rewards = adjustedRewards
 
     if aldorPenalty then
         tinsert(rewards, aldorPenalty)
@@ -229,6 +284,29 @@ function QuestieReputation.GetReputationReward(questId)
     end
 
     return rewards
+end
+
+---@param questId QuestId
+---@param factionId number
+---@return number
+_GetFactionQuestRewardRate = function(questId, factionId)
+    local factionRates = QuestieCompat.AzerothCoreReputationRates
+    local rates = factionRates and factionRates[factionId]
+    if not rates then
+        return 1
+    end
+
+    if QuestieDB.IsDailyQuest(questId) then
+        return rates[2]
+    elseif QuestieDB.IsWeeklyQuest(questId) then
+        return rates[3]
+    elseif QuestieDB.IsMonthlyQuest(questId) then
+        return rates[4]
+    elseif QuestieDB.IsRepeatable(questId) then
+        return rates[5]
+    end
+
+    return rates[1]
 end
 
 ---@return number

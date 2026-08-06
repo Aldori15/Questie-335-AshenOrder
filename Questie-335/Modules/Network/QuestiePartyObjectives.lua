@@ -9,12 +9,16 @@ QuestiePartyObjectives.private = QuestiePartyObjectives.private or {}
 local QuestieComms = QuestieLoader:ImportModule("QuestieComms")
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
+---@type ThreadLib
+local ThreadLib = QuestieLoader:ImportModule("ThreadLib")
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestieLib
 local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 ---@type QuestiePlayer
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
+---@type QuestieFramePool
+local QuestieFramePool = QuestieLoader:ImportModule("QuestieFramePool")
 ---@type QuestLogCache
 local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
 
@@ -50,6 +54,7 @@ local dirtyQuests = {}
 local fullRefreshPending = false
 local updateScheduled = false
 local processing = false
+local processingGeneration = 0
 
 -- Forward declarations (these reference each other).
 local _ScheduleProcessing, _ProcessScheduled, _ProcessQueue
@@ -180,14 +185,21 @@ local function _UnloadObjective(objective)
     for _, spawn in pairs(objective.AlreadySpawned) do
         for _, mapIcon in pairs(spawn.mapRefs) do
             if mapIcon.data == spawn.data then
-                mapIcon:Unload()
+                QuestieFramePool:UnloadFrame(mapIcon)
             end
         end
         for _, minimapIcon in pairs(spawn.minimapRefs) do
             if minimapIcon.data == spawn.data then
-                minimapIcon:Unload()
+                QuestieFramePool:UnloadFrame(minimapIcon)
             end
         end
+    end
+end
+
+---@param objectives table[]
+local function _UnloadObjectives(objectives)
+    for _, objective in pairs(objectives) do
+        _UnloadObjective(objective)
     end
 end
 
@@ -197,16 +209,17 @@ local function _ClearQuest(questId)
     if not entry then
         return
     end
-    for _, objective in pairs(entry.objectives) do
-        _UnloadObjective(objective)
+    _UnloadObjectives(entry.objectives)
+    if entry.counted then
+        drawnIconCount = drawnIconCount - entry.iconCount
     end
-    drawnIconCount = drawnIconCount - entry.iconCount
     drawnByQuest[questId] = nil
 end
 
 -- Draw a single party quest's objectives (assumes it has already been cleared).
 ---@param questId number
-local function _DrawQuest(questId)
+---@param generation number
+local function _DrawQuest(questId, generation)
     -- Quests the local player has are drawn by the normal pipeline; don't double up.
     if _PlayerHasQuest(questId) or drawnIconCount >= MAX_PARTY_ICONS then
         return
@@ -243,6 +256,15 @@ local function _DrawQuest(questId)
 
     local objectives = {}
     local iconCount = 0
+    local entry = { objectives = objectives, iconCount = 0, counted = false }
+    drawnByQuest[questId] = entry
+
+    local function _AbortDraw()
+        _UnloadObjectives(objectives)
+        if drawnByQuest[questId] == entry then
+            drawnByQuest[questId] = nil
+        end
+    end
 
     for objectiveIndex, remoteObjective in pairs(neededIndices) do
         if drawnIconCount + iconCount >= MAX_PARTY_ICONS then
@@ -294,24 +316,26 @@ local function _DrawQuest(questId)
                 registeredItemTooltips = true,
             }
 
-            local ok, err = pcall(QuestieQuest.PopulateObjective, QuestieQuest, quest, objectiveIndex, objective, true)
-            if ok then
-                local objectiveIconCount = _CountIcons(objective)
-                if drawnIconCount + iconCount + objectiveIconCount > MAX_PARTY_ICONS then
-                    _UnloadObjective(objective)
-                    break
-                end
-                if (not cachedSpawnList) and objective.spawnList and next(objective.spawnList) then
-                    if not spawnListCache[questId] then
-                        spawnListCache[questId] = {}
-                    end
-                    spawnListCache[questId][objectiveIndex] = objective.spawnList
-                end
-                objectives[#objectives + 1] = objective
-                iconCount = iconCount + objectiveIconCount
-            else
-                Questie:Debug(Questie.DEBUG_ELEVATED, "[QuestiePartyObjectives] Error populating party objective for quest", questId, "objective", objectiveIndex, err)
+            objectives[#objectives + 1] = objective
+            QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, true)
+            if generation ~= processingGeneration then
+                _AbortDraw()
+                return
             end
+            local objectiveIconCount = _CountIcons(objective)
+            if drawnIconCount + iconCount + objectiveIconCount > MAX_PARTY_ICONS then
+                _UnloadObjective(objective)
+                objectives[#objectives] = nil
+                break
+            end
+            if (not cachedSpawnList) and objective.spawnList and next(objective.spawnList) then
+                if not spawnListCache[questId] then
+                    spawnListCache[questId] = {}
+                end
+                spawnListCache[questId][objectiveIndex] = objective.spawnList
+            end
+            iconCount = iconCount + objectiveIconCount
+            entry.iconCount = iconCount
         end
     end
 
@@ -344,46 +368,110 @@ local function _DrawQuest(questId)
             registeredItemTooltips = true,
         }
 
-        local ok = pcall(QuestieQuest.PopulateObjective, QuestieQuest, quest, objective.Index, objective, true)
-        if ok then
-            objectives[#objectives + 1] = objective
-            iconCount = iconCount + _CountIcons(objective)
+        objectives[#objectives + 1] = objective
+        QuestieQuest:PopulateObjective(quest, objective.Index, objective, true)
+        if generation ~= processingGeneration then
+            _AbortDraw()
+            return
         end
+        local objectiveIconCount = _CountIcons(objective)
+        if drawnIconCount + iconCount + objectiveIconCount > MAX_PARTY_ICONS then
+            _UnloadObjective(objective)
+            objectives[#objectives] = nil
+            break
+        end
+        iconCount = iconCount + objectiveIconCount
+        entry.iconCount = iconCount
     end
 
+    if generation ~= processingGeneration then
+        _AbortDraw()
+        return
+    end
     if #objectives > 0 then
-        drawnByQuest[questId] = { objectives = objectives, iconCount = iconCount }
+        entry.counted = true
         drawnIconCount = drawnIconCount + iconCount
+    else
+        drawnByQuest[questId] = nil
     end
 end
 
 -- Process a queue of questIds in chunks, one chunk per frame, to avoid a single large hitch.
 ---@param queue number[]
 ---@param index number
-_ProcessQueue = function(queue, index)
-    local stop = math.min(index + CHUNK_SIZE - 1, #queue)
-    for i = index, stop do
-        local questId = queue[i]
-        _ClearQuest(questId)
-        _DrawQuest(questId)
+---@param generation number
+_ProcessQueue = function(queue, index, generation)
+    if generation ~= processingGeneration then
+        return
     end
 
-    if stop < #queue then
-        C_Timer.After(0, function()
-            local ok = xpcall(function()
-                _ProcessQueue(queue, stop + 1)
-            end, CallErrorHandler)
-            if not ok then
-                processing = false
+    ThreadLib.ThreadCallbackInstant(function()
+        if generation ~= processingGeneration then
+            return
+        end
+        if not _ShouldDraw() then
+            QuestiePartyObjectives:Clear()
+            return
+        end
+
+        local stop = math.min(index + CHUNK_SIZE - 1, #queue)
+        for i = index, stop do
+            if generation ~= processingGeneration then
+                return
             end
-        end)
-    else
-        processing = false
-        -- Work that arrived while we were processing.
-        if fullRefreshPending or next(dirtyQuests) then
+            if not _ShouldDraw() then
+                QuestiePartyObjectives:Clear()
+                return
+            end
+
+            local questId = queue[i]
+            -- A malformed or incomplete quest must not abort the entire party queue.
+            -- The next refresh can clear and retry this quest once its data is ready.
+            local success = xpcall(function()
+                _ClearQuest(questId)
+                _DrawQuest(questId, generation)
+            end, CallErrorHandler)
+            if not success then
+                _ClearQuest(questId)
+            end
+        end
+
+        if stop < #queue then
+            C_Timer.After(0, function()
+                if generation ~= processingGeneration then
+                    return
+                end
+                if not _ShouldDraw() then
+                    QuestiePartyObjectives:Clear()
+                    return
+                end
+
+                local ok = xpcall(function()
+                    _ProcessQueue(queue, stop + 1, generation)
+                end, CallErrorHandler)
+                if not ok and generation == processingGeneration then
+                    processing = false
+                end
+            end)
+        else
+            if generation ~= processingGeneration then
+                return
+            end
+            processing = false
+            -- Work that arrived while we were processing.
+            if fullRefreshPending or next(dirtyQuests) then
+                _ScheduleProcessing()
+            end
+        end
+    end, function(success)
+        if not success and generation == processingGeneration then
+            -- The worker failed outside the per-quest guard. Release the scheduler and
+            -- retry from the current remote quest log instead of staying stuck in processing.
+            processing = false
+            fullRefreshPending = true
             _ScheduleProcessing()
         end
-    end
+    end)
 end
 
 _ProcessScheduled = function()
@@ -418,7 +506,7 @@ _ProcessScheduled = function()
         return
     end
     processing = true
-    _ProcessQueue(queue, 1)
+    _ProcessQueue(queue, 1, processingGeneration)
 end
 
 -- Debounce: coalesce bursts of incoming packets into a single processing pass.
@@ -441,10 +529,12 @@ end
 
 -- Unload all party objective icons and forget them.
 function QuestiePartyObjectives:Clear()
+    -- Invalidate any queued worker chunks and deferred timer callbacks before unloading.
+    processingGeneration = processingGeneration + 1
+    processing = false
+
     for _, entry in pairs(drawnByQuest) do
-        for _, objective in pairs(entry.objectives) do
-            _UnloadObjective(objective)
-        end
+        _UnloadObjectives(entry.objectives)
     end
     drawnByQuest = {}
     drawnIconCount = 0

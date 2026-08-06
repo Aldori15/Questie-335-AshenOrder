@@ -30,6 +30,7 @@ local l10n = QuestieLoader:ImportModule("l10n")
 local AceGUI = LibStub("AceGUI-3.0")
 local IsSpellKnownOrOverridesKnown = QuestieCompat.IsSpellKnownOrOverridesKnown
 local IsPlayerSpell = QuestieCompat.IsPlayerSpell
+local coYield = coroutine.yield
 
 local factionTreeFrame
 local factionQuestMap
@@ -47,7 +48,6 @@ for _, expansion in ipairs(expansionDefinitions) do
     expansionOrderByKey[expansion.key] = expansion.order
 end
 
-local expansionFactionCandidates = QuestieJourneyFactions.expansionFactionCandidates
 local factionIntroductionOrder = QuestieJourneyFactions.BuildFactionIntroductionOrder(expansionOrderByKey)
 
 QuestieJourney.availableFactionExpansions = QuestieJourney.availableFactionExpansions or {}
@@ -121,8 +121,14 @@ local function _CollectReferencedFactionIds()
     end
 
     local refs = {}
+    local yieldCounter = 0
 
     for questId in pairs(QuestieDB.QuestPointers) do
+        yieldCounter = yieldCounter + 1
+        if yieldCounter >= 1000 then
+            yieldCounter = 0
+            coYield()
+        end
         local result = QuestieDB.QueryQuest(questId, referencedFactionFields)
         if result then
             local requiredMinRep = result[1]
@@ -262,7 +268,13 @@ function _EnsureFactionQuestData()
         "requiredClasses",
     }
 
+    local yieldCounter = 0
     for questId in pairs(QuestieDB.QuestPointers) do
+        yieldCounter = yieldCounter + 1
+        if yieldCounter >= 1000 then
+            yieldCounter = 0
+            coYield()
+        end
         local queryResult = QuestieDB.QueryQuest(questId, queryFields) or {}
         local requiredMinRep = queryResult[1]
         local requiredMaxRep = queryResult[2]
@@ -424,7 +436,6 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
     local breadcrumbCounter = 0
     local hiddenCounter = 0
 
-    local playerlevel = UnitLevel("player")
     local HIDE_ON_MAP = QuestieQuestBlacklist.HIDE_ON_MAP
     local hiddenQuests = QuestieCorrections.hiddenQuests
     local DoableStates = QuestieDB.DoableStates
@@ -432,24 +443,6 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
     for _, levelAndQuest in pairs(sortedQuestByLevel) do
         local questId = levelAndQuest[2]
         if QuestieDB.QuestPointers[questId] then
-            local queryResult = QuestieDB.QueryQuest(
-                questId,
-                {
-                    "exclusiveTo",
-                    "nextQuestInChain",
-                    "parentQuest",
-                    "preQuestSingle",
-                    "preQuestGroup",
-                    "requiredMinRep",
-                    "requiredMaxRep",
-                    "requiredSpell",
-                    "requiredSpecialization",
-                    "requiredMaxLevel",
-                    "requiredSkill",
-                    "requiredLevel",
-                }
-            ) or {}
-
             local questName = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, false)
 
             local reputationRewards = QuestieReputation.GetReputationReward(questId)
@@ -476,8 +469,8 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                 end
             end
 
-            local breadcrumbForQuestId = QuestieDB.QueryQuest(questId,{"breadcrumbForQuestId"})[1] or {}
-            local eligibilityText, _, returnReason = QuestieDB.IsDoableVerbose(questId, false, true, true)
+            local breadcrumbForQuestId = QuestieDB.QueryQuest(questId, {"breadcrumbForQuestId"})[1] or {}
+            local _, _, returnReason = QuestieDB.IsDoableVerbose(questId, false, true, false)
 
             -- Breadcrumb quests
             if breadcrumbForQuestId and breadcrumbForQuestId ~= 0 then
@@ -513,8 +506,8 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                     end
                 -- elseif returnReason == DoableStates.BLACKLISTED then -- blacklisted quests -- already filtered earlier
                 elseif returnReason == DoableStates.PARENT_ACTIVE then -- parent quest active
-                -- reused the logic from AvailableQuests.lua _DrawChildQuests
-                -- if this is modified, also make sure the changes are reflected in the other file(s)
+                    -- reused the logic from AvailableQuests.lua _DrawChildQuests
+                    -- if this is modified, also make sure the changes are reflected in the other file(s)
                     local requiredRaces = QuestieDB.QueryQuestSingle(questId, "requiredRaces")
                     if (not Questie.db.char.complete[questId]) and ((not hiddenQuests[questId]) or hiddenQuests[questId] == HIDE_ON_MAP) and (QuestiePlayer.HasRequiredRace(requiredRaces)) then
                         -- some childQuest remain completed after abandoning and retaking parentQuest
@@ -534,9 +527,9 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
 
                             local preQuestSingle = QuestieDB.QueryQuestSingle(questId, "preQuestSingle")
                             if preQuestSingle then
-                               isPreQuestSingleFulfilled = QuestieDB:IsPreQuestSingleFulfilled(preQuestSingle)
+                                isPreQuestSingleFulfilled = QuestieDB:IsPreQuestSingleFulfilled(preQuestSingle)
                             else
-                               local preQuestGroup = QuestieDB.QueryQuestSingle(questId, "preQuestGroup")
+                                local preQuestGroup = QuestieDB.QueryQuestSingle(questId, "preQuestGroup")
                                 if preQuestGroup then
                                     isPreQuestGroupFulfilled = QuestieDB:IsPreQuestGroupFulfilled(preQuestGroup)
                                 end
@@ -608,13 +601,13 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                     local nextQuestInChain = QuestieDB.QueryQuestSingle(questId, "nextQuestInChain")
                     local preQuestSingle = QuestieDB.QueryQuestSingle(questId, "preQuestSingle")
                     local questDecidedCategory = false
-                    -- checking for some weird cases where the exclusiveTo is on the same level as other preQuestSingle values
+                    -- checking for cases where the exclusiveTo is on the same level as other preQuestSingle values
                     if preQuestSingle then
-                        for i = 1,#preQuestSingle do
+                        for i = 1, #preQuestSingle do
                             local exclusivePreQuests = QuestieDB.QueryQuestSingle(preQuestSingle[i], "exclusiveTo")
                             if exclusivePreQuests then
                                 for _, exclusivePreQuestId in pairs(exclusivePreQuests) do
-                                    if Questie.db.char.complete[exclusivePreQuestId] or QuestiePlayer.currentQuestlog[exclusivePreQuestId] then
+                                    if not questDecidedCategory and (Questie.db.char.complete[exclusivePreQuestId] or QuestiePlayer.currentQuestlog[exclusivePreQuestId]) then
                                         tinsert(factionTree[6].children, temp)
                                         unobtainableCounter = unobtainableCounter + 1
                                         questDecidedCategory = true
@@ -624,12 +617,12 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                             end
                         end
                     end
-                    -- checking for some weird cases where the exclusiveTo is on the same level as other nextQuestInChain values
-                    if nextQuestInChain and nextQuestInChain ~= 0 and not questDecidedCategory then
+                    -- checking for cases where the exclusiveTo is on the same level as other nextQuestInChain values
+                    if nextQuestInChain and nextQuestInChain ~= 0 then
                         local exclusiveFollowups = QuestieDB.QueryQuestSingle(nextQuestInChain, "exclusiveTo")
                         if exclusiveFollowups then
                             for _, exclusiveFollowupId in pairs(exclusiveFollowups) do
-                                if Questie.db.char.complete[exclusiveFollowupId] or QuestiePlayer.currentQuestlog[exclusiveFollowupId] then
+                                if not questDecidedCategory and (Questie.db.char.complete[exclusiveFollowupId] or QuestiePlayer.currentQuestlog[exclusiveFollowupId]) then
                                     tinsert(factionTree[6].children, temp)
                                     unobtainableCounter = unobtainableCounter + 1
                                     questDecidedCategory = true
@@ -670,8 +663,8 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
                 elseif returnReason == DoableStates.BREADCRUMB_FOLLOWUP then -- breadcrumb's follow up active or completed
                     tinsert(factionTree[6].children, temp)
                     unobtainableCounter = unobtainableCounter + 1
-                -- show event quests outside event dates
                 elseif returnReason == DoableStates.EVENT_INACTIVE then -- event inactive
+                    -- show event quests outside event dates
                     tinsert(factionTree[6].children, temp)
                     unobtainableCounter = unobtainableCounter + 1
                 elseif returnReason == DoableStates.BREADCRUMB_ACTIVE then -- quest not available because breadcrumb in quest log
@@ -745,20 +738,20 @@ function _QuestieJourney.questsByFaction:CollectFactionQuests(factionId)
     local totalCounter = availableCounter + completedCounter + prequestMissingCounter
     
     if breadcrumbCounter and breadcrumbCounter >= 1 then
-       factionTree[1].text = factionTree[1].text .. ' [ '..  breadcrumbCompleteCounter ..'/'.. breadcrumbCounter ..' ]'
+        factionTree[1].text = factionTree[1].text .. " [ " .. breadcrumbCompleteCounter .. "/" .. breadcrumbCounter .. " ]"
     else
-       factionTree[1].text = factionTree[1].text .. ' [ '..  breadcrumbCounter ..' ]'
+        factionTree[1].text = factionTree[1].text .. " [ " .. breadcrumbCounter .. " ]"
     end
 
-    factionTree[2].text = factionTree[2].text .. ' [ '..  availableCounter ..'/'.. totalCounter ..' ]'
-    factionTree[3].text = factionTree[3].text .. ' [ '..  repeatableCounter ..' ]'
-    factionTree[4].text = factionTree[4].text .. ' [ '..  completedCounter ..'/'.. totalCounter ..' ]'
-    factionTree[5].text = factionTree[5].text .. ' [ '..  prequestMissingCounter ..'/'.. totalCounter ..' ]'
-    factionTree[6].text = factionTree[6].text .. ' [ '..  unobtainableCounter ..' ]'
+    factionTree[2].text = factionTree[2].text .. " [ " .. availableCounter .. "/" .. totalCounter .. " ]"
+    factionTree[3].text = factionTree[3].text .. " [ " .. repeatableCounter .. " ]"
+    factionTree[4].text = factionTree[4].text .. " [ " .. completedCounter .. "/" .. totalCounter .. " ]"
+    factionTree[5].text = factionTree[5].text .. " [ " .. prequestMissingCounter .. "/" .. totalCounter .. " ]"
+    factionTree[6].text = factionTree[6].text .. " [ " .. unobtainableCounter .. " ]"
 
     -- only show hidden quests when there are some
     if factionTree[7] then
-        factionTree[7].text = factionTree[7].text .. ' [ '..  hiddenCounter ..' ]'
+        factionTree[7].text = factionTree[7].text .. " [ " .. hiddenCounter .. " ]"
     end
 
     factionTree.numquests = totalCounter + repeatableCounter + unobtainableCounter

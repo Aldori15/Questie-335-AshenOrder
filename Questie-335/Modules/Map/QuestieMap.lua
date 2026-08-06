@@ -67,13 +67,80 @@ local ipairs = ipairs;
 local tremove = table.remove;
 local tunpack = unpack;
 
+local coYield = coroutine.yield
+local coRunning = coroutine.running
+local TICKS_PER_YIELD = 30
+
 local math_max = math.max;
 local math_min = math.min;
 local math_sqrt = math.sqrt;
 local string = string;
 
 local function _IsSpawnVisible(spawn)
-    return Phasing.IsSpawnVisible(spawn and spawn[3])
+    return Phasing.IsSpawnDataVisible(spawn)
+end
+
+local function _RememberWaypointDrawData(icon, waypoints, zone, color)
+    if not icon or not icon.data then
+        return
+    end
+
+    if not icon.data.waypointDrawData then
+        icon.data.waypointDrawData = {}
+    end
+
+    for _, waypointDrawData in ipairs(icon.data.waypointDrawData) do
+        if waypointDrawData.waypoints == waypoints and waypointDrawData.zone == zone and waypointDrawData.color == color then
+            return
+        end
+    end
+
+    tinsert(icon.data.waypointDrawData, {
+        waypoints = waypoints,
+        zone = zone,
+        color = color,
+    })
+end
+
+local function _SetIconWaypointLinesVisible(icon, visible)
+    if not icon or not icon.data then
+        return
+    end
+
+    if visible and (not icon.data.lineFrames) and icon.data.waypointDrawData then
+        for _, waypointDrawData in ipairs(icon.data.waypointDrawData) do
+            QuestieMap:DrawWaypoints(icon, waypointDrawData.waypoints, waypointDrawData.zone, waypointDrawData.color)
+        end
+    end
+
+    if not icon.data.lineFrames then
+        return
+    end
+
+    local shouldShow = visible and (not icon.hidden) and (not icon.ShouldBeHidden or not icon:ShouldBeHidden())
+    for _, lineIcon in pairs(icon.data.lineFrames) do
+        if shouldShow then
+            lineIcon:FakeShow()
+        else
+            lineIcon:FakeHide()
+        end
+    end
+end
+
+function QuestieMap:SetWaypointLinesVisible(visible)
+    for _, frameList in pairs(QuestieMap.questIdFrames) do
+        for _, frameName in pairs(frameList) do
+            _SetIconWaypointLinesVisible(_G[frameName], visible)
+        end
+    end
+
+    for _, frameTypeList in pairs(QuestieMap.manualFrames) do
+        for _, frameList in pairs(frameTypeList) do
+            for _, frameName in pairs(frameList) do
+                _SetIconWaypointLinesVisible(_G[frameName], visible)
+            end
+        end
+    end
 end
 
 local function _CopyManualTooltipDataWithCoordinates(data, x, y)
@@ -189,31 +256,59 @@ function QuestieMap:ForQuestFrames(questId, callback)
     return false
 end
 
-function QuestieMap:UnloadQuestFrames(questId, iconType, noteType)
-    if QuestieMap.questIdFrames[questId] then
-        if (not iconType) and (not noteType) then
-            QuestieMap:ForQuestFrames(questId, function(frame)
-                -- Capture this before Unload() because it clears frame.data.
-                local objective = frame.data and frame.data.ObjectiveData
+local function _SnapshotQuestFrames(questId, iconType, noteType)
+    local frameNames = QuestieMap.questIdFrames[questId]
+    local frames = {}
+    if not frameNames then
+        return frames
+    end
 
-                frame:Unload();
+    for name in pairs(frameNames) do
+        local frame = _G[name]
+        local data = frame and frame.data
+        if frame and data
+            and ((not iconType) or data.Icon == iconType)
+            and ((not noteType) or data.Type == noteType) then
+            frames[#frames + 1] = {
+                name = name,
+                frame = frame,
+                data = data,
+            }
+        end
+    end
+    return frames
+end
+
+local function _IsCurrentQuestFrame(questId, frameInfo)
+    local frameNames = QuestieMap.questIdFrames[questId]
+    return frameNames
+        and frameNames[frameInfo.name]
+        and frameInfo.frame.data == frameInfo.data
+end
+
+function QuestieMap:UnloadQuestFrames(questId, iconType, noteType)
+    assert(coRunning(), "UnloadQuestFrames must be called from a coroutine")
+
+    if QuestieMap.questIdFrames[questId] then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Unloading quest frames for questid:", questId)
+        local yieldCount = 0
+        for _, frameInfo in ipairs(_SnapshotQuestFrames(questId, iconType, noteType)) do
+            -- A yield may allow the same frame name to be reused for new data.
+            if _IsCurrentQuestFrame(questId, frameInfo) then
+                local objective = frameInfo.data.ObjectiveData
+                QuestieFramePool:UnloadFrame(frameInfo.frame)
 
                 if objective then
                     objective.AlreadySpawned = {}
                 end
-            end)
-            QuestieMap.questIdFrames[questId] = nil;
-        else
-            QuestieMap:ForQuestFrames(questId, function(frame, name)
-                if frame and frame.data
-                    and ((not iconType) or frame.data.Icon == iconType)
-                    and ((not noteType) or frame.data.Type == noteType) then
-                    frame:Unload();
-                    QuestieMap.questIdFrames[questId][name] = nil
+
+                yieldCount = yieldCount + 1
+                if yieldCount >= TICKS_PER_YIELD then
+                    yieldCount = 0
+                    coYield()
                 end
-            end)
+            end
         end
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Unloading quest frames for questid:", questId)
     end
 end
 
@@ -236,7 +331,7 @@ function QuestieMap:UnloadManualFrames(id, typ)
     typ = typ or "any"
     if QuestieMap.manualFrames[typ] and (QuestieMap.manualFrames[typ][id]) then
         for _, frame in ipairs(QuestieMap:GetManualFrames(id, typ)) do
-            frame:Unload();
+            QuestieFramePool:UnloadFrame(frame);
         end
         QuestieMap.manualFrames[typ][id] = nil;
     end
@@ -492,7 +587,7 @@ function QuestieMap.ProcessQueue()
 
             mapDrawCall[2]._loaded = true
             if mapDrawCall[2]._needsUnload then
-                mapDrawCall[2]:Unload()
+                QuestieFramePool:UnloadFrame(mapDrawCall[2])
             end
         end
 
@@ -505,7 +600,7 @@ function QuestieMap.ProcessQueue()
 
             minimapDrawCall[2]._loaded = true
             if minimapDrawCall[2]._needsUnload then
-                minimapDrawCall[2]:Unload()
+                QuestieFramePool:UnloadFrame(minimapDrawCall[2])
             end
         end
     end
@@ -581,7 +676,7 @@ function QuestieMap:ShowNPC(npcID, icon, scale, title, body, disableShiftToRemov
             if (visibleSpawnZones[zone] or (not npc.spawns) or (not npc.spawns[zone])) and
                 (not ZoneDB:GetDungeonLocation(zone)) and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
                 if not manualIcons[zone] then
-                    manualIcons[zone] = QuestieMap:DrawManualIcon(data, zone, waypoints[1][1][1], waypoints[1][1][2])
+                    manualIcons[zone] = QuestieMap:DrawManualIcon(data, zone, waypoints[1][1][1], waypoints[1][1][2], typ)
                 end
                 QuestieMap:DrawWaypoints(manualIcons[zone], waypoints, zone)
             end
@@ -655,10 +750,11 @@ end
 
 -- Draw manually added NPC/object notes
 -- TODO: item and custom notes
---@param data table<...> @A table created by the calling function, must contain `id`, `Name`, `GetIconScale()`, and `Type`
---@param AreaID number @The zone ID from the raw data
---@param x float @The X coordinate in 0-100 format
---@param y float @The Y coordinate in 0-100 format
+---@param data table @A table created by the calling function, must contain `id`, `Name`, `GetIconScale()`, and `Type`
+---@param areaID number @The zone ID from the raw data
+---@param x number @The X coordinate in 0-100 format
+---@param y number @The Y coordinate in 0-100 format
+---@param typ string? @The manual icon category
 function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     if type(data) ~= "table" then
         error("Questie" .. ": AddWorldMapIconMap: must have some data")
@@ -666,7 +762,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     if type(areaID) ~= "number" or type(x) ~= "number" or type(y) ~= "number" then
         error("Questie" .. ": AddWorldMapIconMap: 'AreaID', 'x' and 'y' must be numbers " .. areaID .. " " .. x .. " " .. y)
     end
-    if type(data.id) ~= "number" or type(data.id) ~= "number" then
+    if type(data.id) ~= "number" then
         error("Questie" .. "Data.id must be set to the NPC or object ID!")
     end
 
@@ -859,13 +955,13 @@ _MinimapIconFadeLogic = function(self)
     end
 end
 
-function QuestieMap:DrawWorldIcon(data, areaID, x, y, phase, showFlag)
+function QuestieMap:DrawWorldIcon(data, areaID, x, y, spawn, showFlag)
     if type(data) ~= "table" then
         error("Questie" .. ": AddWorldMapIconMap: must have some data")
     end
 
-    if not Phasing.IsSpawnVisible(phase) then
-        Questie:Debug(Questie.DEBUG_SPAM, "Skipping invisible phase", phase)
+    if not Phasing.IsSpawnDataVisible(spawn) then
+        Questie:Debug(Questie.DEBUG_SPAM, "Skipping invisible spawn", spawn and spawn[3], spawn and spawn[4])
         return nil, nil
     end
 
@@ -1208,7 +1304,14 @@ QuestieMap.zoneWaypointHoverColorOverrides = {
 }
 
 function QuestieMap:DrawWaypoints(icon, waypoints, zone, color)
+    if not icon then
+        return
+    end
+
     if waypoints and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then -- check that waypoint data actually exists
+        _RememberWaypointDrawData(icon, waypoints, zone, color)
+        if not Questie.db.profile.showWaypointLines then return end
+
         local shouldBeHidden = icon:ShouldBeHidden()
         local lineFrames = QuestieFramePool:CreateWaypoints(icon, waypoints, nil, color or QuestieMap.zoneWaypointColorOverrides[zone], zone)
         for _, lineFrame in ipairs(lineFrames) do

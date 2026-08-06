@@ -288,7 +288,7 @@ function QuestieCompat.UnitGUID(unit)
 end
 
 function QuestieCompat.GetMaxPlayerLevel()
-    return (Questie.IsWotlk and 80) or (Questie.IsTBC and 70) or (Questie.IsClassic and 60)
+    return ((Questie.IsWotlk or QuestieCompat.Is335) and 80) or (Questie.IsTBC and 70) or (Questie.IsClassic and 60)
 end
 
 -- https://wowpedia.fandom.com/wiki/API_UnitAura?oldid=2681338
@@ -508,6 +508,11 @@ end
 QuestieCompat.IsSpellKnownOrOverridesKnown = IsSpellKnown
 QuestieCompat.IsPlayerSpell = IsSpellKnown
 
+function QuestieCompat.GetSpellName(spellId)
+    local spellName = GetSpellInfo(spellId)
+    return spellName
+end
+
 local LARGE_NUMBER_SEPERATOR = ",";
 function QuestieCompat.FormatLargeNumber(amount)
 	amount = tostring(amount);
@@ -552,9 +557,15 @@ function QuestieCompat.PopulateGlobals(self)
     end
 end
 
--- change sound files extension from .ogg to .wav
+-- The 3.3.5 game archive uses .wav names for Questie's built-in sound paths.
+-- LibSharedMedia addon paths must keep their registered extension.
 function QuestieCompat.GetSelectedSoundFile(typeSelected)
-    return QuestieCompat.orig_GetSelectedSoundFile(typeSelected):gsub("[^.]+$", "wav")
+    local soundFile = QuestieCompat.orig_GetSelectedSoundFile(typeSelected)
+    if soundFile:lower():find("^interface[\\/]addons[\\/]") then
+        return soundFile
+    end
+
+    return soundFile:gsub("%.ogg$", ".wav")
 end
 
 QuestieCompat.isReloadingUi = false
@@ -584,7 +595,7 @@ function QuestieCompat:PLAYER_LOGOUT(event)
 end
 
 local townsfolk_texturemap = {
-    ["Ammo"] = "Interface\\Icons\\inv_ammo_arrow_02",
+    ["Ammo"] = "Interface\\Minimap\\tracking\\ammunition",
     ["Bags"] = "Interface\\Icons\\inv_misc_bag_09",
     ["Potions"] = "Interface\\Icons\\inv_potion_51",
     ["Trade Goods"] ="Interface\\Icons\\inv_fabric_wool_02",
@@ -736,6 +747,11 @@ function QuestieCompat.LoadBlacklists()
     end
 end
 
+function QuestieCompat.ReleaseCorrectionRegistries()
+    correctionsRegistry = {}
+    blacklistRegistry = {}
+end
+
 function QuestieCompat.Merge(target, source, override)
 	if type(target) ~= "table" then target = {} end
 	for k,v in pairs(source) do
@@ -762,6 +778,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
         char = {
             daily = {},
             weekly = {},
+            monthly = {},
         }
     })
 

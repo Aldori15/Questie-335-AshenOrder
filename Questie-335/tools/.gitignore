@@ -1,3 +1,6 @@
 *.py
 __pycache__/
 !.gitignore
+!generate_acore_quest_xp.py
+!generate_acore_reputation_rates.py
+!generate_acore_quest_availability_conditions.py

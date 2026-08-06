@@ -18,8 +18,6 @@ QuestieCorrections.killCreditObjectiveFirst[10503] = true -- The Bladespire Thre
 
 
 function QuestieTBCQuestFixes:Load()
-    _QuestieTBCQuestFixes:InsertMissingQuestIds()
-
     local questKeys = QuestieDB.questKeys
     local raceIDs = QuestieDB.raceKeys
     local classIDs = QuestieDB.classKeys
@@ -29,11 +27,10 @@ function QuestieTBCQuestFixes:Load()
     local questFlags = QuestieDB.questFlags
     local specialFlags = QuestieDB.specialFlags
     local profKeys = QuestieProfessions.professionKeys
-    local rankKeys = QuestieProfessions.rankNames
 
     return {
         [62] = {
-            [questKeys.triggerEnd] = {"Scout through the Fargodeep Mine", {[zoneIDs.ELWYNN_FOREST]={{40.01,81.42}}}},
+            [questKeys.triggerEnd] = {"Scout through the Fargodeep Mine", {[zoneIDs.ELWYNN_FOREST]={{40.56,82.26}}}},
         },
         [76] = {
             [questKeys.triggerEnd] = {"Scout through the Jasperlode Mine", {[zoneIDs.ELWYNN_FOREST]={{60.53,50.18}}}},
@@ -73,7 +70,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.objectivesText] = {"Kill 8 Fen Creepers, then return to Rethiel the Greenwarden in the Wetlands."}, -- override classic correction
         },
         [287] = {
-            [questKeys.triggerEnd] = {"Fully explore Frostmane Hold", {[zoneIDs.DUN_MOROGH]={{21.47,52.2}}}},
+            [questKeys.triggerEnd] = {"Fully explore Frostmane Hold", {[zoneIDs.DUN_MOROGH]={{22.8,52.06}}}},
         },
         [310] = { -- Bitter Rivals
             [questKeys.childQuests] = {308},
@@ -1943,6 +1940,9 @@ function QuestieTBCQuestFixes:Load()
         [9446] = {
             [questKeys.triggerEnd] = {"Escort Anchorite Truuen to Uther's Tomb", {[zoneIDs.WESTERN_PLAGUELANDS]={{52.06,83.26}}}},
         },
+        [9447] = {
+            [questKeys.objectives] = {{{16847,nil,Questie.ICON_TYPE_INTERACT}}},
+        },
         [9454] = { -- The Great Moongraze Hunt
             [questKeys.preQuestSingle] = {},
         },
@@ -2334,7 +2334,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.triggerEnd] = {"Umbrafen Lake Investigated", {[zoneIDs.ZANGARMARSH]={{70.89,80.51}}}},
         },
         [9718] = {
-            [questKeys.triggerEnd] = {"Use the Stormcrow Amulet and explore the lakes of Zangarmarsh", {[zoneIDs.ZANGARMARSH]={{76.8,44.1}}}},
+            [questKeys.triggerEnd] = {"Use the Stormcrow Amulet and explore the lakes of Zangarmarsh", {[zoneIDs.ZANGARMARSH]={{78.4,62.02}}}},
         },
         [9720] = {
             [questKeys.objectives] = {{{17998,nil,Questie.ICON_TYPE_EVENT},{18002,nil,Questie.ICON_TYPE_EVENT},{18000,nil,Questie.ICON_TYPE_EVENT},{17999,nil,Questie.ICON_TYPE_EVENT}}},
@@ -2671,7 +2671,7 @@ function QuestieTBCQuestFixes:Load()
         },
         [10040] = {
             [questKeys.objectives] = {{{18716,nil,Questie.ICON_TYPE_TALK},{18717,nil,Questie.ICON_TYPE_TALK},{18719,nil,Questie.ICON_TYPE_TALK}}},
-            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_TALK, l10n("Get a disguise"), 0, {{"monster", 18714}}}},
+            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_TALK, l10n("Get a disguise"), 0, {{"monster", 18715}}}},
         },
         [10041] = {
             [questKeys.objectives] = {{{18716,nil,Questie.ICON_TYPE_TALK},{18717,nil,Questie.ICON_TYPE_TALK},{18719,nil,Questie.ICON_TYPE_TALK}}},
@@ -2762,6 +2762,9 @@ function QuestieTBCQuestFixes:Load()
         },
         [10085] = {
             [questKeys.objectives] = {{{18840,nil,Questie.ICON_TYPE_EVENT},{18841,nil,Questie.ICON_TYPE_EVENT},{18842,nil,Questie.ICON_TYPE_EVENT},{18843,nil,Questie.ICON_TYPE_EVENT}}},
+        },
+        [10087] = { -- Burn It Up... For the Horde!
+            [questKeys.objectives] = {{{18849,nil,Questie.ICON_TYPE_EVENT},{19008,nil,Questie.ICON_TYPE_EVENT}}},
         },
         [10091] = { -- The Soul Devices
             [questKeys.zoneOrSort] = zoneIDs.AUCHINDOUN_DUNGEONS,
@@ -2878,7 +2881,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.objectives] = {{{19606,nil,Questie.ICON_TYPE_TALK}}},
         },
         [10204] = {
-            [questKeys.triggerEnd] = {"Siphon Bloodgem Crystal", {[zoneIDs.NETHERSTORM]={{25.42,66.51},{22.37,65.73}}}},
+            [questKeys.triggerEnd] = {"Siphon Bloodgem Crystal", {[zoneIDs.NETHERSTORM]={{25.42,66.51}}}},
             [questKeys.requiredSourceItems] = {28452},
         },
         [10210] = {
@@ -2919,7 +2922,6 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_EVENT, l10n("Blow the Unyielding Battle Horn near the Alliance Banner"), 0, {{"object", 184005}}}},
         },
         [10255] = {
-            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_EVENT, l10n("Use the Cenarion Antidote on a Hulking Helboar"), 0, {{"monster", 16880}}}},
             [questKeys.objectives] = {{{16880,nil,Questie.ICON_TYPE_INTERACT}}},
         },
         [10256] = {
@@ -2993,7 +2995,7 @@ function QuestieTBCQuestFixes:Load()
         },
         [10310] = {
             [questKeys.preQuestSingle] = {},
-            [questKeys.triggerEnd] = {"Burning Legion warp-gate sabotaged", {[zoneIDs.NETHERSTORM]={{48.14,63.38}}}},
+            [questKeys.triggerEnd] = {"Burning Legion warp-gate sabotaged", {[zoneIDs.NETHERSTORM]={{50.42,66.95}}}},
         },
         [10321] = {
             [questKeys.objectives] = {nil,{{183956}},{{29396}}},
@@ -3126,6 +3128,7 @@ function QuestieTBCQuestFixes:Load()
         },
         [10409] = {
             [questKeys.objectives] = {{{20132}}},
+            [questKeys.triggerEnd] = {"Deathblow to the Legion", {[zoneIDs.NETHERSTORM]={{29.31,13.7}}}},
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_OBJECT, l10n("Take the portal to Socrethar's Seat"), 0, {{"object", 410016}}},
                                            {nil, Questie.ICON_TYPE_OBJECT, l10n("Take the portal back to Invasion Point: Overlord"), 0, {{"object", 410017}}},
                                            {nil, Questie.ICON_TYPE_TALK, l10n("When at Socrethar's Seat, ask for his help against Socrethar"), 0, {{"monster", 18537}}},
@@ -3675,7 +3678,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_LOOT, l10n("Throw a net at the targeted wyrmcult blackwhelp"), 0, {{"monster", 21387}}}},
         },
         [10750] = {
-            [questKeys.triggerEnd] = {"The Path of Conquest Discovered", {[zoneIDs.SHADOWMOON_VALLEY]={{51.23,62.75},{52.45,59.19}}}},
+            [questKeys.triggerEnd] = {"The Path of Conquest Discovered", {[zoneIDs.SHADOWMOON_VALLEY]={{51.53,64.17}}}},
         },
         [10752] = {
             [questKeys.exclusiveTo] = {},
@@ -3686,11 +3689,14 @@ function QuestieTBCQuestFixes:Load()
         [10755] = {
             [questKeys.startedBy] = {{22037}},
         },
+        [10758] = {
+            [questKeys.objectives] = {nil,nil,{{31252,nil,Questie.ICON_TYPE_INTERACT}}},
+        },
         [10764] = {
             [questKeys.objectives] = {nil,nil,{{31252,nil,Questie.ICON_TYPE_INTERACT}}},
         },
         [10772] = {
-            [questKeys.triggerEnd] = {"The Path of Conquest Discovered", {[zoneIDs.SHADOWMOON_VALLEY]={{51.23,62.75},{52.45,59.19}}}},
+            [questKeys.triggerEnd] = {"The Path of Conquest Discovered", {[zoneIDs.SHADOWMOON_VALLEY]={{51.01,62.25}}}},
         },
         [10781] = {
             [questKeys.triggerEnd] = {"Crimson Sigil Forces Annihilated", {[zoneIDs.SHADOWMOON_VALLEY]={{51.75,72.79}}}},
@@ -3716,7 +3722,7 @@ function QuestieTBCQuestFixes:Load()
         [10792] = {
             [questKeys.requiredSourceItems] = {31347,31346},
             [questKeys.objectives] = {{{20813,nil, Questie.ICON_TYPE_EVENT},{20815,nil, Questie.ICON_TYPE_EVENT},{20816,nil, Questie.ICON_TYPE_EVENT},{20814,nil, Questie.ICON_TYPE_EVENT}}},
-            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_EVENT, l10n("Light the torches"), 0, {{"object", 185144}}}},
+            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_OBJECT, l10n("Light the torches"), 0, {{"object", 185144}}}},
         },
         [10793] = {
             [questKeys.startedBy] = {nil,nil,{31345}},
@@ -4064,7 +4070,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.exclusiveTo] = {10983,10989,11057},
         },
         [10985] = {
-            [questKeys.triggerEnd] = {"Help Akama and Maiev enter the Black Temple.", {[zoneIDs.SHADOWMOON_VALLEY]={{71.05,46.11},{66.29,44.06}}}},
+            [questKeys.triggerEnd] = {"Help Akama and Maiev enter the Black Temple.", {[zoneIDs.SHADOWMOON_VALLEY]={{71.07,46.27}}}},
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_TALK, l10n("Let Xi'ri know you're ready to battle"), 1, {{"monster", 18528}}}},
         },
         [10987] = {
@@ -4340,7 +4346,7 @@ function QuestieTBCQuestFixes:Load()
         },
         [11085] = {
             [questKeys.preQuestSingle] = {},
-            [questKeys.triggerEnd] = {"Rescue the Skyguard Prisoner.", {[zoneIDs.TEROKKAR_FOREST]={{69.77,75.98},{62.41,73.85},{73.94,88.3}}}},
+            [questKeys.triggerEnd] = {"Rescue the Skyguard Prisoner.", {[zoneIDs.TEROKKAR_FOREST]={{73.86,88.2}}}},
         },
         [11086] = {
             [questKeys.requiredRaces] = raceIDs.NONE,
@@ -4375,7 +4381,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.preQuestSingle] = {},
             [questKeys.preQuestGroup] = {10211,11095},
             [questKeys.requiredMaxRep]= {932,0},
-            [questKeys.triggerEnd] = {"Dragonmaw Forces Defeated", {[zoneIDs.SHADOWMOON_VALLEY]={{56.87,58.18},{64.27,31.01}}}},
+            [questKeys.triggerEnd] = {"Dragonmaw Forces Defeated", {[zoneIDs.SHADOWMOON_VALLEY]={{56.87,58.18}}}},
         },
         [11099] = {
             [questKeys.requiredRaces] = raceIDs.NONE,
@@ -4394,7 +4400,7 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.preQuestSingle] = {},
             [questKeys.preQuestGroup] = {10211,11100},
             [questKeys.requiredMaxRep]= {934,0},
-            [questKeys.triggerEnd] = {"Dragonmaw Forces Defeated", {[zoneIDs.SHADOWMOON_VALLEY]={{56.87,58.18},{64.27,31.01}}}},
+            [questKeys.triggerEnd] = {"Dragonmaw Forces Defeated", {[zoneIDs.SHADOWMOON_VALLEY]={{64.27,31.01}}}},
         },
         [11102] = {
             [questKeys.requiredLevel] = 70,
@@ -5393,7 +5399,6 @@ function QuestieTBCQuestFixes:Load()
         },
         [11875] = {
             [questKeys.preQuestSingle] = {},
-            [questKeys.requiredRanks] = {{profKeys.HERBALISM,rankKeys.ARTISAN},{profKeys.SKINNING,rankKeys.ARTISAN},{profKeys.MINING,rankKeys.ARTISAN}},
         },
         [11877] = {
             [questKeys.preQuestSingle] = {},
@@ -6397,97 +6402,6 @@ function QuestieTBCQuestFixes:Load()
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE + raceIDs.ALL_ALLIANCE - raceIDs.GNOME - raceIDs.HUMAN - raceIDs.DWARF, -- future proof
         },
     }
-end
-
-function _QuestieTBCQuestFixes:InsertMissingQuestIds()
-    QuestieDB.questData[12192] = {} -- This One Time, When I Was Drunk... (Horde)
-    QuestieDB.questData[12420] = {} -- Brew of the Month Club (Alliance)
-    QuestieDB.questData[12421] = {} -- Brew of the Month Club (Horde)
-
-    -- Halloween Candy quests
-    QuestieDB.questData[12133] = {} -- Smash the Pumpkin
-    QuestieDB.questData[12135] = {} -- Let the Fires Come!
-    QuestieDB.questData[12139] = {} -- Let the Fires Come!
-    QuestieDB.questData[12155] = {} -- Smash the Pumpkin
-
-    QuestieDB.questData[12286] = {} -- Candy Bucket
-    QuestieDB.questData[12331] = {} -- Candy Bucket
-    QuestieDB.questData[12332] = {} -- Candy Bucket
-    QuestieDB.questData[12333] = {} -- Candy Bucket
-    QuestieDB.questData[12334] = {} -- Candy Bucket
-    QuestieDB.questData[12335] = {} -- Candy Bucket
-    QuestieDB.questData[12336] = {} -- Candy Bucket
-    QuestieDB.questData[12337] = {} -- Candy Bucket
-    QuestieDB.questData[12338] = {} -- Candy Bucket
-    QuestieDB.questData[12339] = {} -- Candy Bucket
-    QuestieDB.questData[12340] = {} -- Candy Bucket
-    QuestieDB.questData[12341] = {} -- Candy Bucket
-    QuestieDB.questData[12342] = {} -- Candy Bucket
-    QuestieDB.questData[12343] = {} -- Candy Bucket
-    QuestieDB.questData[12344] = {} -- Candy Bucket
-    QuestieDB.questData[12345] = {} -- Candy Bucket
-    QuestieDB.questData[12346] = {} -- Candy Bucket
-    QuestieDB.questData[12347] = {} -- Candy Bucket
-    QuestieDB.questData[12348] = {} -- Candy Bucket
-    QuestieDB.questData[12349] = {} -- Candy Bucket
-    QuestieDB.questData[12350] = {} -- Candy Bucket
-    QuestieDB.questData[12351] = {} -- Candy Bucket
-    QuestieDB.questData[12352] = {} -- Candy Bucket
-    QuestieDB.questData[12353] = {} -- Candy Bucket
-    QuestieDB.questData[12354] = {} -- Candy Bucket
-    QuestieDB.questData[12355] = {} -- Candy Bucket
-    QuestieDB.questData[12356] = {} -- Candy Bucket
-    QuestieDB.questData[12357] = {} -- Candy Bucket
-    QuestieDB.questData[12358] = {} -- Candy Bucket
-    QuestieDB.questData[12359] = {} -- Candy Bucket
-    QuestieDB.questData[12360] = {} -- Candy Bucket
-    QuestieDB.questData[12361] = {} -- Candy Bucket
-    QuestieDB.questData[12362] = {} -- Candy Bucket
-    QuestieDB.questData[12363] = {} -- Candy Bucket
-    QuestieDB.questData[12364] = {} -- Candy Bucket
-    QuestieDB.questData[12365] = {} -- Candy Bucket
-    QuestieDB.questData[12366] = {} -- Candy Bucket
-    QuestieDB.questData[12367] = {} -- Candy Bucket
-    QuestieDB.questData[12368] = {} -- Candy Bucket
-    QuestieDB.questData[12369] = {} -- Candy Bucket
-    QuestieDB.questData[12370] = {} -- Candy Bucket
-    QuestieDB.questData[12371] = {} -- Candy Bucket
-    QuestieDB.questData[12373] = {} -- Candy Bucket
-    QuestieDB.questData[12374] = {} -- Candy Bucket
-    QuestieDB.questData[12375] = {} -- Candy Bucket
-    QuestieDB.questData[12376] = {} -- Candy Bucket
-    QuestieDB.questData[12377] = {} -- Candy Bucket
-    QuestieDB.questData[12378] = {} -- Candy Bucket
-    QuestieDB.questData[12379] = {} -- Candy Bucket
-    QuestieDB.questData[12380] = {} -- Candy Bucket
-    QuestieDB.questData[12381] = {} -- Candy Bucket
-    QuestieDB.questData[12382] = {} -- Candy Bucket
-    QuestieDB.questData[12383] = {} -- Candy Bucket
-    QuestieDB.questData[12384] = {} -- Candy Bucket
-    QuestieDB.questData[12385] = {} -- Candy Bucket
-    QuestieDB.questData[12386] = {} -- Candy Bucket
-    QuestieDB.questData[12387] = {} -- Candy Bucket
-    QuestieDB.questData[12388] = {} -- Candy Bucket
-    QuestieDB.questData[12389] = {} -- Candy Bucket
-    QuestieDB.questData[12390] = {} -- Candy Bucket
-    QuestieDB.questData[12391] = {} -- Candy Bucket
-    QuestieDB.questData[12392] = {} -- Candy Bucket
-    QuestieDB.questData[12393] = {} -- Candy Bucket
-    QuestieDB.questData[12394] = {} -- Candy Bucket
-    QuestieDB.questData[12395] = {} -- Candy Bucket
-    QuestieDB.questData[12396] = {} -- Candy Bucket
-    QuestieDB.questData[12397] = {} -- Candy Bucket
-    QuestieDB.questData[12398] = {} -- Candy Bucket
-    QuestieDB.questData[12399] = {} -- Candy Bucket
-    QuestieDB.questData[12400] = {} -- Candy Bucket
-    QuestieDB.questData[12401] = {} -- Candy Bucket
-    QuestieDB.questData[12402] = {} -- Candy Bucket
-    QuestieDB.questData[12403] = {} -- Candy Bucket
-    QuestieDB.questData[12404] = {} -- Candy Bucket
-    QuestieDB.questData[12406] = {} -- Candy Bucket
-    QuestieDB.questData[12407] = {} -- Candy Bucket
-    QuestieDB.questData[12408] = {} -- Candy Bucket
-    QuestieDB.questData[12409] = {} -- Candy Bucket
 end
 
 function QuestieTBCQuestFixes:LoadFactionFixes()

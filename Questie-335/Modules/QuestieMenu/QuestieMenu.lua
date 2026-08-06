@@ -21,6 +21,8 @@ local MeetingStones = QuestieLoader:ImportModule("MeetingStones")
 local QuestieProfessions = QuestieLoader:ImportModule("QuestieProfessions")
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
+---@type ThreadLib
+local ThreadLib = QuestieLoader:ImportModule("ThreadLib")
 ---@type InstanceLocations
 local InstanceLocations = QuestieLoader:ImportModule("InstanceLocations")
 ---@type l10n
@@ -64,12 +66,12 @@ local _townsfolk_texturemap = {
     ["Class Trainer"] = "Interface\\Minimap\\tracking\\class",
     ["Stable Master"] = "Interface\\Minimap\\tracking\\stablemaster",
     ["Spirit Healer"] = "Interface\\raidframe\\raid-icon-rez",
-    ["Weapon Master"] = QuestieLib.AddonPath.."Icons\\slay.blp",
-    ["Barber"] = QuestieLib.AddonPath.."Icons\\barber.blp",
+    ["Weapon Master"] = QuestieLib.AddonPath.."Icons\\weaponmaster.blp",
+    ["Barber"] = QuestieLib.AddonPath.."Icons\\barbershop.blp",
     ["Riding Trainer"] = "Interface\\Icons\\ability_mount_ridinghorse",
     ["Moonwell"] = "Interface\\Icons\\inv_fabric_moonrag_01.blp",
     ["Profession Trainers"] = "Interface\\Minimap\\tracking\\profession",
-    ["Ammo"] = 132382,--select(10, GetItemInfo(2515)) -- sharp arrow
+    ["Ammo"] = "Interface\\Minimap\\tracking\\ammunition",
     ["Bags"] = 133634,--select(10, GetItemInfo(4496)) -- small brown pouch
     ["Potions"] = 134831,--select(10, GetItemInfo(929)) -- Healing Potion
     ["Trade Goods"] = 132912,--select(10, GetItemInfo(2321)) -- thread
@@ -77,7 +79,7 @@ local _townsfolk_texturemap = {
     ["Food"] = 133964,--select(10, GetItemInfo(4540)) -- bread
     ["Pet Food"] = 132165,--select(3, GetSpellInfo(6991)) -- feed pet
     ["Portal Trainer"] = "Interface\\Minimap\\vehicle-alliancemageportal",
-    ["Reagents"] = QuestieLib.AddonPath.."Icons\\reagents.blp",
+    ["Reagents"] = "Interface\\Minimap\\tracking\\reagents",
     ["Poisons"] = "Interface\\Minimap\\tracking\\poisons",
     [professionKeys.FIRST_AID] = "Interface\\Icons\\spell_holy_sealofsacrifice",
     [professionKeys.BLACKSMITHING] = "Interface\\Icons\\trade_blacksmithing",
@@ -107,7 +109,7 @@ local function getNpcTitle(id, key)
     local npcTitle = Questie:Colorize(npcName, "white")
 
     local subName = QuestieDB.QueryNPCSingle(id, "subName")
-    if (not subName) then
+    if (not subName) or subName == "" then
         local trainerName = QuestieProfessions.GetTrainerName(key)
         if trainerName then
             subName = l10n(trainerName)
@@ -309,7 +311,7 @@ local function _IsFindNearestNPCAllowed(npcId)
 end
 
 local function _IsFindNearestSpawnVisible(spawn)
-    return Phasing.IsSpawnVisible(spawn and spawn[3])
+    return Phasing.IsSpawnDataVisible(spawn)
 end
 
 local function _GetFindNearestPlayerWorldPosition()
@@ -765,7 +767,15 @@ function QuestieMenu.buildQuestMenu()
                 QuestieIconVisibility:SetBoth("objective", value)
                 if value then
                     -- Rebuild objective notes that were not created while objectives were disabled.
-                    QuestieQuest:GetAllQuestIds()
+                    ThreadLib.ThreadCallback(function()
+                        QuestieQuest:GetAllQuestIds()
+                    end, 0, function(success)
+                        if not success then
+                            return
+                        end
+                        QuestieQuest:RefreshQuestIconVisibility()
+                    end)
+                    return
                 end
                 QuestieQuest:RefreshQuestIconVisibility()
             end,

@@ -160,7 +160,7 @@ function QuestieSlash.HandleCommands(input)
 
     if mainCommand == "version" then
         local gameType = ""
-        if Questie.IsWotlk then
+        if Questie.IsWotlk or QuestieCompat.Is335 then
             gameType = "WotLK-335"
         elseif Questie.IsEra then
             gameType = "Era"
@@ -179,7 +179,7 @@ function QuestieSlash.HandleCommands(input)
             return
         end
 
-        Questie:Print("[Availability] " .. tostring(QuestieDB.IsDoableVerbose(tonumber(subCommand), false, true, false, false)))
+        Questie:Print("[Availability] " .. tostring(QuestieDB.IsDoableVerbose(tonumber(subCommand), false, true, false)))
 
         return
     end

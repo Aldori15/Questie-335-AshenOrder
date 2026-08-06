@@ -15,7 +15,7 @@ local newTicker = C_Timer.NewTicker
 ---@param threadFunction function @The function to thread
 ---@param delay integer @Anything below 0.05 is each frame
 ---@param errorMessage string? @What is the "Prepend" of the error message
----@param callbackFunction function? @Function to call when the thread is done
+---@param callbackFunction function? @Function to call when the thread is done; receives success and error message
 ---@return Ticker Timer @The WoW timer, run Timer:Cancel() and let the handle of the thread become orphaned to cancel
 ---@return thread Thread @The coroutine thread
 function ThreadLib.Thread(threadFunction, delay, errorMessage, callbackFunction)
@@ -40,13 +40,21 @@ function ThreadLib.Thread(threadFunction, delay, errorMessage, callbackFunction)
         local success, ret = coResume(thread)
         -- Something in the coroutine went wrong, print the error and stop the timer
         if not success then
-            Questie:Error(errorMessage or "Error in thread", ret)
+            local stack = debugstack(thread)
+            Questie:Error(errorMessage or "Error in thread", ret, "\n", stack)
             timer:Cancel();
+            if(callbackFunction) then
+              callbackFunction(false, ret)
+            end
+
+            timer = nil
+            ---@diagnostic disable-next-line: cast-local-type
+            thread = nil
         end
       elseif (coStatus(thread) == "dead") then --It's faster not to lookup the value but instead have it here
         timer:Cancel();
         if(callbackFunction) then
-          callbackFunction()
+          callbackFunction(true)
         end
 
         --? Is this needed?
@@ -61,7 +69,7 @@ end
 ---Thread a function, callback function is called when the thread is done.
 ---@param threadFunction function @The function to thread
 ---@param delay integer @Anything below 0.05 is each frame
----@param callbackFunction function @Function to call when the thread is done
+---@param callbackFunction function @Function to call when the thread is done; receives success and error message
 ---@return Ticker Timer @The WoW timer, run Timer:Cancel() and let the handle of the thread become orphaned to cancel
 ---@return thread Thread @The coroutine thread
 function ThreadLib.ThreadCallback(threadFunction, delay, callbackFunction)
@@ -85,6 +93,23 @@ end
 ---@return thread Thread @The coroutine thread
 function ThreadLib.ThreadSimple(threadFunction, delay)
   return ThreadLib.Thread(threadFunction, delay)
+end
+
+---Thread a function and start it on the next timer tick.
+---@param threadFunction function @The function to thread
+---@return Ticker Timer @The WoW timer
+---@return thread Thread @The coroutine thread
+function ThreadLib.ThreadInstant(threadFunction)
+  return ThreadLib.Thread(threadFunction, 0)
+end
+
+---Thread a function and invoke a callback when it completes.
+---@param threadFunction function @The function to thread
+---@param callbackFunction function @Function to call when the thread is done; receives success and error message
+---@return Ticker Timer @The WoW timer
+---@return thread Thread @The coroutine thread
+function ThreadLib.ThreadCallbackInstant(threadFunction, callbackFunction)
+  return ThreadLib.Thread(threadFunction, 0, nil, callbackFunction)
 end
 
 

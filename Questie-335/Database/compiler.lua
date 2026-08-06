@@ -32,7 +32,7 @@ local coYield = coroutine.yield
 local coRunning = coroutine.running
 
 -- Bump when compiler field types/order change to invalidate cached binary DB blobs.
-QuestieDBCompiler.compiledSchemaVersion = 50
+QuestieDBCompiler.compiledSchemaVersion = 58
 
 ---@alias CompilerTypes
 ---| "u8"
@@ -50,6 +50,7 @@ QuestieDBCompiler.compiledSchemaVersion = 50
 ---| "u16u16array"
 ---| "u8s24pairs"
 ---| "u8u24array"
+---| "u8s24array"
 ---| "u16u24array"
 ---| "u8u16stringarray"
 ---| "faction"
@@ -81,6 +82,7 @@ QuestieDBCompiler.supportedTypes = {
         ["waypointlist"] = true,
         ["u8u16stringarray"] = true,
         ["u8u24array"] = true,
+        ["u8s24array"] = true,
         ["u16u24array"] = true,
         ["extraobjectives"] = true,
         ["reflist"] = true
@@ -245,6 +247,16 @@ readers["u8u24array"] = function(stream)
     end
     return list
 end
+readers["u8s24array"] = function(stream)
+    local count = stream:ReadByte()
+    if count == 0 then return nil end
+
+    local list = {}
+    for i = 1, count do
+        list[i] = stream:ReadInt24() - 8388608
+    end
+    return list
+end
 readers["u16u24array"] = function(stream)
     local count = stream:ReadShort()
     if count == 0 then return nil end
@@ -289,12 +301,16 @@ readers["spawnlist"] = function(stream)
         for i = 1, spawnCount do
             local x, y = stream:ReadInt12Pair()
             local phase = stream:ReadShort()
+            local spawnMask = stream:ReadByte()
+            local mapId = stream:ReadShort()
             if x == 0 and y == 0 then
                 list[i] = {-1, -1}
-            elseif phase == 0 then
+            elseif phase == 0 and spawnMask == 0 and mapId == 0 then
                 list[i] = {x / 40.90, y / 40.90}
-            else
+            elseif spawnMask == 0 and mapId == 0 then
                 list[i] = {x / 40.90, y / 40.90, phase}
+            else
+                list[i] = {x / 40.90, y / 40.90, phase, spawnMask, mapId}
             end
         end
         spawnlist[zone] = list
@@ -544,6 +560,17 @@ QuestieDBCompiler.writers = {
             stream:WriteByte(0)
         end
     end,
+    ["u8s24array"] = function(stream, value)
+        if value then
+            local count = 0 for _ in pairs(value) do count = count + 1 end
+            stream:WriteByte(count)
+            for _,v in pairs(value) do
+                stream:WriteInt24(v + 8388608)
+            end
+        else
+            stream:WriteByte(0)
+        end
+    end,
     ["u16u24array"] = function(stream, value)
         if value then
             local count = 0 for _ in pairs(value) do count = count + 1 end
@@ -595,6 +622,8 @@ QuestieDBCompiler.writers = {
                         stream:WriteInt12Pair(floor(spawn[1] * 40.90), floor(spawn[2] * 40.90))
                     end
                     stream:WriteShort(spawn[3] or 0)
+                    stream:WriteByte(spawn[4] or 0)
+                    stream:WriteShort(spawn[5] or 0)
                 end
             end
         else
@@ -753,6 +782,7 @@ skippers["u8s16pairs"] = function(stream) stream._pointer = stream:ReadByte() * 
 skippers["u16u16array"] = function(stream) stream._pointer = stream:ReadShort() * 2 + stream._pointer end
 skippers["u8s24pairs"] = function(stream) stream._pointer = stream:ReadByte() * 6 + stream._pointer end
 skippers["u8u24array"] = function(stream) stream._pointer = stream:ReadByte() * 3 + stream._pointer end
+skippers["u8s24array"] = function(stream) stream._pointer = stream:ReadByte() * 3 + stream._pointer end
 skippers["u16u24array"] = function(stream) stream._pointer = stream:ReadShort() * 3 + stream._pointer end
 skippers["waypointlist"]  = function(stream)
     local count = stream:ReadByte()
@@ -775,7 +805,7 @@ skippers["spawnlist"] = function(stream)
     local count = stream:ReadByte()
     for _ = 1, count do
         stream._pointer = stream._pointer + 2
-        stream._pointer = stream:ReadShort() * 5 + stream._pointer
+        stream._pointer = stream:ReadShort() * 8 + stream._pointer
     end
 end
 local spawnlistSkipper = skippers["spawnlist"]
@@ -848,6 +878,7 @@ QuestieDBCompiler.dynamics = {
     ["u16u16array"] = true,
     ["u8s24pairs"] = true,
     ["u8u24array"] = true,
+    ["u8s24array"] = true,
     ["u16u24array"] = true,
     ["u8u16stringarray"] = true,
     ["spawnlist"] = true,
@@ -915,6 +946,42 @@ local function equals(a, b)
         return a == b
     end
 
+end
+
+local function copyTable(value)
+    if type(value) ~= "table" then
+        return value
+    end
+
+    local copy = {}
+    for key, childValue in pairs(value) do
+        copy[key] = copyTable(childValue)
+    end
+    return copy
+end
+
+local function normalizeQuestTableForValidation(key, value)
+    local normalized = copyTable(value or {})
+
+    if key == "objectives" then
+        for objectiveType = 1, 3 do
+            for _, objective in pairs(normalized[objectiveType] or {}) do
+                objective[3] = objective[3] or 0
+            end
+        end
+        for _, objective in pairs(normalized[5] or {}) do
+            objective[4] = objective[4] or 0
+        end
+        for _, objective in pairs(normalized[6] or {}) do
+            objective[3] = objective[3] or 0
+        end
+    elseif key == "extraObjectives" then
+        for _, objective in pairs(normalized) do
+            objective[4] = objective[4] or 0
+        end
+    end
+
+    return normalized
 end
 
 function QuestieDBCompiler:EncodePointerMap(stream, pointerMap)
@@ -992,6 +1059,25 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
     local writers = QuestieDBCompiler.writers
     local supportedTypes = QuestieDBCompiler.supportedTypes
 
+    -- Pre-compute per-field lookups and writers once for the entire compile run.
+    -- This removes repeated string-keyed table lookups from the hot inner loop.
+    local fieldCount = #order
+    local fieldKeys = {}
+    local fieldTypes = {}
+    local fieldNames = {}
+    local fieldWriters = {}
+    for i = 1, fieldCount do
+        local key = order[i]
+        local t = types[key]
+        if not writers[t] then
+            error("Invalid datatype: " .. key .. " " .. tostring(t))
+        end
+        fieldKeys[i] = lookup[key]
+        fieldTypes[i] = t
+        fieldNames[i] = key
+        fieldWriters[i] = writers[t]
+    end
+
     while true do
         coroutine.yield()
 
@@ -1019,27 +1105,21 @@ function QuestieDBCompiler:CompileTableCoroutine(tbl, types, order, lookup, data
             local entry = tbl[id]
 
             pointerMap[id] = stream._pointer--pointerStart
-            for i=1, #order do
+            for i=1, fieldCount do
                 -- If combat starts mid-entry, pause before processing next field
                 while InCombatLockdown() do
                     coroutine.yield()
                 end
                 
-                local key = order[i]
-                local v = entry[lookup[key]]
-                local t = types[key]
+                local v = entry[fieldKeys[i]]
 
-                if v and not supportedTypes[type(v)][t] then
-                    Questie:Error("|cFFFF0000Invalid datatype!|r   " .. kind .. "s[" .. tostring(id) .. "]."..key..": \"" .. type(v) .. "\" is not compatible with type \"" .. t .."\"")
+                if v and not supportedTypes[type(v)][fieldTypes[i]] then
+                    Questie:Error("|cFFFF0000Invalid datatype!|r   " .. kind .. "s[" .. tostring(id) .. "]."..fieldNames[i]..": \"" .. type(v) .. "\" is not compatible with type \"" .. fieldTypes[i] .."\"")
                     return
                 end
-                if not writers[t] then
-                    Questie:Error("Invalid datatype: " .. key .. " " .. tostring(t))
-                end
-                --print(key .. "s[" .. tostring(id) .. "]."..key..": \"" .. type(v) .. "\"")
-                local result, errorMessage = pcall(writers[t], stream, v)
+                local result, errorMessage = pcall(fieldWriters[i], stream, v)
                 if not result then
-                    Questie:Error("There was an error when compiling data for "..kind.." " .. tostring(id) .. " \""..tostring(key).."\":")
+                    Questie:Error("There was an error when compiling data for "..kind.." " .. tostring(id) .. " \""..tostring(fieldNames[i]).."\":")
                     Questie:Error(errorMessage)
                     error(errorMessage)
                 end
@@ -1111,6 +1191,10 @@ function QuestieDBCompiler:Compile()
     _MaybeYield()
     print("\124cFFAAEEFF"..l10n("Questie DB update complete!"))
 
+    if Questie.db.profile.debugEnabled then
+        print("\124cFFAAEEFF" .. "Compiling took " .. (GetTime() - QuestieDBCompiler.startTime) .. " seconds")
+    end
+
     Questie.db.global.dbCompiledExpansion = WOW_PROJECT_ID
 
     Questie.db.global.dbCompiledOnVersion = QuestieLib:GetAddonVersionString()
@@ -1125,6 +1209,10 @@ function QuestieDBCompiler:ValidateNPCs()
     npcBin = Questie.db.global.npcBin
     npcPtrs = Questie.db.global.npcPtrs
     local validator = QuestieDBCompiler:GetDBHandle(npcBin, npcPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.npcCompilerTypes, QuestieDB.npcCompilerOrder))
+    local function failValidation()
+        validator.stream:finished()
+        return false
+    end
 
     local count = 0
     for npcId, nonCompiledData in pairs(QuestieDB.npcData) do
@@ -1136,10 +1224,10 @@ function QuestieDBCompiler:ValidateNPCs()
 
             if type(a) == "number"  and abs(a-(b or 0)) > 0.2 then
                 Questie:Warning("Nonmatching number at " .. key .. "  " .. tostring(a) .. " ~= " .. tostring(b) .. " for ID: ".. npcId)
-                return
+                return failValidation()
             elseif type(a) == "string" and a ~= (b or "") then
                 Questie:Warning("Nonmatching string at " .. key .. "  " .. tostring(a) .. " ~= " .. tostring(b) .. " for ID: ".. npcId)
-                return
+                return failValidation()
             elseif type(a) == "table" then
                 if not equals(a, (b or {})) then
                     Questie:Warning("Nonmatching table at " .. key .. "  " .. id .. " for ID: ".. npcId)
@@ -1147,7 +1235,7 @@ function QuestieDBCompiler:ValidateNPCs()
                         ["Compiled Table:"] = a,
                         ["Base Table:"] = b
                     })
-                    return
+                    return failValidation()
                 end
             end
         end
@@ -1161,6 +1249,7 @@ function QuestieDBCompiler:ValidateNPCs()
 
     validator.stream:finished()
     Questie:Debug(Questie.DEBUG_INFO, "Finished NPCs validation without issues!")
+    return true
 end
 
 function QuestieDBCompiler:ValidateObjects()
@@ -1168,6 +1257,10 @@ function QuestieDBCompiler:ValidateObjects()
     objBin = Questie.db.global.objBin
     objPtrs = Questie.db.global.objPtrs
     local validator = QuestieDBCompiler:GetDBHandle(objBin, objPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.objectCompilerTypes, QuestieDB.objectCompilerOrder))
+    local function failValidation()
+        validator.stream:finished()
+        return false
+    end
 
     local count = 0
     for objectId, nonCompiledData in pairs(QuestieDB.objectData) do
@@ -1179,10 +1272,10 @@ function QuestieDBCompiler:ValidateObjects()
 
             if type(a) == "number"  and abs(a-(b or 0)) > 0.2 then
                 Questie:Warning("Nonmatching number at " .. key .. "  " .. tostring(a) .. " ~= " .. tostring(b) .. " for ID: ".. objectId)
-                return
+                return failValidation()
             elseif type(a) == "string" and a ~= (b or "") then
                 Questie:Warning("Nonmatching string at " .. key .. "  " .. tostring(a) .. " ~= " .. tostring(b) .. " for ID: ".. objectId)
-                return
+                return failValidation()
             elseif type(a) == "table" then
                 if not equals(a, (b or {})) then
                     Questie:Warning("Nonmatching table at " .. key .. "  " .. id  .. " for ID: ".. objectId)
@@ -1190,7 +1283,7 @@ function QuestieDBCompiler:ValidateObjects()
                         ["Compiled Table:"] = a,
                         ["Base Table:"] = b
                     })
-                    return
+                    return failValidation()
                 end
             end
         end
@@ -1204,7 +1297,8 @@ function QuestieDBCompiler:ValidateObjects()
 
     validator.stream:finished()
     Questie:Debug(Questie.DEBUG_INFO, "Finished objects validation without issues!")
-    end
+    return true
+end
 
 
 function QuestieDBCompiler:ValidateItems()
@@ -1220,6 +1314,12 @@ function QuestieDBCompiler:ValidateItems()
     local validator = QuestieDBCompiler:GetDBHandle(itemBin, itemPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.itemCompilerTypes, QuestieDB.itemCompilerOrder))
     local obj = QuestieDBCompiler:GetDBHandle(objBin, objPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.objectCompilerTypes, QuestieDB.objectCompilerOrder))
     local npc = QuestieDBCompiler:GetDBHandle(npcBin, npcPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.npcCompilerTypes, QuestieDB.npcCompilerOrder))
+    local function failValidation()
+        validator.stream:finished()
+        obj.stream:finished()
+        npc.stream:finished()
+        return false
+    end
 
     local count = 0
     for id, _ in pairs(validator.pointers) do
@@ -1229,7 +1329,7 @@ function QuestieDBCompiler:ValidateItems()
             for _, oid in pairs(objDrops) do
                 if not obj.QuerySingle(oid, "name") then
                     Questie:Error("Missing object " .. tostring(oid) .. " that drops " .. (validator.QuerySingle(id, "name") or "Missing item name!") .. " " .. tostring(id))
-                    return
+                    return failValidation()
                 end
             end
         end
@@ -1238,8 +1338,8 @@ function QuestieDBCompiler:ValidateItems()
             for _, nid in pairs(npcDrops) do
                 --print("Validating npcs")
                 if not npc.QuerySingle(nid, "name") then
-                    Questie:Error("Missing npc " .. tostring(nid))
-                    return
+                    Questie:Error("Missing npc " .. tostring(nid) .. " referenced by item " .. tostring(id))
+                    return failValidation()
                 end
             end
         end
@@ -1288,10 +1388,10 @@ function QuestieDBCompiler:ValidateItems()
 
             if type(a) == "number"  and abs(a-(b or 0)) > 0.2 then
                 Questie:Warning("Nonmatching number at " .. key .. "  " .. tostring(a) .. " ~= " .. tostring(b) .. " for ID: ".. itemId)
-                return
+                return failValidation()
             elseif type(a) == "string" and a ~= (b or "") then
                 Questie:Warning("Nonmatching string at " .. key .. "  " .. tostring(a) .. " ~= " .. tostring(b) .. " for ID: ".. itemId)
-                return
+                return failValidation()
             elseif type(a) == "table" then
                 if not equals(a, (b or {})) then
                     Questie:Warning("Nonmatching table at " .. key .. "  " .. id  .. " for ID: ".. itemId)
@@ -1299,7 +1399,7 @@ function QuestieDBCompiler:ValidateItems()
                         ["Compiled Table:"] = a,
                         ["Base Table:"] = b
                     })
-                    return
+                    return failValidation()
                 end
             end
         end
@@ -1315,6 +1415,7 @@ function QuestieDBCompiler:ValidateItems()
     obj.stream:finished()
     npc.stream:finished()
     Questie:Debug(Questie.DEBUG_INFO, "Finished items validation without issues!")
+    return true
 end
 
 function QuestieDBCompiler:ValidateQuests()
@@ -1322,6 +1423,10 @@ function QuestieDBCompiler:ValidateQuests()
     questBin = Questie.db.global.questBin
     questPtrs = Questie.db.global.questPtrs
     local validator = QuestieDBCompiler:GetDBHandle(questBin, questPtrs, QuestieDBCompiler:BuildSkipMap(QuestieDB.questCompilerTypes, QuestieDB.questCompilerOrder))
+    local function failValidation()
+        validator.stream:finished()
+        return false
+    end
 
     local playerLevel = UnitLevel("player")
 
@@ -1350,7 +1455,7 @@ function QuestieDBCompiler:ValidateQuests()
             local b = nonCompiledData[QuestieDB.questKeys[key]]
 
             --Special case for questLevel
-            if (Questie.IsTBC or Questie.IsWotlk) and (key == "questLevel" or key == "requiredLevel") then
+            if (Questie.IsTBC or Questie.IsWotlk or QuestieCompat.Is335) and (key == "questLevel" or key == "requiredLevel") then
                 local questLevel, requiredLevel = getTbcLevel(compiledData[2], compiledData[1], playerLevel)
                 if (key == "questLevel") then
                     a = questLevel
@@ -1370,28 +1475,19 @@ function QuestieDBCompiler:ValidateQuests()
             -- else
             if type(a) == "number"  and abs(a-(b or 0)) > 0.2 then
                 Questie:Warning("Nonmatching number at " .. key .. "  " .. tostring(a) .. " ~= " .. tostring(b) .. " for ID: ".. questId)
-                return
+                return failValidation()
             elseif type(a) == "string" and a ~= (b or "") then
                 Questie:Warning("Nonmatching string at " .. key .. "  " .. tostring(a) .. " ~= " .. tostring(b) .. " for ID: ".. questId)
-                return
+                return failValidation()
             elseif type(a) == "table" then
-                --? This is kind of stupid, but because the compiler always has to write a int24 it will always write 0 for empty tables
-                --? So we have to emulate the same behavior here
-                if key == "extraObjectives" then
-                    for i = 1, #b do
-                        if not b[i][4] and a[i][4] == 0 then
-                            b[i][4] = 0
-                        end
-                    end
-                end
-
-                if not equals(a, (b or {})) then
+                local normalizedBase = normalizeQuestTableForValidation(key, b)
+                if not equals(a, normalizedBase) then
                     Questie:Warning("Nonmatching table at " .. key .. "  " .. id .. " for ID: ".. questId)
                     DevTools_Dump({
                         ["Compiled Table:"] = a,
-                        ["Base Table:"] = b
+                        ["Base Table:"] = normalizedBase
                     })
-                    return
+                    return failValidation()
                 end
             end
         end
@@ -1405,6 +1501,7 @@ function QuestieDBCompiler:ValidateQuests()
 
     validator.stream:finished()
     Questie:Debug(Questie.DEBUG_INFO, "Finished quests validation without issues!")
+    return true
 end
 
 function QuestieDBCompiler:GetDBHandle(data, pointers, skipMap, keyToRootIndex, overrides)

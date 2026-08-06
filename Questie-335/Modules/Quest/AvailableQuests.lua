@@ -38,6 +38,25 @@ local time = time
 local date = date
 local tonumber = tonumber
 local NewThread = ThreadLib.ThreadSimple
+local coRunning = coroutine.running
+
+---@param onComplete function?
+local function _UnloadQuestFrames(questId, iconType, noteType, onComplete)
+    if coRunning() then
+        QuestieMap:UnloadQuestFrames(questId, iconType, noteType)
+        if onComplete then
+            onComplete()
+        end
+    else
+        ThreadLib.ThreadCallbackInstant(function()
+            QuestieMap:UnloadQuestFrames(questId, iconType, noteType)
+        end, function(success)
+            if success and onComplete then
+                onComplete()
+            end
+        end)
+    end
+end
 
 local QUESTS_PER_YIELD = 24
 local QUESTS_PER_YIELD_FAST = 512
@@ -75,6 +94,10 @@ local function _ShouldTrackNpcAvailability(questId)
     return QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId) or QuestieDB.IsMonthlyQuest(questId)
 end
 
+local function _ShouldRegisterQuestStartTooltip(questId)
+    return not QuestieDB:HasAzerothCoreLocationCondition(questId) or QuestieDB:IsAzerothCoreAvailabilityConditionFulfilled(questId)
+end
+
 local function _ApplyRefreshSpeed(useFastRefresh)
     if useFastRefresh then
         questsPerYield = QUESTS_PER_YIELD_FAST
@@ -85,9 +108,12 @@ local function _ApplyRefreshSpeed(useFastRefresh)
     end
 end
 
-local function _RunCallbacks(callbacks)
+---@param callbacks function[]
+---@param success boolean
+---@param errorMessage string|nil
+local function _RunCallbacks(callbacks, success, errorMessage)
     for i = 1, #callbacks do
-        callbacks[i]()
+        callbacks[i](success, errorMessage)
         callbacks[i] = nil
     end
 end
@@ -108,7 +134,7 @@ local function _HasVisibleSpawnInZone(spawns)
     end
 
     for _, spawn in pairs(spawns) do
-        if Phasing.IsSpawnVisible(spawn[3]) then
+        if Phasing.IsSpawnDataVisible(spawn) then
             return true
         end
     end
@@ -437,13 +463,13 @@ _StartQueuedRefresh = function()
     timer = ThreadLib.Thread(function()
         timerStarted = true
         _CalculateAvailableQuests()
-    end, 0, "Error in AvailableQuests.CalculateAndDrawAll", function()
+    end, 0, "Error in AvailableQuests.CalculateAndDrawAll", function(success, errorMessage)
         local callbacks = currentCallbacks
         currentCallbacks = {}
         timer = nil
         timerStarted = false
         _ApplyRefreshSpeed(false)
-        _RunCallbacks(callbacks)
+        _RunCallbacks(callbacks, success, errorMessage)
         _StartQueuedRefresh()
     end)
 end
@@ -554,7 +580,7 @@ function AvailableQuests.DrawAvailableQuest(quest) -- prevent recursion
 
         if limit == 0 or added < limit then
             added = added + _AddStarter(starter, quest, drawTooltipKey, (limit == 0 and 0) or (limit - added))
-        else
+        elseif _ShouldRegisterQuestStartTooltip(quest.Id) then
             QuestieTooltips:RegisterQuestStartTooltip(quest.Id, starter.name, starter.id, fallbackTooltipKey, tooltipType)
         end
     end
@@ -629,16 +655,29 @@ end
 function AvailableQuests.RemoveAvailableQuest(questId)
     availableQuests[questId] = nil
     _RemoveQuestFromNpcAvailability(questId, QuestieDB.GetQuest(questId))
-    QuestieMap:UnloadQuestFrames(questId, nil, "available")
+    _UnloadQuestFrames(questId, nil, "available")
     QuestieTooltips:RemoveAvailableQuest(questId)
 end
 
 ---@param questId QuestId
-function AvailableQuests.RemoveQuest(questId)
+---@param onComplete function? Optional callback invoked after the starter/finisher frames are unloaded.
+function AvailableQuests.RemoveQuest(questId, onComplete)
     availableQuests[questId] = nil
     _RemoveQuestFromNpcAvailability(questId, QuestieDB.GetQuest(questId))
-    QuestieMap:UnloadQuestFrames(questId)
     QuestieTooltips:RemoveQuest(questId)
+    _UnloadQuestFrames(questId, nil, nil, onComplete)
+end
+
+---@param quest Quest
+function AvailableQuests.RecreateFailedQuest(quest)
+    local questId = quest.Id
+    availableQuests[questId] = nil
+
+    _UnloadQuestFrames(questId, nil, nil, function()
+        QuestieTooltips:RemoveQuest(questId)
+        AvailableQuests.DrawAvailableQuest(quest)
+        Questie:SendMessage("QC_ID_BROADCAST_QUEST_REMOVE", questId)
+    end)
 end
 
 ---@param npcId NpcId
@@ -734,6 +773,14 @@ end
 ---@type string|nil
 local lastNpcGuid
 
+---@param questId QuestId
+---@return boolean
+local function _ShouldCacheUnavailableQuest(questId)
+    return (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId))
+        and QuestieDB:IsAzerothCoreAvailabilityConditionFulfilled(questId)
+        and QuestieDB.IsDoable(questId)
+end
+
 --- Called on GOSSIP_SHOW to hide all quests that are not available from the NPC.
 function AvailableQuests.ValidateAvailableQuestsFromGossipShow()
     _GetUnavailableQuestsDeterminedByTalking()
@@ -789,7 +836,7 @@ function AvailableQuests.ValidateAvailableQuestsFromGossipShow()
             end
         end
 
-        if (not isAvailableInGossip) and (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)) then -- no monthly quests here, those are personal
+        if (not isAvailableInGossip) and _ShouldCacheUnavailableQuest(questId) then -- no monthly quests here, those are personal
             tinsert(unavailableQuestsToBroadcast, questId)
         end
     end
@@ -841,7 +888,7 @@ function AvailableQuests.ValidateAvailableQuestsFromQuestDetail()
 
     local unavailableQuestsToBroadcast = {}
     for questId in pairs(availableQuestsByNpc[npcId] or {}) do
-        if questId ~= availableQuestId and (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)) then -- no monthly quests here, those are personal
+        if questId ~= availableQuestId and _ShouldCacheUnavailableQuest(questId) then -- no monthly quests here, those are personal
             tinsert(unavailableQuestsToBroadcast, questId)
         end
     end
@@ -910,7 +957,7 @@ function AvailableQuests.ValidateAvailableQuestsFromQuestGreeting()
 
     local unavailableQuestsToBroadcast = {}
     for questId in pairs(availableQuestsByNpc[npcId] or {}) do
-        if (not availableQuestsInGreeting[questId]) and (QuestieDB.IsDailyQuest(questId) or QuestieDB.IsWeeklyQuest(questId)) then -- no monthly quests here, those are personal
+        if (not availableQuestsInGreeting[questId]) and _ShouldCacheUnavailableQuest(questId) then -- no monthly quests here, those are personal
             tinsert(unavailableQuestsToBroadcast, questId)
         end
     end
@@ -1013,7 +1060,7 @@ _CalculateAvailableQuests = function()
 
         if (
             (not _IsLevelRequirementsFulfilledForAvailable(questId, minLevel, maxLevel, playerLevel, isRepeatableQuest)) or
-            (not QuestieDB.IsDoable(questId, debugEnabled))
+            (not QuestieDB.IsDoable(questId, debugEnabled, true))
         ) then
             --If the quests are not within level range we want to unload them
             --(This is for when people level up or change settings etc)
@@ -1089,6 +1136,10 @@ end
 ---@param quest Quest|nil
 _RegisterQuestStartTooltips = function(quest)
     if (not quest) or (not quest.Starts) then
+        return
+    end
+
+    if not _ShouldRegisterQuestStartTooltip(quest.Id) then
         return
     end
 
@@ -1292,18 +1343,20 @@ _AddStarter = function(starter, quest, tooltipKey, limit)
     local isDungeonQuest = QuestieDB.IsDungeonQuest(quest.Id)
     local isRaidQuest = QuestieDB.IsRaidQuest(quest.Id)
 
-    QuestieTooltips:RegisterQuestStartTooltip(quest.Id, starter.name, starter.id, tooltipKey, (starterType or "NPC"))
+    if _ShouldRegisterQuestStartTooltip(quest.Id) then
+        QuestieTooltips:RegisterQuestStartTooltip(quest.Id, starter.name, starter.id, tooltipKey, (starterType or "NPC"))
+    end
 
     local starterIcons = {}
     local starterLocs = {}
     local visibleStarterZones = {}
     for zone, spawns in pairs(starter.spawns or {}) do
         local alreadyAddedSpawns = {}
-        if (zone and spawns) then
+        if zone and spawns and QuestieDB:IsAzerothCoreAvailabilityConditionFulfilledForSpawnZone(quest.Id, zone) then
             local coords
             for spawnIndex = 1, #spawns do
                 coords = spawns[spawnIndex]
-                if Phasing.IsSpawnVisible(coords[3]) and (limit == 0 or added < limit) and (#spawns == 1 or _HasProperDistanceToAlreadyAddedSpawns(coords, alreadyAddedSpawns)) then
+                if Phasing.IsSpawnDataVisible(coords) and (limit == 0 or added < limit) and (#spawns == 1 or _HasProperDistanceToAlreadyAddedSpawns(coords, alreadyAddedSpawns)) then
                     visibleStarterZones[zone] = true
 
                     local data = {
@@ -1332,7 +1385,7 @@ _AddStarter = function(starter, quest, tooltipKey, limit)
                             end
                         end
                     else
-                        local icon = QuestieMap:DrawWorldIcon(data, zone, coords[1], coords[2], coords[3])
+                        local icon = QuestieMap:DrawWorldIcon(data, zone, coords[1], coords[2], coords)
                         if starter.waypoints and icon then
                             -- This is only relevant for waypoint drawing
                             starterIcons[zone] = icon
@@ -1353,7 +1406,8 @@ _AddStarter = function(starter, quest, tooltipKey, limit)
     -- Only for NPCs since objects do not move
     if starter.waypoints then
         for zone, waypoints in pairs(starter.waypoints or {}) do
-            if (visibleStarterZones[zone] or (not starter.spawns) or (not starter.spawns[zone]) or _HasVisibleSpawnInZone(starter.spawns[zone])) and
+            if QuestieDB:IsAzerothCoreAvailabilityConditionFulfilledForSpawnZone(quest.Id, zone) and
+                (visibleStarterZones[zone] or (not starter.spawns) or (not starter.spawns[zone]) or _HasVisibleSpawnInZone(starter.spawns[zone])) and
                 (not dungeons[zone]) and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
                 if not starterIcons[zone] then
                     if limit == 0 or added < limit then
