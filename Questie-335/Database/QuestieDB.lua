@@ -4009,6 +4009,14 @@ function QuestieDB:GetCreatureLevels(quest)
             end
         end
     end
+    if quest.requiredSourceItems then
+        for _, itemId in pairs(quest.requiredSourceItems) do
+            local npcIds = QuestieDB.QueryItemSingle(itemId, "npcDrops")
+            if npcIds then
+                _CollectCreatureLevels(npcIds)
+            end
+        end
+    end
     if quest.Id then
         QuestieDB._CreatureLevelCache[quest.Id] = creatureLevels
     end
