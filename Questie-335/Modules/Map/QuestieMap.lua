@@ -67,13 +67,80 @@ local ipairs = ipairs;
 local tremove = table.remove;
 local tunpack = unpack;
 
+local coYield = coroutine.yield
+local coRunning = coroutine.running
+local TICKS_PER_YIELD = 30
+
 local math_max = math.max;
 local math_min = math.min;
 local math_sqrt = math.sqrt;
 local string = string;
 
 local function _IsSpawnVisible(spawn)
-    return Phasing.IsSpawnVisible(spawn and spawn[3])
+    return Phasing.IsSpawnDataVisible(spawn)
+end
+
+local function _RememberWaypointDrawData(icon, waypoints, zone, color)
+    if not icon or not icon.data then
+        return
+    end
+
+    if not icon.data.waypointDrawData then
+        icon.data.waypointDrawData = {}
+    end
+
+    for _, waypointDrawData in ipairs(icon.data.waypointDrawData) do
+        if waypointDrawData.waypoints == waypoints and waypointDrawData.zone == zone and waypointDrawData.color == color then
+            return
+        end
+    end
+
+    tinsert(icon.data.waypointDrawData, {
+        waypoints = waypoints,
+        zone = zone,
+        color = color,
+    })
+end
+
+local function _SetIconWaypointLinesVisible(icon, visible)
+    if not icon or not icon.data then
+        return
+    end
+
+    if visible and (not icon.data.lineFrames) and icon.data.waypointDrawData then
+        for _, waypointDrawData in ipairs(icon.data.waypointDrawData) do
+            QuestieMap:DrawWaypoints(icon, waypointDrawData.waypoints, waypointDrawData.zone, waypointDrawData.color)
+        end
+    end
+
+    if not icon.data.lineFrames then
+        return
+    end
+
+    local shouldShow = visible and (not icon.hidden) and (not icon.ShouldBeHidden or not icon:ShouldBeHidden())
+    for _, lineIcon in pairs(icon.data.lineFrames) do
+        if shouldShow then
+            lineIcon:FakeShow()
+        else
+            lineIcon:FakeHide()
+        end
+    end
+end
+
+function QuestieMap:SetWaypointLinesVisible(visible)
+    for _, frameList in pairs(QuestieMap.questIdFrames) do
+        for _, frameName in pairs(frameList) do
+            _SetIconWaypointLinesVisible(_G[frameName], visible)
+        end
+    end
+
+    for _, frameTypeList in pairs(QuestieMap.manualFrames) do
+        for _, frameList in pairs(frameTypeList) do
+            for _, frameName in pairs(frameList) do
+                _SetIconWaypointLinesVisible(_G[frameName], visible)
+            end
+        end
+    end
 end
 
 local function _CopyManualTooltipDataWithCoordinates(data, x, y)
@@ -94,9 +161,7 @@ local function _CopyManualTooltipDataWithCoordinates(data, x, y)
         tinsert(copy.Body, line)
     end
 
-    if Questie.db.profile.showManualTooltipCoordinates then
-        tinsert(copy.Body, { "Coordinates:", string.format("%.2f, %.2f", x, y) })
-    end
+    tinsert(copy.Body, { "Coordinates:", string.format("%.2f, %.2f", x, y) })
 
     return copy
 end
@@ -117,7 +182,7 @@ local function _GetDistanceToNearestResolvedSpawn(zone, spawn, playerX, playerY,
         end
         if (not dungeonLocation) and (not alreadyErroredDungeonZones[zone]) then
             alreadyErroredDungeonZones[zone] = true
-            Questie:Error("No dungeon location found for zoneId:", zone, "Please report this on Github or Discord!")
+            Questie.Error("No dungeon location found for zoneId:", zone, "Please report this on Github or Discord!")
         end
 
         resolvedSpawns = {}
@@ -189,31 +254,59 @@ function QuestieMap:ForQuestFrames(questId, callback)
     return false
 end
 
-function QuestieMap:UnloadQuestFrames(questId, iconType, noteType)
-    if QuestieMap.questIdFrames[questId] then
-        if (not iconType) and (not noteType) then
-            QuestieMap:ForQuestFrames(questId, function(frame)
-                -- Capture this before Unload() because it clears frame.data.
-                local objective = frame.data and frame.data.ObjectiveData
+local function _SnapshotQuestFrames(questId, iconType, noteType)
+    local frameNames = QuestieMap.questIdFrames[questId]
+    local frames = {}
+    if not frameNames then
+        return frames
+    end
 
-                frame:Unload();
+    for name in pairs(frameNames) do
+        local frame = _G[name]
+        local data = frame and frame.data
+        if frame and data
+            and ((not iconType) or data.Icon == iconType)
+            and ((not noteType) or data.Type == noteType) then
+            frames[#frames + 1] = {
+                name = name,
+                frame = frame,
+                data = data,
+            }
+        end
+    end
+    return frames
+end
+
+local function _IsCurrentQuestFrame(questId, frameInfo)
+    local frameNames = QuestieMap.questIdFrames[questId]
+    return frameNames
+        and frameNames[frameInfo.name]
+        and frameInfo.frame.data == frameInfo.data
+end
+
+function QuestieMap:UnloadQuestFrames(questId, iconType, noteType)
+    assert(coRunning(), "UnloadQuestFrames must be called from a coroutine")
+
+    if QuestieMap.questIdFrames[questId] then
+        Questie.Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Unloading quest frames for questid:", questId)
+        local yieldCount = 0
+        for _, frameInfo in ipairs(_SnapshotQuestFrames(questId, iconType, noteType)) do
+            -- A yield may allow the same frame name to be reused for new data.
+            if _IsCurrentQuestFrame(questId, frameInfo) then
+                local objective = frameInfo.data.ObjectiveData
+                QuestieFramePool:UnloadFrame(frameInfo.frame)
 
                 if objective then
                     objective.AlreadySpawned = {}
                 end
-            end)
-            QuestieMap.questIdFrames[questId] = nil;
-        else
-            QuestieMap:ForQuestFrames(questId, function(frame, name)
-                if frame and frame.data
-                    and ((not iconType) or frame.data.Icon == iconType)
-                    and ((not noteType) or frame.data.Type == noteType) then
-                    frame:Unload();
-                    QuestieMap.questIdFrames[questId][name] = nil
+
+                yieldCount = yieldCount + 1
+                if yieldCount >= TICKS_PER_YIELD then
+                    yieldCount = 0
+                    coYield()
                 end
-            end)
+            end
         end
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Unloading quest frames for questid:", questId)
     end
 end
 
@@ -236,7 +329,7 @@ function QuestieMap:UnloadManualFrames(id, typ)
     typ = typ or "any"
     if QuestieMap.manualFrames[typ] and (QuestieMap.manualFrames[typ][id]) then
         for _, frame in ipairs(QuestieMap:GetManualFrames(id, typ)) do
-            frame:Unload();
+            QuestieFramePool:UnloadFrame(frame);
         end
         QuestieMap.manualFrames[typ][id] = nil;
     end
@@ -255,13 +348,13 @@ function QuestieMap:RescaleIcons()
     local mapScale = QuestieMap.GetScaleValue()
     for _, framelist in pairs(QuestieMap.questIdFrames) do
         for _, frameName in pairs(framelist) do
-            QuestieMap.utils:RescaleIcon(frameName, mapScale)
+            QuestieMap.utils.RescaleIcon(frameName, mapScale)
         end
     end
     for _, frameTypeList in pairs(QuestieMap.manualFrames) do
         for _, framelist in pairs(frameTypeList) do
             for _, frameName in ipairs(framelist) do
-                QuestieMap.utils:RescaleIcon(frameName, mapScale)
+                QuestieMap.utils.RescaleIcon(frameName, mapScale)
             end
         end
     end
@@ -272,7 +365,7 @@ function QuestieMap:RescaleManualIcons()
     for _, frameTypeList in pairs(QuestieMap.manualFrames) do
         for _, framelist in pairs(frameTypeList) do
             for _, frameName in ipairs(framelist) do
-                QuestieMap.utils:RescaleIcon(frameName, mapScale)
+                QuestieMap.utils.RescaleIcon(frameName, mapScale)
             end
         end
     end
@@ -302,7 +395,7 @@ local function _GetManualScaleProfile(frame)
 end
 
 function QuestieMap:InitializeQueue() -- now called on every loading screen
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Starting draw queue timer!")
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Starting draw queue timer!")
     local isInInstance, instanceType = IsInInstance()
 
     local desiredTickRate
@@ -329,7 +422,7 @@ function QuestieMap:InitializeQueue() -- now called on every loading screen
             if fadeLogicCoroutine and coroutine.status(fadeLogicCoroutine) == "suspended" then
                 local success, errorMsg = coroutine.resume(fadeLogicCoroutine)
                 if (not success) then
-                    Questie:Error("Please report on Github or Discord. Minimap pins fade logic coroutine stopped:", errorMsg)
+                    Questie.Error("Please report on Github or Discord. Minimap pins fade logic coroutine stopped:", errorMsg)
                     fadeLogicCoroutine = nil
                 end
             end
@@ -349,7 +442,7 @@ function QuestieMap.GetScaleValue()
     if C_Map and C_Map.GetMapInfo and mapId then
         local mapInfo = C_Map.GetMapInfo(mapId)
         if not mapInfo then
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap:GetScaleValue] No map info for uiMapID:", tostring(mapId))
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[QuestieMap:GetScaleValue] No map info for uiMapID:", tostring(mapId))
         elseif (mapInfo.mapType == 0) then     --? Cosmic, This is probably not needed but for the sake of completion...
             scaling = 0.85
         elseif (mapInfo.mapType == 1) then -- World
@@ -435,7 +528,7 @@ function QuestieMap:ProcessShownMinimapIcons()
                     cYield()
                     if (not HBDPins.activeMinimapPins[minimapFrame]) then
                         -- table has been edited during traversal at critical key. we can't continue iterating over it. stop iteration and start again.
-                        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap:ProcessShownMinimapIcons] FadeLogic loop coroutine: HBDPins.activeMinimapPins doesn't have the key anymore.")
+                        Questie.Debug(Questie.DEBUG_DEVELOP, "[QuestieMap:ProcessShownMinimapIcons] FadeLogic loop coroutine: HBDPins.activeMinimapPins doesn't have the key anymore.")
                         -- force reupdate imeadiately
                         totalDistance = 9000
                         break
@@ -483,16 +576,16 @@ function QuestieMap.ProcessQueue()
             local frame = mapDrawCall[2];
             HBDPins:AddWorldMapIconMap(tunpack(mapDrawCall));
 
-            --? If you ever chanage this logic, make sure you change the logic in QuestieMap.utils:RescaleIcon function too!
+            --? If you ever chanage this logic, make sure you change the logic in QuestieMap.utils.RescaleIcon function too!
             local scaleProfile = _GetManualScaleProfile(frame)
             local size = (16 * (frame.data.IconScale or 1) * (scaleProfile or 0.7)) * scaleValue;
             frame:SetSize(size, size)
 
-            QuestieMap.utils:SetDrawOrder(frame);
+            QuestieMap.utils.SetDrawOrder(frame)
 
             mapDrawCall[2]._loaded = true
             if mapDrawCall[2]._needsUnload then
-                mapDrawCall[2]:Unload()
+                QuestieFramePool:UnloadFrame(mapDrawCall[2])
             end
         end
 
@@ -501,11 +594,11 @@ function QuestieMap.ProcessQueue()
             local frame = minimapDrawCall[2];
             HBDPins:AddMinimapIconMap(tunpack(minimapDrawCall));
 
-            QuestieMap.utils:SetDrawOrder(frame);
+            QuestieMap.utils.SetDrawOrder(frame)
 
             minimapDrawCall[2]._loaded = true
             if minimapDrawCall[2]._needsUnload then
-                minimapDrawCall[2]:Unload()
+                QuestieFramePool:UnloadFrame(minimapDrawCall[2])
             end
         end
     end
@@ -517,7 +610,7 @@ end
 ---@param npcID number @The ID of the NPC
 function QuestieMap:ShowNPC(npcID, icon, scale, title, body, disableShiftToRemove, typ, excludeDungeon)
     if type(npcID) ~= "number" then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieMap:ShowNPC] Got <" .. type(npcID) .. "> instead of <number>")
+        Questie.Debug(Questie.DEBUG_CRITICAL, "[QuestieMap:ShowNPC] Got <" .. type(npcID) .. "> instead of <number>")
         return
     end
     -- get the NPC data
@@ -581,7 +674,7 @@ function QuestieMap:ShowNPC(npcID, icon, scale, title, body, disableShiftToRemov
             if (visibleSpawnZones[zone] or (not npc.spawns) or (not npc.spawns[zone])) and
                 (not ZoneDB:GetDungeonLocation(zone)) and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
                 if not manualIcons[zone] then
-                    manualIcons[zone] = QuestieMap:DrawManualIcon(data, zone, waypoints[1][1][1], waypoints[1][1][2])
+                    manualIcons[zone] = QuestieMap:DrawManualIcon(data, zone, waypoints[1][1][1], waypoints[1][1][2], typ)
                 end
                 QuestieMap:DrawWaypoints(manualIcons[zone], waypoints, zone)
             end
@@ -651,14 +744,18 @@ function QuestieMap:DrawLineIcon(lineFrame, areaID, x, y)
     local uiMapId = ZoneDB:GetUiMapIdByAreaId(areaID)
 
     HBDPins:AddWorldMapIconMap(Questie, lineFrame, uiMapId, x, y, HBD_PINS_WORLDMAP_SHOW_CURRENT)
+    if QuestieCompat.Is335 then
+        QuestieMap.utils.SetLineDrawOrder(lineFrame)
+    end
 end
 
 -- Draw manually added NPC/object notes
 -- TODO: item and custom notes
---@param data table<...> @A table created by the calling function, must contain `id`, `Name`, `GetIconScale()`, and `Type`
---@param AreaID number @The zone ID from the raw data
---@param x float @The X coordinate in 0-100 format
---@param y float @The Y coordinate in 0-100 format
+---@param data table @A table created by the calling function, must contain `id`, `Name`, `GetIconScale()`, and `Type`
+---@param areaID number @The zone ID from the raw data
+---@param x number @The X coordinate in 0-100 format
+---@param y number @The Y coordinate in 0-100 format
+---@param typ string? @The manual icon category
 function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     if type(data) ~= "table" then
         error("Questie" .. ": AddWorldMapIconMap: must have some data")
@@ -666,7 +763,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     if type(areaID) ~= "number" or type(x) ~= "number" or type(y) ~= "number" then
         error("Questie" .. ": AddWorldMapIconMap: 'AreaID', 'x' and 'y' must be numbers " .. areaID .. " " .. x .. " " .. y)
     end
-    if type(data.id) ~= "number" or type(data.id) ~= "number" then
+    if type(data.id) ~= "number" then
         error("Questie" .. "Data.id must be set to the NPC or object ID!")
     end
 
@@ -675,7 +772,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
 
     local uiMapId = ZoneDB:GetUiMapIdByAreaId(areaID)
     if (not uiMapId) then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieMap:DrawManualIcon] No UiMapID for areaId:", areaID, tostring(data.Name))
+        Questie.Debug(Questie.DEBUG_CRITICAL, "[QuestieMap:DrawManualIcon] No UiMapID for areaId:", areaID, tostring(data.Name))
         return nil, nil
     end
     -- set the icon
@@ -706,10 +803,6 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     else
         icon.texture:SetTexCoord(0, 1, 0, 1)
     end
-    if not QuestieCompat.Is335 then
-        icon.texture:SetSnapToPixelGrid(false)
-        icon.texture:SetTexelSnappingBias(0)
-    end
     icon:SetWidth(16 * (data:GetIconScale() or 0.7))
     icon:SetHeight(16 * (data:GetIconScale() or 0.7))
 
@@ -737,10 +830,6 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
         iconMinimap.texture:SetTexCoord(unpack(data.TexCoords))
     else
         iconMinimap.texture:SetTexCoord(0, 1, 0, 1)
-    end
-    if not QuestieCompat.Is335 then
-        icon.texture:SetSnapToPixelGrid(false)
-        icon.texture:SetTexelSnappingBias(0)
     end
     iconMinimap.texture:SetVertexColor(colorsMinimap[1], colorsMinimap[2], colorsMinimap[3], 1);
     iconMinimap.texture.r = colorsMinimap[1]
@@ -771,7 +860,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
         end
     end
 
-    QuestieMap.utils:RescaleIcon(icon)
+    QuestieMap.utils.RescaleIcon(icon)
 
     -- return the frames in case they need to be stored seperately from QuestieMap.manualFrames
     return icon, iconMinimap;
@@ -784,32 +873,14 @@ end
 _MinimapIconSetFade = function(self, value)
     if self.lastGlowFade ~= value then
         self.lastGlowFade = value
-        if self.glowTexture then
-            local r, g, b = self.glowTexture:GetVertexColor()
-            self.glowTexture:SetVertexColor(r, g, b, value)
-        end
-
-        local r = self.texture.r
-        local g = self.texture.g
-        local b = self.texture.b
-        if r == nil or g == nil or b == nil then
-            r, g, b = self.texture:GetVertexColor()
-            r = r or 1
-            g = g or 1
-            b = b or 1
-            self.texture.r = r
-            self.texture.g = g
-            self.texture.b = b
-        end
-
-        self.texture.a = value
-        self.texture:SetVertexColor(r, g, b, value)
+        self.glowTexture:SetVertexColor(self.glowTexture.r, self.glowTexture.g, self.glowTexture.b, value)
+        self.texture:SetVertexColor(self.texture.r, self.texture.g, self.texture.b, value)
     end
 end
 
 _MinimapIconFadeLogic = function(self)
     local profile = Questie.db.profile
-    if self.miniMapIcon and self.x and self.y and self.texture and self.UiMapID and self.texture.SetVertexColor and HBD then
+    if self.miniMapIcon and self.x and self.y and self.UiMapID and HBD then
         if (QuestieMap.playerX and QuestieMap.playerY) then
             local x, y
             if self.worldX == nil then
@@ -859,13 +930,13 @@ _MinimapIconFadeLogic = function(self)
     end
 end
 
-function QuestieMap:DrawWorldIcon(data, areaID, x, y, phase, showFlag)
+function QuestieMap:DrawWorldIcon(data, areaID, x, y, spawn, showFlag)
     if type(data) ~= "table" then
         error("Questie" .. ": AddWorldMapIconMap: must have some data")
     end
 
-    if not Phasing.IsSpawnVisible(phase) then
-        Questie:Debug(Questie.DEBUG_SPAM, "Skipping invisible phase", phase)
+    if not Phasing.IsSpawnDataVisible(spawn) then
+        Questie.Debug(Questie.DEBUG_SPAM, "Skipping invisible spawn", spawn and spawn[3], spawn and spawn[4])
         return nil, nil
     end
 
@@ -1123,10 +1194,8 @@ local function _GetNearestQuestFinisherSpawn(quest)
     local finisherName
     if quest.Finisher ~= nil then
         if quest.Finisher.Type == "monster" then
-            --finisher = QuestieDB:GetNPC(quest.Finisher.Id)
             finisherSpawns, finisherName = QuestieDB.QueryNPCSingle(quest.Finisher.Id, "spawns"), QuestieDB.QueryNPCSingle(quest.Finisher.Id, "name")
         elseif quest.Finisher.Type == "object" then
-            --finisher = QuestieDB:GetObject(quest.Finisher.Id)
             finisherSpawns, finisherName = QuestieDB.QueryObjectSingle(quest.Finisher.Id, "spawns"), QuestieDB.QueryObjectSingle(quest.Finisher.Id, "name")
         end
     end
@@ -1208,7 +1277,14 @@ QuestieMap.zoneWaypointHoverColorOverrides = {
 }
 
 function QuestieMap:DrawWaypoints(icon, waypoints, zone, color)
+    if not icon then
+        return
+    end
+
     if waypoints and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then -- check that waypoint data actually exists
+        _RememberWaypointDrawData(icon, waypoints, zone, color)
+        if not Questie.db.profile.showWaypointLines then return end
+
         local shouldBeHidden = icon:ShouldBeHidden()
         local lineFrames = QuestieFramePool:CreateWaypoints(icon, waypoints, nil, color or QuestieMap.zoneWaypointColorOverrides[zone], zone)
         for _, lineFrame in ipairs(lineFrames) do

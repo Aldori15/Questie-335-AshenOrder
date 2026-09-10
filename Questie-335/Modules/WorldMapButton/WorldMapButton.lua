@@ -23,39 +23,18 @@ local mapButton
 local lastWorldMapButtonEffectiveScale
 local lastWorldMapFrameEffectiveScale
 local isRefreshingWorldMapButtonLayout
-local childScanFailed
 local worldMapFrameUpdateHooked
-
-local function _GetChildrenSafely(frame)
-    if childScanFailed or not frame or not frame.GetChildren then
-        return
-    end
-
-    local ok, children = pcall(function()
-        return { frame:GetChildren() }
-    end)
-
-    if ok then
-        return children
-    end
-
-    childScanFailed = true
-end
 
 local function _GetOccupiedCornerOffset(worldMapButtonFrame, corner)
     local occupiedOffset
     local parentEffectiveScale = worldMapButtonFrame.GetEffectiveScale and worldMapButtonFrame:GetEffectiveScale() or worldMapButtonFrame:GetScale() or 1
 
-    local worldMapButtonChildren = _GetChildrenSafely(worldMapButtonFrame)
-    if not worldMapButtonChildren then
-        return
-    end
-
     local isRightSide = (corner == "TOPRIGHT" or corner == "BOTTOMRIGHT")
     local sideAnchor = isRightSide and "RIGHT" or "LEFT"
 
-    for _, child in next, worldMapButtonChildren do
-        if child ~= mapButton and child.IsShown and child:IsShown() then
+    local child = EnumerateFrames()
+    while child do
+        if child ~= mapButton and child:GetParent() == worldMapButtonFrame and child.IsShown and child:IsShown() then
             local point, relativeFrame, relativePoint, xOffset = child:GetPoint(1)
             if relativeFrame == worldMapButtonFrame and xOffset ~= nil and
                 (point == corner or point == sideAnchor) and
@@ -86,6 +65,8 @@ local function _GetOccupiedCornerOffset(worldMapButtonFrame, corner)
                 end
             end
         end
+
+        child = EnumerateFrames(child)
     end
 
     return occupiedOffset
@@ -199,9 +180,18 @@ function WorldMapButton.Toggle(shouldShow)
 end
 
 ---@param self Frame
+---@return GameTooltip
+local function GetTooltip(self)
+    return QuestieCompat.Is335 and QuestieCompat.SetupTooltip(self) or GameTooltip
+end
+
+---@param self Frame
 ---@return nil
 local function UpdateTooltip(self)
-    local tooltip = GameTooltip
+    local tooltip = GetTooltip(self)
+    tooltip._owner = self
+    tooltip._Rebuild = nil
+    tooltip.ShownAsMapIcon = false
     tooltip:SetOwner(self, "ANCHOR_NONE");
     tooltip:ClearLines()
     tooltip:SetPoint("TOPRIGHT", self, "BOTTOMRIGHT", 0, 0);
@@ -210,9 +200,19 @@ local function UpdateTooltip(self)
     tooltip:AddDoubleLine(Questie:Colorize(l10n('Left Click'), 'lightBlue'), Questie:Colorize(l10n('Toggle My Journey'), 'white'))
     tooltip:AddDoubleLine(Questie:Colorize(l10n('Right Click'), 'lightBlue'), Questie:Colorize(l10n('Toggle Menu'), 'white'))
     tooltip:AddDoubleLine(Questie:Colorize(l10n('Shift') .. ' + ' .. l10n('Left Click'), 'lightBlue'), Questie:Colorize(l10n('Questie Options'), 'white'))
+    tooltip:AddLine(" ")
     local toggleLabel = Questie.db.profile.enabled and l10n('Hide Questie') or l10n('Show Questie')
     tooltip:AddDoubleLine(Questie:Colorize(l10n('Ctrl + Shift + Left Click'), 'lightBlue'), Questie:Colorize(toggleLabel, 'white'))
     tooltip:Show()
+end
+
+local function CloseFullscreenWorldMap()
+    local worldMapFrame = _G.WorldMapFrame
+    local worldMapSize = WORLDMAP_SETTINGS and WORLDMAP_SETTINGS.size
+    if worldMapFrame and worldMapFrame:IsShown() and type(worldMapSize) == "number" and
+        WORLDMAP_WINDOWED_SIZE and worldMapSize ~= WORLDMAP_WINDOWED_SIZE then
+        HideUIPanel(worldMapFrame)
+    end
 end
 
 QuestieWorldMapButtonMixin = {
@@ -223,7 +223,8 @@ QuestieWorldMapButtonMixin = {
             if IsControlKeyDown() and IsShiftKeyDown() then
                 Questie.db.profile.enabled = (not Questie.db.profile.enabled)
                 QuestieQuest:ToggleNotes(Questie.db.profile.enabled)
-                if GameTooltip:IsShown() and GameTooltip:GetOwner() == mapButton then
+                local tooltip = GetTooltip(mapButton)
+                if tooltip:IsShown() and tooltip:GetOwner() == mapButton then
                     UpdateTooltip(mapButton)
                 end
 
@@ -231,10 +232,12 @@ QuestieWorldMapButtonMixin = {
                 return
             elseif IsShiftKeyDown() then
                 QuestieOptions:HideFrame()
+                QuestieJourney:HideJourneyWindow()
                 if InCombatLockdown() then
                     Questie:Print(l10n("Questie will open after combat ends."))
                 end
                 QuestieCombatQueue:Queue(function()
+                    CloseFullscreenWorldMap()
                     QuestieOptions:OpenConfigWindow()
                 end)
                 return
@@ -243,6 +246,7 @@ QuestieWorldMapButtonMixin = {
             end
 
             QuestieOptions:HideFrame()
+            CloseFullscreenWorldMap()
             QuestieJourney:ToggleJourneyWindow()
         elseif button == "RightButton" then
             if IsModifierKeyDown() then

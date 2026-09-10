@@ -177,6 +177,18 @@ local trackerUILocales = {
         ["esES"] = "Ctrl + clic izquierdo o clic derecho en el título de una misión",
         ["frFR"] = "Ctrl + Clic gauche ou clic droit sur un titre de quête",
     },
+    ["Toggle Questie Tracker"] = {
+        ["enUS"] = true,
+        ["deDE"] = "Questie-Tracker zeigen/verstecken",
+        ["esES"] = "Mostrar/ocultar el rastreador de Questie",
+        ["esMX"] = "Mostrar/ocultar el rastreador de Questie",
+        ["frFR"] = "Afficher/cacher le suivi de quêtes de Questie",
+        ["koKR"] = "Questie 추적기 표시",
+        ["ptBR"] = "Mostrar/ocultar o rastreador do Questie",
+        ["ruRU"] = "Включить трекер Questie",
+        ["zhCN"] = "切换Questie追踪器",
+        ["zhTW"] = "切換Questie追蹤器",
+    },
     ---------------------------------------------------------
     -- Quest/Achievement Right Click Menu
     ["Focus Quest"] = {
@@ -400,6 +412,18 @@ local trackerUILocales = {
         ["ruRU"] = "Задание провалено!",
         ["zhCN"] = "任务失败！",
         ["zhTW"] = "任務失敗！",
+    },
+    ["Time's up!"] = {
+        ["enUS"] = true,
+        ["deDE"] = "Zeit abgelaufen!",
+        ["esES"] = "¡Se acabó el tiempo!",
+        ["esMX"] = "¡Se acabó el tiempo!",
+        ["frFR"] = "Le temps est écoulé !",
+        ["koKR"] = "시간 종료!",
+        ["ptBR"] = "O tempo acabou!",
+        ["ruRU"] = "Время закончилось!",
+        ["zhCN"] = "计时结束！",
+        ["zhTW"] = "計時結束！",
     },
     ["Can't open Quest Log while in combat. Open it manually."] = {
         ["enUS"] = true,

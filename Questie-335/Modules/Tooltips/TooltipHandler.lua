@@ -46,6 +46,7 @@ function _QuestieTooltips:AddUnitDataToTooltip()
 
         local tooltipData = QuestieTooltips:GetTooltip("m_" .. npcId);
         if tooltipData then
+            GameTooltip:AddLine(" ")
             for _, v in pairs (tooltipData) do
                 GameTooltip:AddLine(v)
             end
@@ -126,8 +127,10 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
     end
     if name then
         local titleAdded = false
+        local tooltipModified = false
         local lookup = l10n:GetObjectNameLookup(name)
         local count = type(lookup) == "table" and table.getn(lookup) or (lookup and 1 or 0)
+        local zoneFilter = count == 1 and 0 or nil
 
         if Questie.db.profile.enableTooltipsObjectID == true and count ~= 0 then
             if count == 1 then
@@ -135,16 +138,18 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
             else
                 GameTooltip:AddDoubleLine("Object ID", "|cFFFFFFFF" .. lookup[1] .. " (" .. count .. ")|r")
             end
+            tooltipModified = true
         end
 
         local alreadyAddedObjectiveLines = {}
         local function _AddTooltipData(gameObjectId)
-            local tooltipData = QuestieTooltips:GetTooltip("o_" .. gameObjectId);
+            local tooltipData = QuestieTooltips:GetTooltip("o_" .. gameObjectId, zoneFilter)
 
             if type(gameObjectId) == "number" and tooltipData then
                 if (not titleAdded) then
                     GameTooltip:AddLine(tooltipData[1])
                     titleAdded = true
+                    tooltipModified = true
                 end
 
                 if tooltipData[2] then
@@ -159,6 +164,7 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
                             end
                             alreadyAddedObjectiveLines[line] = true
                             GameTooltip:AddLine(line)
+                            tooltipModified = true
                         end
                     end
                 end
@@ -172,7 +178,10 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
         elseif lookup then
             _AddTooltipData(lookup)
         end
-        GameTooltip:Show()
+        
+        if tooltipModified then
+            GameTooltip:Show()
+        end
     end
     QuestieTooltips.lastGametooltipType = "object";
 end

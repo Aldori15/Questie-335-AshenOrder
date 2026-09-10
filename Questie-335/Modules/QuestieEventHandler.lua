@@ -45,6 +45,10 @@ local QuestgiverFrame = QuestieLoader:ImportModule("QuestgiverFrame")
 local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
 ---@type QuestiePartyObjectives
 local QuestiePartyObjectives = QuestieLoader:ImportModule("QuestiePartyObjectives")
+---@type CommsVisibility
+local CommsVisibility = QuestieLoader:ImportModule("CommsVisibility")
+---@type DailyQuestComms
+local DailyQuestComms = QuestieLoader:ImportModule("DailyQuestComms")
 
 --- COMPATIBILITY ---
 local C_Timer = QuestieCompat.C_Timer
@@ -151,12 +155,6 @@ function QuestieEventHandler:RegisterLateEvents()
     Questie:RegisterBucketEvent("CHAT_MSG_COMBAT_FACTION_CHANGE", 2, _EventHandler.ChatMsgCompatFactionChange)
     Questie:RegisterEvent("CHAT_MSG_SYSTEM", _EventHandler.ChatMsgSystem)
 
-    -- Spell objectives
-    Questie:RegisterEvent("NEW_RECIPE_LEARNED", function() -- Needed for some spells that don't necessarily appear in the spellbook, but are definitely spells
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] NEW_RECIPE_LEARNED")
-        AvailableQuests.CalculateAndDrawAll()
-    end)
-
     -- UI Quest Events
     Questie:RegisterEvent("UI_INFO_MESSAGE", _EventHandler.UiInfoMessage)
     Questie:RegisterEvent("QUEST_FINISHED", QuestieAuto.QUEST_FINISHED)
@@ -186,7 +184,7 @@ function QuestieEventHandler:RegisterLateEvents()
     if Questie.IsWotlk or QuestieCompat.Is335 then
         -- Earned Achievement update
         Questie:RegisterEvent("ACHIEVEMENT_EARNED", function(index, achieveId, alreadyEarned)
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] ACHIEVEMENT_EARNED")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] ACHIEVEMENT_EARNED")
             QuestieTracker:UntrackAchieveId(achieveId)
             QuestieTracker:UpdateAchieveTrackerCache(achieveId)
 
@@ -199,18 +197,22 @@ function QuestieEventHandler:RegisterLateEvents()
             QuestieCombatQueue:Queue(function()
                 QuestieTracker:Update()
             end)
+
+            -- AzerothCore can gate quest availability directly on earned
+            -- achievements, so refresh quest markers immediately.
+            AvailableQuests.CalculateAndDrawAll()
         end)
 
         -- Track/Untrack Achievement updates
         Questie:RegisterEvent("TRACKED_ACHIEVEMENT_LIST_CHANGED", function(index, achieveId, added)
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] TRACKED_ACHIEVEMENT_LIST_CHANGED")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] TRACKED_ACHIEVEMENT_LIST_CHANGED")
             QuestieTracker:UpdateAchieveTrackerCache(achieveId)
         end)
 
         -- Timed based Achievement updates
         -- TODO: Fired when a timed event for an achievement begins or ends. The achievement does not have to be actively tracked for this to trigger.
         Questie:RegisterEvent("TRACKED_ACHIEVEMENT_UPDATE", function(self, achieveId)
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] TRACKED_ACHIEVEMENT_UPDATE")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] TRACKED_ACHIEVEMENT_UPDATE")
             QuestieCombatQueue:Queue(function()
                 if QuestieCompat.Is335 then
                     QuestieTracker:UpdateAchieveTrackerCache(achieveId)
@@ -220,7 +222,7 @@ function QuestieEventHandler:RegisterLateEvents()
         end)
 
         Questie:RegisterEvent("CRITERIA_UPDATE", function()
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] CRITERIA_UPDATE")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] CRITERIA_UPDATE")
             if (not Questie.db.profile.trackerEnabled) or (not _HasTrackedAchievements()) then
                 return
             end
@@ -241,7 +243,7 @@ function QuestieEventHandler:RegisterLateEvents()
         end)
         -- Money based Achievement updates
         Questie:RegisterEvent("CHAT_MSG_MONEY", function()
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] CHAT_MSG_MONEY")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] CHAT_MSG_MONEY")
             QuestieCombatQueue:Queue(function()
                 QuestieTracker:Update()
             end)
@@ -249,7 +251,7 @@ function QuestieEventHandler:RegisterLateEvents()
 
         -- Emote based Achievement updates
         Questie:RegisterEvent("CHAT_MSG_TEXT_EMOTE", function()
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] CHAT_MSG_TEXT_EMOTE")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] CHAT_MSG_TEXT_EMOTE")
             QuestieCombatQueue:Queue(function()
                 QuestieTracker:Update()
             end)
@@ -257,7 +259,7 @@ function QuestieEventHandler:RegisterLateEvents()
 
         -- Player equipment changed based Achievement updates
         Questie:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", function()
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_EQUIPMENT_CHANGED")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_EQUIPMENT_CHANGED")
             QuestieCombatQueue:Queue(function()
                 QuestieTracker:Update()
             end)
@@ -319,7 +321,7 @@ function _EventHandler:PlayerLogin()
     -- Check config exists
     if not Questie.db or not QuestieConfig then
         -- Did you move Questie.db = LibStub("AceDB-3.0"):New("QuestieConfig",.......) out of Questie:OnInitialize() ?
-        Questie:Error("Config DB from saved variables is not loaded and initialized. Please report this issue on Questie github or discord.")
+        Questie.Error("Config DB from saved variables is not loaded and initialized. Please report this issue on Questie github or discord.")
         error("Config DB from saved variables is not loaded and initialized. Please report this issue on Questie github or discord.")
         return
     end
@@ -366,8 +368,8 @@ function _EventHandler:PlayerLogin()
         --? Nothing worked :(
         if replaceCount and replaceCount < 1 then --- Error: Default to match EVERYTHING, because it's better that it works
             FACTION_STANDING_CHANGED_PATTERN = ".+"
-            Questie:Error("Something went wrong with the FACTION_STANDING_CHANGED_PATTERN!")
-            Questie:Error("FACTION_STANDING_CHANGED is set to " .. tostring(FACTION_STANDING_CHANGED) .. ", please report this on GitHub!")
+            Questie.Error("Something went wrong with the FACTION_STANDING_CHANGED_PATTERN!")
+            Questie.Error("FACTION_STANDING_CHANGED is set to " .. tostring(FACTION_STANDING_CHANGED) .. ", please report this on GitHub!")
         end
     end
 
@@ -393,30 +395,30 @@ function _EventHandler:ChatMsgSystem(message)
     end
 end
 
+local _QuestProgressMessages = {
+    ["ERR_QUEST_OBJECTIVE_COMPLETE_S"] = true,
+    ["ERR_QUEST_UNKNOWN_COMPLETE"] = true,
+    ["ERR_QUEST_ADD_KILL_SII"] = true,
+    ["ERR_QUEST_ADD_FOUND_SII"] = true,
+    ["ERR_QUEST_ADD_ITEM_SII"] = true,
+    ["ERR_QUEST_ADD_PLAYER_KILL_SII"] = true,
+    ["ERR_QUEST_FAILED_S"] = true,
+}
+
 --- Fires when a UI Info Message (yellow text) appears near the top of the screen
 ---@param errorType number The error type value from the UI_INFO_MESSAGE event
 ---@param message string The message value from the UI_INFO_MESSAGE event
 function _EventHandler:UiInfoMessage(errorType, message)
-    local messages = {
-        ["ERR_QUEST_OBJECTIVE_COMPLETE_S"] = true,
-        ["ERR_QUEST_UNKNOWN_COMPLETE"] = true,
-        ["ERR_QUEST_ADD_KILL_SII"] = true,
-        ["ERR_QUEST_ADD_FOUND_SII"] = true,
-        ["ERR_QUEST_ADD_ITEM_SII"] = true,
-        ["ERR_QUEST_ADD_PLAYER_KILL_SII "] = true,
-        ["ERR_QUEST_FAILED_S"] = true,
-    }
-
-    if messages[GetGameMessageInfo(errorType)] then
+    if _QuestProgressMessages[GetGameMessageInfo(errorType)] then
         MinimapIcon:UpdateText(message)
     end
 end
 
 --- Fires on MAP_EXPLORATION_UPDATED.
 function _EventHandler:MapExplorationUpdated()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] MAP_EXPLORATION_UPDATED")
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] MAP_EXPLORATION_UPDATED")
     if Questie.db.profile.hideUnexploredMapIcons then
-        QuestieMap.utils:MapExplorationUpdate()
+        QuestieMap.utils.MapExplorationUpdate()
     end
 
     -- Exploratory based Achievement updates
@@ -430,7 +432,7 @@ end
 --- Fires when the player levels up
 ---@param level number
 function _EventHandler:PlayerLevelUp(level)
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_LEVEL_UP", level)
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_LEVEL_UP", level)
 
     _RefreshAvailableAfterLevelChange(level)
     QuestieJourney:PlayerLevelUp(level)
@@ -450,7 +452,7 @@ function _EventHandler:UnitLevel(unit)
     local level = UnitLevel("player")
     if (not level) or level <= 0 then return end
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] UNIT_LEVEL", level)
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] UNIT_LEVEL", level)
     _RefreshAvailableAfterLevelChange(level)
 end
 
@@ -532,7 +534,7 @@ end
 
 --- Fires when some chat messages about skills are displayed
 function _EventHandler:ChatMsgSkill()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] CHAT_MSG_SKILL")
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] CHAT_MSG_SKILL")
 
     -- This needs to be done to draw new quests that just came available
     local isProfUpdate, isNewProfession = QuestieProfessions:Update()
@@ -550,7 +552,7 @@ end
 
 --- Fires when some chat messages about reputations are displayed
 function _EventHandler:ChatMsgCompatFactionChange()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] CHAT_MSG_COMBAT_FACTION_CHANGE")
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] CHAT_MSG_COMBAT_FACTION_CHANGE")
     local factionChanged, newFaction = QuestieReputation:Update(false)
     if factionChanged or newFaction then
         QuestieCombatQueue:Queue(function()
@@ -601,16 +603,21 @@ function _EventHandler.GroupRosterUpdate()
     -- Evaluate unconditionally so the online snapshot stays current even when the size also changed.
     local onlineChanged = _OnlineStatusChanged()
 
-    -- Only redraw when the group size changed (crossing the draw threshold / members joining or
-    -- leaving) or a quest-sharing member changed online status. Pure zone changes also fire
-    -- GROUP_ROSTER_UPDATE and must NOT trigger a redraw.
+    -- Prune on every roster update because a same-size group replacement can leave stale
+    -- visibility snapshots even when the size and online-state counts do not change.
+    CommsVisibility:PruneRemotePlayers()
+
+    -- Only redraw/resync when the group size changed (crossing the draw threshold / members
+    -- joining or leaving) or a quest-sharing member changed online status. Pure zone changes also
+    -- fire GROUP_ROSTER_UPDATE and must NOT trigger a redraw.
     if sizeChanged or onlineChanged then
+        CommsVisibility:ScheduleSnapshot("GROUP_ROSTER_UPDATE")
         QuestiePartyObjectives:ScheduleUpdate()
     end
 end
 
 function _EventHandler:GroupJoined()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] GROUP_JOINED")
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] GROUP_JOINED")
     local checkTimer
     --We want this to be fairly quick.
     checkTimer = C_Timer.NewTicker(0.2, function()
@@ -619,13 +626,16 @@ function _EventHandler:GroupJoined()
         local isInRaid = UnitInRaid("raid1")
         if partyPending then
             if (isInParty or isInRaid) then
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieEventHandler] Player joined party/raid, ask for questlogs")
+                Questie.Debug(Questie.DEBUG_DEVELOP, "[QuestieEventHandler] Player joined party/raid, ask for questlogs")
                 --Request other players log.
                 Questie:SendMessage("QC_ID_REQUEST_FULL_QUESTLIST")
+                CommsVisibility:ScheduleSnapshot("GROUP_JOINED")
+                -- Ask only the newly joined party/raid for unavailable daily and weekly quests.
+                DailyQuestComms.RequestUnavailableQuestState(false, true)
                 checkTimer:Cancel()
             end
         else
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieEventHandler] Player no longer in a party or pending invite. Cancel timer")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[QuestieEventHandler] Player no longer in a party or pending invite. Cancel timer")
             checkTimer:Cancel()
         end
     end)
@@ -634,6 +644,8 @@ end
 function _EventHandler:GroupLeft()
     --Resets both QuestieComms.remoteQuestLog and QuestieComms.data
     QuestieComms:ResetAll()
+    CommsVisibility:ResetAll()
+    DailyQuestComms.CancelPendingUnavailableQuestGroupResponses()
     QuestiePartyObjectives:Clear()
     previousOnlineStatus = {}
 end
@@ -641,7 +653,7 @@ end
 local trackerMinimizedByCombat, trackerHiddenByCombat = false, false
 local optionsHiddenByCombat, journeyHiddenByCombat = false, false
 function _EventHandler:PlayerRegenDisabled()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_REGEN_DISABLED")
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_REGEN_DISABLED")
 
     -- Let's make sure the frame exists - might be nil if player is in combat upon login
     if QuestieTracker then
@@ -679,7 +691,7 @@ function _EventHandler:PlayerRegenDisabled()
 end
 
 function _EventHandler:PlayerRegenEnabled()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_REGEN_ENABLED")
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[EVENT] PLAYER_REGEN_ENABLED")
     if Questie.db.profile.minimizeTrackerInCombat and trackerMinimizedByCombat then
         if (not Questie.db.profile.minimizeTrackerInDungeons) or (not IsInInstance()) then
             trackerMinimizedByCombat = false

@@ -40,6 +40,12 @@ local WorldMapFrame = QuestieCompat.WorldMapFrame
 
 local tinsert = table.insert
 
+local function _RefreshWorldMapPins()
+    if QuestieCompat.HBDPins and QuestieCompat.HBDPins.UpdateWorldMap then
+        QuestieCompat.HBDPins.UpdateWorldMap(true)
+    end
+end
+
 local objectiveFlashTicker
 local zoneCache = {}
 local questProximityTimer
@@ -81,7 +87,7 @@ function TrackerUtils:ShowQuestLog(quest)
     --HideUIPanel(questFrame) -- don't use as I don't see why to use and protected function taints in combat
     local questLogIndex = GetQuestLogIndexByID(quest.Id)
     if (not questLogIndex) then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:ShowQuestLog] Missing quest log index for tracked quest:", quest.Id)
+        Questie.Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:ShowQuestLog] Missing quest log index for tracked quest:", quest.Id)
         QuestieTracker:UntrackQuestId(quest.Id)
         return
     end
@@ -201,6 +207,12 @@ function TrackerUtils:FlashObjective(objective)
                     -- todo: move into frame.session
                     frame._hidden_by_flash = nil
                     frame._size = frame:GetWidth()
+
+                    if Questie.db.profile.showWaypointLines and frame.data.lineFrames then
+                        for _, line in pairs(frame.data.lineFrames) do
+                            line:Show()
+                        end
+                    end
                 end
             end
         end
@@ -243,17 +255,10 @@ function TrackerUtils:FlashObjective(objective)
                                         if icon._hidden_by_flash then
                                             icon._hidden_by_flash = nil
                                             icon:Show()
-                                            if icon.data.lineFrames then
-                                                for _, line in pairs(icon.data.lineFrames) do
-                                                    if line._hidden_by_flash then
-                                                        line._hidden_by_flash = nil
-                                                        line:Show()
-                                                    end
-                                                end
-                                            end
                                         end
                                     end
                                 end
+                                _RefreshWorldMapPins()
                             end)
                         end
                         flashDone = flashDone + 1
@@ -294,6 +299,12 @@ function TrackerUtils:FlashFinisher(quest)
                 if not icon.miniMapIcon then
                     icon._size = icon:GetWidth()
                     tinsert(toFlash, icon)
+
+                    if Questie.db.profile.showWaypointLines and icon.data.lineFrames then
+                        for _, line in pairs(icon.data.lineFrames) do
+                            line:Show()
+                        end
+                    end
                 end
             end
         end
@@ -338,17 +349,10 @@ function TrackerUtils:FlashFinisher(quest)
                                     if icon._hidden_by_flash then
                                         icon._hidden_by_flash = nil
                                         icon:Show()
-                                        if icon.data.lineFrames then
-                                            for _, line in pairs(icon.data.lineFrames) do
-                                                if line._hidden_by_flash then
-                                                    line._hidden_by_flash = nil
-                                                    line:Show()
-                                                end
-                                            end
-                                        end
                                     end
                                 end
                             end
+                            _RefreshWorldMapPins()
                         end)
                     end
                     flashDone = flashDone + 1
@@ -458,7 +462,7 @@ local function GetZoneNameByIDFallback(zoneId)
         return localizedZoneName
     end
 
-    Questie:Debug(Questie.DEBUG_CRITICAL, "[GetZoneNameByIDFallback]: Unable to find a zone name for zoneId", zoneId)
+    Questie.Debug(Questie.DEBUG_CRITICAL, "[GetZoneNameByIDFallback]: Unable to find a zone name for zoneId", zoneId)
 
     return "Unknown Zone"
 end
@@ -702,7 +706,7 @@ local function _GetZoneName(zoneOrSort, questId)
         else
             -- The quest has no explicit zone or category. Fallback to "Unknown Zone"
             zoneName = "Unknown Zone"
-            Questie:Debug(Questie.DEBUG_CRITICAL, "[TrackerUtils:_GetZoneName] zoneOrSort", zoneOrSort, "of quest", questId, "is not in the Database!")
+            Questie.Debug(Questie.DEBUG_CRITICAL, "[TrackerUtils:_GetZoneName] zoneOrSort", zoneOrSort, "of quest", questId, "is not in the Database!")
         end
     else
         -- Let's create custom Zones based on Sorting type.
@@ -853,12 +857,12 @@ function TrackerUtils:GetSortedQuestIds()
 
         if not questZoneProximityTimer and not IsInInstance() then
             -- Check location often and update if you've moved
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Started!")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Started!")
 
             local playerPosition
             questZoneProximityTimer = C_Timer.NewTicker(5.0, function()
                 if IsInInstance() and questZoneProximityTimer then
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stopped!")
+                    Questie.Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stopped!")
                     questZoneProximityTimer:Cancel()
                     questZoneProximityTimer = nil
                 else
@@ -866,7 +870,7 @@ function TrackerUtils:GetSortedQuestIds()
                     if position then
                         local distance = playerPosition and _GetDistance(position.x, position.y, playerPosition.x, playerPosition.y)
                         if not distance or distance > 0.01 then -- Position has changed
-                            Questie:Debug(Questie.DEBUG_SPAM, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Updated!")
+                            Questie.Debug(Questie.DEBUG_SPAM, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Updated!")
                             playerPosition = position
                             local orderCopy = {}
 
@@ -958,12 +962,12 @@ function TrackerUtils:GetSortedQuestIds()
 
         if not questProximityTimer and not IsInInstance() then
             -- Check location often and update if you've moved
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Started!")
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Started!")
 
             local playerPosition
             questProximityTimer = C_Timer.NewTicker(5.0, function()
                 if IsInInstance() and questProximityTimer then
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Stopped!")
+                    Questie.Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Stopped!")
                     questProximityTimer:Cancel()
                     questProximityTimer = nil
                 else
@@ -971,7 +975,7 @@ function TrackerUtils:GetSortedQuestIds()
                     if position then
                         local distance = playerPosition and _GetDistance(position.x, position.y, playerPosition.x, playerPosition.y)
                         if not distance or distance > 0.01 then -- Position has changed
-                            Questie:Debug(Questie.DEBUG_SPAM, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Updated!")
+                            Questie.Debug(Questie.DEBUG_SPAM, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Updated!")
                             playerPosition = position
                             local orderCopy = {}
 
@@ -1000,14 +1004,14 @@ function TrackerUtils:GetSortedQuestIds()
 
 
     if (sortObj ~= strmatch(sortObj, "byProximity.*")) and questProximityTimer and questProximityTimer ~= nil then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Stopped!")
+        Questie.Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Proximity Timer Stopped!")
         questProximityTimer:Cancel()
         TrackerUtils.FilterProximityTimer = nil
         questProximityTimer = nil
     end
 
     if (sortObj ~= strmatch(sortObj, "byZonePlayerProximity.*")) and questZoneProximityTimer and questZoneProximityTimer ~= nil then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stopped!")
+        Questie.Debug(Questie.DEBUG_DEVELOP, "[TrackerUtils:GetSortedQuestIds] - Zone Proximity Timer Stopped!")
         questZoneProximityTimer:Cancel()
         TrackerUtils.FilterProximityTimer = nil
         questZoneProximityTimer = nil
@@ -1029,9 +1033,9 @@ function TrackerUtils:ShowVoiceOverPlayButtons()
         if Questie.db.char.isTrackerExpanded then
             if IsShiftKeyDown() and MouseIsOver(Questie_BaseFrame) then
                 if Questie_BaseFrame.isSizing == true or Questie_BaseFrame.isMoving == true then
-                    Questie:Debug(Questie.DEBUG_SPAM, "[TrackerUtils:ShowVoiceOverPlayButtons]")
+                    Questie.Debug(Questie.DEBUG_SPAM, "[TrackerUtils:ShowVoiceOverPlayButtons]")
                 else
-                    Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:ShowVoiceOverPlayButtons]")
+                    Questie.Debug(Questie.DEBUG_INFO, "[TrackerUtils:ShowVoiceOverPlayButtons]")
                 end
             end
 
@@ -1072,9 +1076,9 @@ end
 function TrackerUtils:UpdateVoiceOverPlayButtons()
     if self:IsVoiceOverLoaded() then
         if Questie_BaseFrame.isSizing == true or Questie_BaseFrame.isMoving == true then
-            Questie:Debug(Questie.DEBUG_SPAM, "[TrackerUtils:UpdateVoiceOverPlayButtons]")
+            Questie.Debug(Questie.DEBUG_SPAM, "[TrackerUtils:UpdateVoiceOverPlayButtons]")
         else
-            Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UpdateVoiceOverPlayButtons]")
+            Questie.Debug(Questie.DEBUG_INFO, "[TrackerUtils:UpdateVoiceOverPlayButtons]")
         end
 
         for i = 1, 75 do
@@ -1130,6 +1134,6 @@ function TrackerUtils.HasQuest()
         end
     end
 
-    Questie:Debug(Questie.DEBUG_SPAM, "[TrackerUtils.HasQuest] - ", hasQuest)
+    Questie.Debug(Questie.DEBUG_SPAM, "[TrackerUtils.HasQuest] - ", hasQuest)
     return hasQuest
 end

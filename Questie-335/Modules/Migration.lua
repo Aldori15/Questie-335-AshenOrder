@@ -59,7 +59,7 @@ local migrationFunctions = {
         Questie.db.profile.enableTooltipDroprates = true
     end,
     [14] = function()
-        local _, playerClass = UnitClassBase("player")
+        local _, playerClass = QuestieCompat.UnitClass("player")
         if playerClass == "ROGUE" and Questie.db.profile.townsfolkConfig["Reagents"] then
             Questie.db.profile.townsfolkConfig["Reagents"] = false
             Questie.db.profile.townsfolkConfig["Poisons"] = true
@@ -150,6 +150,29 @@ local migrationFunctions = {
     [26] = function()
         Questie.db.profile.showPartyQuestObjectives = true
     end,
+    [27] = function()
+        local outline = Questie.db.profile.trackerFontOutline
+        if outline == "None" then
+            Questie.db.profile.trackerFontOutline = ""
+        elseif outline == "Outline" then
+            Questie.db.profile.trackerFontOutline = "OUTLINE"
+        elseif outline == "Monochrome" then
+            Questie.db.profile.trackerFontOutline = "MONOCHROME"
+        elseif outline ~= "" and outline ~= "OUTLINE" and outline ~= "MONOCHROME" then
+            Questie.db.profile.trackerFontOutline = ""
+        end
+    end,
+    [28] = function()
+        Questie.db.profile.enableTooltipsBreadcrumbQuests = false
+    end,
+    [29] = function()
+        Questie.db.profile.mapCoordinatesEnabled = false
+        Questie.db.profile.showManualTooltipCoordinates = false
+    end,
+    [30] = function()
+        Questie.db.global.lastDailyRequestDate = nil
+        Questie.db.global.lastDailyRequestResetTime = nil
+    end,
 }
 
 function Migration:Migrate()
@@ -161,11 +184,11 @@ function Migration:Migrate()
     local targetVersion = table.getn(migrationFunctions)
 
     if currentVersion == targetVersion then
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[Migration] Nothing to migrate. Already on latest version:", targetVersion)
+        Questie.Debug(Questie.DEBUG_DEVELOP, "[Migration] Nothing to migrate. Already on latest version:", targetVersion)
         return
     end
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[Migration] Starting Questie migration for targetVersion", targetVersion)
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[Migration] Starting Questie migration for targetVersion", targetVersion)
 
     while currentVersion < targetVersion do
         currentVersion = currentVersion + 1

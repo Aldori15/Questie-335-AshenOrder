@@ -20,15 +20,6 @@ QuestieCorrections.itemObjectiveFirst[5088] = true
 -- Further information on how to use this can be found at the wiki
 -- https://github.com/Questie/Questie/wiki/Corrections
 
-function QuestieQuestFixes:LoadMissingQuests()
-    QuestieDB.questData[5640] = {} -- Desperate Prayer
-    QuestieDB.questData[5678] = {} -- Arcane Feedback
-
-    QuestieDB.questData[7668] = {} -- Add missing quest index
-    QuestieDB.questData[7669] = {} -- Add missing quest index
-    QuestieDB.questData[7670] = {} -- Add missing quest index #1432
-end
-
 function QuestieQuestFixes:Load()
     local questKeys = QuestieDB.questKeys
     local zoneIDs = ZoneDB.zoneIDs
@@ -721,7 +712,7 @@ function QuestieQuestFixes:Load()
             [questKeys.nextQuestInChain] = 4901,
         },
         [984] = {
-            [questKeys.triggerEnd] = {"Find a corrupt furbolg camp",{[zoneIDs.DARKSHORE]={{50.91,34.74},{39.86,53.89},{42.68,86.53},{39.95,78.41}}}},
+            [questKeys.triggerEnd] = {"Find a corrupt furbolg camp",{[zoneIDs.DARKSHORE]={{39.34,53.51},{39.86,53.89},{42.68,86.53}}}},
         },
         [985] = {
             [questKeys.nextQuestInChain] = 986,
@@ -1074,7 +1065,7 @@ function QuestieQuestFixes:Load()
             [questKeys.objectives] = {{{4961}}},
         },
         [1448] = {
-            [questKeys.triggerEnd] = {"Search for the Temple of Atal'Hakkar", {[zoneIDs.SWAMP_OF_SORROWS]={{70.2,45.2},{66.6,48.1},{73.6,48.1},{64.9,53.3},{75.4,53.3},{66.6,58.4},{73.6,58.4},{70.2,60.5}}}},
+            [questKeys.triggerEnd] = {"Search for the Temple of Atal'Hakkar", {[zoneIDs.SWAMP_OF_SORROWS]={{70.01,52.88}}}},
         },
         [1452] = { -- Rhapsody's Kalimdor Kocktail
             [questKeys.nextQuestInChain] = 1469,
@@ -1257,7 +1248,7 @@ function QuestieQuestFixes:Load()
             [questKeys.requiredSkill] = {356,30},
             [questKeys.extraObjectives] = {{{[zoneIDs.DARKSHORE]={{50.7,23.8},{40,73.6},{44.3,74.4},{53.3,32.4},{43.3,80.6}}}, Questie.ICON_TYPE_NODE_FISH, l10n("Fish for Electropellers"),}},
         },
-        [1581] = { -- bad race data
+        [1581] = { -- Elixirs for the Bladeleafs
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [1598] = {
@@ -1796,7 +1787,7 @@ function QuestieQuestFixes:Load()
             [questKeys.nextQuestInChain] = 2604,
         },
         [2608] = { -- The Touch of Zanzil
-            [questKeys.triggerEnd] = {"Diagnosis Complete", {[zoneIDs.STORMWIND_CITY]={{78.04,59}}}},
+            [questKeys.triggerEnd] = {"Diagnosis Complete", {[zoneIDs.STORMWIND_CITY]={{80.06,69.9}}}},
         },
         [2609] = { -- The Touch of Zanzil
             [questKeys.objectivesText] = {"Bring Doc Mixilpixil one bundle of Simple Wildflowers, one Leaded Vial, one Bronze Tube, and one Spool of Light Chartreuse Silk Thread. The 'itis' doesn't cure itself, young <fella/lady>."},
@@ -2359,7 +2350,7 @@ function QuestieQuestFixes:Load()
             [questKeys.preQuestSingle] = {5891},
         },
         [4121] = {
-            [questKeys.triggerEnd] = {"Prisoner Transport", {[zoneIDs.BURNING_STEPPES]={{25.73,27.1}}}},
+            [questKeys.triggerEnd] = {"Prisoner Transport", {[zoneIDs.SEARING_GORGE]={{33.87,73.34}}}},
         },
         [4122] = {
             [questKeys.preQuestSingle] = {4082}, -- #1349
@@ -2533,7 +2524,7 @@ function QuestieQuestFixes:Load()
             [questKeys.breadcrumbForQuestId] = 788, -- #1956
         },
         [4726] = {
-            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_INTERACT, l10n("Use the Draco-Incarcinatrix 900 and defeat the dragonkin."), 0, {{"monster",7047},{"monster",7048}},{"monster",7049}}},
+            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_INTERACT, l10n("Use the Draco-Incarcinatrix 900 and defeat the dragonkin."), 0, {{"monster",7047},{"monster",7048},{"monster",7049}}}},
         },
         [4729] = {
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_EVENT, l10n("Use the Empty Worg Pup Cage to capture it."), 0, {{"monster", 10221}}}},
@@ -2800,10 +2791,10 @@ function QuestieQuestFixes:Load()
             [questKeys.breadcrumbs] = {5142,5601},
         },
         [5151] = { -- Hypercapacitor Gizmo
-            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_INTERACT, l10n("Open the cage"), 0, {{"object", 176195}}}},
+            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_OBJECT, l10n("Open the cage"), 0, {{"object", 176195}}}},
         },
         [5156] = {
-            [questKeys.triggerEnd] = {"Explore the craters in Shatter Scar Vale", {[zoneIDs.FELWOOD]={{41.03,41.96}}}},
+            [questKeys.triggerEnd] = {"Explore the craters in Shatter Scar Vale", {[zoneIDs.FELWOOD]={{40.44,41.25}}}},
         },
         [5203] = {
             [questKeys.triggerEnd] = {"Protect Arko'narin out of Shadow Hold", {[zoneIDs.FELWOOD]={{35.45,59.06}}}},
@@ -2832,7 +2823,7 @@ function QuestieQuestFixes:Load()
         [5227] = {
             [questKeys.preQuestSingle] = {5226,5236},
         },
-        [5234] = { -- bad race data
+        [5234] = { -- Return to the Bulwark
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [5236] = { -- Return to the Bulwark
@@ -3705,19 +3696,19 @@ function QuestieQuestFixes:Load()
         [7165] = {
             [questKeys.requiredRaces] = raceIDs.NONE,
         },
-        [7166] = { -- bad race data
+        [7166] = { -- Legendary Heroes
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
-        [7167] = { -- bad race data
+        [7167] = { -- The Eye of Command
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
-        [7170] = { -- bad race data
+        [7170] = { -- Earned Reverence
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [7171] = { -- bad race data
+        [7171] = { -- Legendary Heroes
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [7172] = { -- bad race data
+        [7172] = { -- The Eye of Command
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [7181] = {
@@ -3778,13 +3769,13 @@ function QuestieQuestFixes:Load()
             [questKeys.startedBy] = {{14188}},
             [questKeys.finishedBy] = {{14188}},
         },
-        [7426] = { -- bad race data
+        [7426] = { -- One Man's Love
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [7427] = { -- bad race data
+        [7427] = { -- Wanted: MORE DWARVES!
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
-        [7428] = { -- bad race data
+        [7428] = { -- Wanted: MORE ORCS!
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [7463] = {
@@ -4327,7 +4318,7 @@ function QuestieQuestFixes:Load()
         [8271] = {
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [8272] = { -- bad race data
+        [8272] = { -- Hero of the Frostwolf
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [8275] = {
@@ -4352,7 +4343,7 @@ function QuestieQuestFixes:Load()
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
             [questKeys.specialFlags] = specialFlags.REPEATABLE,
         },
-        [8296] = { -- bad race data
+        [8296] = { -- Mark of Honor
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [8301] = { -- The Path of the Righteous
@@ -5850,10 +5841,10 @@ function QuestieQuestFixes:Load()
             [questKeys.requiredClasses] = classIDs.MAGE + classIDs.PRIEST + classIDs.DRUID + classIDs.WARLOCK,
         },
         [9260] = {
-            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.ELWYNN_FOREST] = {{34.72,50.95},{34.18,48.47},{32.24,53.77},{35.05,55.22}}}},
+            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.ELWYNN_FOREST] = {{35.06,55.24},{32.29,53.7},{37.37,56.23},{32.16,56.31}}}},
         },
         [9261] = {
-            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.DUN_MOROGH] = {{48.53,39.54},{49.70,39.17}}}},
+            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.DUN_MOROGH] = {{51.52,45.64},{51.61,42.52}}}},
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [9262] = {
@@ -5861,7 +5852,7 @@ function QuestieQuestFixes:Load()
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [9263] = {
-            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.DUROTAR] = {{44.9,16.7},{44.6,18.1}}}},
+            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.DUROTAR] = {{49.21,17.84}}}},
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [9264] = {

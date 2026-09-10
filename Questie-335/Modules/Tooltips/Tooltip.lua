@@ -55,7 +55,6 @@ end
 
 local function _ResetTooltipTracking(tooltip)
     QuestieTooltips.lastGametooltip = ""
-    QuestieTooltips.lastItemRefTooltip = ""
     QuestieTooltips.lastGametooltipItem = nil
     QuestieTooltips.lastGametooltipUnit = nil
     QuestieTooltips.lastGametooltipCount = 0
@@ -153,7 +152,7 @@ local function BuildRelatedPlayerAreaIds(playerZone)
 end
 
 local function IsObjectSpawnInCurrentZone(spawns, playerZone)
-    if not spawns or playerZone == 0 then
+    if not spawns or not next(spawns) or playerZone == 0 then
         return true
     end
 
@@ -268,7 +267,7 @@ function QuestieTooltips:RemoveQuest(questId)
         end
     end
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTooltips:RemoveQuest]", questId)
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[QuestieTooltips:RemoveQuest]", questId)
 
     for key in pairs(QuestieTooltips.lookupKeysByQuestId[questId] or {}) do
         --Count to see if we should remove the main object
@@ -299,7 +298,7 @@ function QuestieTooltips:RemoveAvailableQuest(questId)
         return
     end
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieTooltips:RemoveAvailableQuest]", questId)
+    Questie.Debug(Questie.DEBUG_DEVELOP, "[QuestieTooltips:RemoveAvailableQuest]", questId)
 
     local removedAnyKey
     for key in pairs(QuestieTooltips.lookupKeysByQuestId[questId] or {}) do
@@ -428,8 +427,9 @@ local function _FetchTooltipsForGroupMembers(key, tooltipData)
 end
 
 ---@param key string
-function QuestieTooltips:GetTooltip(key)
-    Questie:Debug(Questie.DEBUG_SPAM, "[QuestieTooltips:GetTooltip]", key)
+---@param playerZone number? @Only used for object tooltips. 0 disables the zone filter.
+function QuestieTooltips:GetTooltip(key, playerZone)
+    Questie.Debug(Questie.DEBUG_SPAM, "[QuestieTooltips:GetTooltip]", key)
     if (not key) then
         return nil
     end
@@ -438,11 +438,19 @@ function QuestieTooltips:GetTooltip(key)
         return nil -- temporary disable tooltips in raids, we should make a proper fix
     end
 
+    if type(key) ~= "string" then
+        return nil
+    end
+
     local isObjectTooltip = key:sub(1, 2) == "o_"
     if isObjectTooltip then
         local objectId = tonumber(key:sub(3))
         local spawns = QuestieDB.QueryObjectSingle(objectId, "spawns")
-        local playerZone = QuestiePlayer:GetCurrentZoneId()
+
+        if playerZone == nil then
+            playerZone = QuestiePlayer:GetCurrentZoneId()
+        end
+
         local objectIsInCurrentZone = IsObjectSpawnInCurrentZone(spawns, playerZone)
 
         if (not objectIsInCurrentZone) then
@@ -491,7 +499,7 @@ function QuestieTooltips:GetTooltip(key)
                 if Questie.db.profile.showQuestsInNpcTooltip then
                     local questString = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
                     if tooltip.type then
-                        local level, _ = QuestieLib.GetTbcLevel(questId)
+                        local level, _ = QuestieLib.GetEffectiveQuestLevel(questId)
                         local availableIcon, completeIcon = _GetQuestTooltipIconNames(questId, level)
                         local iconSize = 18
                         if tooltip.type == "NPC" then
@@ -602,7 +610,7 @@ function QuestieTooltips:GetTooltip(key)
                     end
                 end
                 if objectivePlayerName == playerName and anotherPlayer then -- Add current player name to own objective
-                    local _, playerClass = UnitClassBase("player")
+                    local _, playerClass = QuestieCompat.UnitClass("player")
                     local _, _, _, argbHex = GetClassColor(playerClass)
                     local dropIndex = strfind(objectiveInfo.text, "  |cFF999999")
                     local playerString = " (|c" .. argbHex .. objectivePlayerName .. "|r" .. objectiveInfo.color .. ")|r"

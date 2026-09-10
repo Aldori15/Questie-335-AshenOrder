@@ -137,6 +137,12 @@ function QuestieJourney:IsShown()
     return isWindowShown
 end
 
+function QuestieJourney:HideJourneyWindow()
+    if QuestieJourneyFrame and isWindowShown then
+        QuestieJourneyFrame:Hide()
+    end
+end
+
 -- There are ways to toggle this function before the frame has been created
 function QuestieJourney:ToggleJourneyWindow()
     if (not Questie.started) then
@@ -183,7 +189,7 @@ function QuestieJourney:SetupKeybinding()
     if SetBinding("SEMICOLON", "QUESTIE_TOGGLE_JOURNEY") then
         SaveBindings(bindingSet)
         Questie.db.global.journeyKeybindDefaultApplied = true
-        Questie:Debug(Questie.DEBUG_INFO, "Set default keybind ';' for Questie Journey")
+        Questie.Debug(Questie.DEBUG_INFO, "Set default keybind ';' for Questie Journey")
     end
 end
 

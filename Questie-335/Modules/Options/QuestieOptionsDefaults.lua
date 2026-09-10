@@ -4,6 +4,8 @@ local QuestieOptionsDefaults = QuestieLoader:CreateModule("QuestieOptionsDefault
 function QuestieOptionsDefaults:Load()
     return {
         profile = {
+            resetDailyQuests = true,
+            weeklyResetDay = 4,
             objectiveFilterDistance = 2,
             spawnFilterDistance = 28,
             availableIconLimit = 30,
@@ -36,9 +38,10 @@ function QuestieOptionsDefaults:Load()
             nameplateTextY = 24,
             nameplateTextScale = 1,
             minimapCoordinatesEnabled = false,
-            mapCoordinatesEnabled = true,
-            showManualTooltipCoordinates = true,
+            mapCoordinatesEnabled = false,
+            showManualTooltipCoordinates = false,
             mapCoordinatePrecision = 1,
+            showWaypointLines = true,
             dbmHUDEnable = false,
             dbmHUDShowAlert = true,
             DBMHUDRefresh = 0.03,
@@ -75,6 +78,7 @@ function QuestieOptionsDefaults:Load()
             enableTooltipsQuestLevel = true,
             showQuestXpAtMaxLevel = false,
             enableTooltipsNextInChain = true,
+            enableTooltipsBreadcrumbQuests = false,
             enableTooltipDroprates = true,
             enableMapIcons = true,
             enableMiniMapIcons = true,
@@ -208,6 +212,7 @@ function QuestieOptionsDefaults:Load()
             minimap = {
                 hide = false,
 				minimapPos = 60,
+                detached = false,
             },
 
             TrackerWidth = 0,
@@ -241,19 +246,18 @@ function QuestieOptionsDefaults:Load()
         char = {
             complete = {},
             hidden = {},
-            hiddenDailies = {
-                nhc = {},
-                hc = {},
-                cooking = {},
-                fishing = {},
-                pvp = {},
-            },
             journey = {},
             isTrackerExpanded = true,
+            TrackerHiddenQuests = {},
+            TrackerHiddenObjectives = {},
+            TrackedQuests = {},
+            AutoUntrackedQuests = {},
+            collapsedZones = {},
+            minAllQuestsInZone = {},
+            collapsedQuests = {},
+            trackedAchievementIds = {},
         },
         global = {
-            lastDailyRequestResetTime = 0,
-            lastDailyRequestDate = "",
             questieLocale = 'enUS',
             questieLocaleDiff = false,
             journeyKeybindDefaultApplied = false,

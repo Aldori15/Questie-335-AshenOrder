@@ -95,6 +95,9 @@ function QuestieItemFixes:Load()
             [itemKeys.vendors] = {12794, 2832, 12785, 5140, 5611, 277, 1301, 258, 5570, 1311, 5111, 1305, 1328, 5848, 955, 1697, 465, 1464, 5112},
             [itemKeys.relatedQuests] = {288},
         },
+        [2609] = { -- Disarming Colloid
+            [itemKeys.npcDrops] = {},
+        },
         [2633] = { -- Jungle Remedy
             [itemKeys.npcDrops] = {940, 941, 942}, -- #2433
         },
@@ -714,6 +717,9 @@ function QuestieItemFixes:Load()
             [itemKeys.relatedQuests] = {654},
             [itemKeys.npcDrops] = {},
             [itemKeys.objectDrops] = {},
+        },
+        [9563] = { -- Consecrated Rune
+            [itemKeys.npcDrops] = {},
         },
         [9574] = { -- Glyphic Scroll
             [itemKeys.relatedQuests] = {3098},
@@ -1496,62 +1502,6 @@ function QuestieItemFixes:Load()
         },
         [23184] = { -- Flame of Darnassus
             [itemKeys.objectDrops] = {181334},
-        },
-        [190179] = { -- Avelina's Heart
-            [itemKeys.name] = "Avelina's Heart",
-            [itemKeys.npcDrops] = {185333},
-            [itemKeys.relatedQuests] = {65593},
-        },
-        [190180] = { -- Isaac's Heart
-            [itemKeys.name] = "Isaac's Heart",
-            [itemKeys.npcDrops] = {185334},
-            [itemKeys.relatedQuests] = {65593},
-        },
-        [190181] = { -- Lovers' Hearts
-            [itemKeys.name] = "Lovers' Hearts",
-            [itemKeys.relatedQuests] = {65597},
-            [itemKeys.class] = itemClasses.QUEST,
-        },
-        [190186] = { -- Wooden Figurine
-            [itemKeys.name] = "Wooden Figurine",
-            [itemKeys.relatedQuests] = {65603},
-            [itemKeys.class] = itemClasses.QUEST,
-        },
-        [190187] = { -- Withered Scarf
-            [itemKeys.name] = "Withered Scarf",
-            [itemKeys.relatedQuests] = {65604},
-            [itemKeys.class] = itemClasses.QUEST,
-        },
-        [190232] = { -- Withered Scarf
-            [itemKeys.name] = "Withered Scarf",
-            [itemKeys.npcDrops] = {3782, 3784},
-            [itemKeys.relatedQuests] = {65610},
-        },
-        [190307] = { -- Unlit Torch
-            [itemKeys.name] = "Unlit Torch",
-            [itemKeys.objectDrops] = {400001},
-            [itemKeys.flags] = 2, -- Conjured
-            [itemKeys.relatedQuests] = {65602},
-        },
-        [190308] = { -- Burning Torch
-            [itemKeys.name] = "Burning Torch",
-            [itemKeys.flags] = 2, -- Conjured
-            [itemKeys.relatedQuests] = {65602},
-            [itemKeys.class] = itemClasses.QUEST,
-        },
-        [190309] = { -- Wooden Figurine
-            [itemKeys.name] = "Wooden Figurine",
-            [itemKeys.objectDrops] = {375544},
-            [itemKeys.relatedQuests] = {65602},
-        },
-        ----------------
-        [227911] = { -- Head of Rend Blackhand
-            [itemKeys.name] = "Head of Rend Blackhand",
-            [itemKeys.npcDrops] = {10429},
-            [itemKeys.objectDrops] = nil,
-            [itemKeys.itemDrops] = nil,
-            [itemKeys.vendors] = nil,
-            [itemKeys.startQuest] = 84377,
         },
     }
 end

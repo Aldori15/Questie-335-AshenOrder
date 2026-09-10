@@ -9,7 +9,6 @@ local zoneNameToAreaId = {}
 local areaIdToZoneName = {}
 local mapIdToCZ = {}
 local mapCompatibilityInitialized = false
-local UnitPosition = UnitPosition
 local GetUnitSpeed = GetUnitSpeed
 local lastKnownUiMapID = nil
 local lastKnownZoneLikeUiMapID = nil
@@ -44,6 +43,12 @@ local minimapPlayerWorldPositionCache = {}
 local PLAYER_POSITION_CACHE_TTL = 0.075
 local MIN_ZONE_COORD = -0.25
 local MAX_ZONE_COORD = 1.25
+local outdoorWorldInstanceIDs = {
+    [0] = true,   -- Eastern Kingdoms
+    [1] = true,   -- Kalimdor
+    [530] = true, -- Outland
+    [571] = true, -- Northrend
+}
 
 local function IsValidZoneCoords(x, y)
     if not x or not y then return false end
@@ -234,6 +239,15 @@ local function IsZoneLikeUiMap(uiMapID)
     return uiData and uiData.mapType and uiData.mapType >= 3
 end
 
+local function IsUiMapCompatibleWithPlayerInstance(uiMapID)
+    if IsInInstance() then
+        return true
+    end
+
+    local uiData = uiMapID and QuestieCompat.UiMapData and QuestieCompat.UiMapData[uiMapID]
+    return not uiData or uiData.instance == nil or outdoorWorldInstanceIDs[uiData.instance]
+end
+
 local function IsDescendantUiMap(childUiMapID, ancestorUiMapID)
     local parentUiMapID = childUiMapID and QuestieCompat.UiMapData and QuestieCompat.UiMapData[childUiMapID] and QuestieCompat.UiMapData[childUiMapID].parentMapID
     while parentUiMapID and QuestieCompat.UiMapData[parentUiMapID] do
@@ -289,37 +303,6 @@ local function CacheMinimapPlayerWorldPosition(worldX, worldY, instanceID, uiMap
     lastMinimapPlayerWorldY = worldY
     lastMinimapPlayerInstanceID = instanceID
     lastMinimapPlayerUiMapID = uiMapID
-end
-
-local function GetPlayerWorldPositionFromUnitPosition(actualUiMapID)
-    if type(UnitPosition) ~= "function" then
-        return nil, nil, nil, nil
-    end
-
-    local rawY, rawX, _z, rawInstanceID = UnitPosition("player")
-
-    if not rawX or not rawY then
-        return nil, nil, rawInstanceID, nil
-    end
-
-    local validationUiMapID = actualUiMapID or lastKnownZoneLikeUiMapID
-
-    if validationUiMapID and QuestieCompat.HBD and QuestieCompat.HBD.GetZoneCoordinatesFromWorld then
-        local zoneX, zoneY = QuestieCompat.HBD:GetZoneCoordinatesFromWorld(rawX, rawY, validationUiMapID, true)
-
-        if IsValidZoneCoords(zoneX, zoneY) then
-            return rawX, rawY, rawInstanceID, validationUiMapID
-        end
-    end
-
-    if lastStablePlayerWorldX and lastStablePlayerWorldY and rawInstanceID and rawInstanceID == lastStablePlayerInstanceID then
-        local delta = math.abs(rawX - lastStablePlayerWorldX) + math.abs(rawY - lastStablePlayerWorldY)
-        if delta < 4000 then
-            return rawX, rawY, rawInstanceID, validationUiMapID
-        end
-    end
-
-    return nil, nil, rawInstanceID, validationUiMapID
 end
 
 local function BeginInternalMapRead(savedSelection)
@@ -561,9 +544,11 @@ local function GetUiMapIdForAreaId(areaId)
 
     local areaIdToUiMapId = ZoneDB.private and ZoneDB.private.areaIdToUiMapId
     local specialZoneIdToUiMapId = ZoneDB.private and ZoneDB.private.specialZoneIdToUiMapId
+    local wdmInstanceFloorZoneIdToUiMapId = ZoneDB.private and ZoneDB.private.wdmInstanceFloorZoneIdToUiMapId
     local uiMapID = starterAreaIdToUiMapId[areaId]
         or (areaIdToUiMapId and areaIdToUiMapId[areaId])
         or (specialZoneIdToUiMapId and specialZoneIdToUiMapId[areaId])
+        or (wdmInstanceFloorZoneIdToUiMapId and wdmInstanceFloorZoneIdToUiMapId[areaId])
 
     if uiMapID and QuestieCompat.UiMapData and QuestieCompat.UiMapData[uiMapID] then
         return uiMapID
@@ -586,6 +571,35 @@ local function GetParentUiMapIdForAreaId(areaId)
     return GetUiMapIdForAreaId(parentAreaId)
 end
 
+local localizedZoneMappingsLocale = nil
+
+local function EnsureLocalizedZoneNameMappings()
+    if localizedZoneMappingsLocale then
+        return
+    end
+
+    local activeLocale = l10n.GetUILocale and l10n:GetUILocale() or "enUS"
+    localizedZoneMappingsLocale = activeLocale
+    for _, lookupTable in pairs(l10n.zoneLookup or {}) do
+        if type(lookupTable) == "table" then
+            for areaId, zoneName in pairs(lookupTable) do
+                if zoneName and zoneName ~= "" then
+                    local localizedZoneName = zoneName
+                    if l10n.translations and l10n.translations[zoneName] then
+                        localizedZoneName = l10n(zoneName)
+                    end
+
+                    zoneNameToAreaId[localizedZoneName] = zoneNameToAreaId[localizedZoneName] or areaId
+                    local uiMapID = GetUiMapIdForAreaId(areaId) or GetParentUiMapIdForAreaId(areaId)
+                    if uiMapID then
+                        zoneNameToUiMapId[localizedZoneName] = zoneNameToUiMapId[localizedZoneName] or uiMapID
+                    end
+                end
+            end
+        end
+    end
+end
+
 local function IsAzerothOutlandChooserVisible(rawMapID)
     if rawMapID ~= -1 or not WorldMapFrame or not WorldMapFrame:IsVisible() then
         return false
@@ -600,6 +614,8 @@ local function IsAzerothOutlandChooserVisible(rawMapID)
 end
 
 local function ResolveUiMapIDByZoneTexts()
+    EnsureLocalizedZoneNameMappings()
+
     local zoneCandidates = {
         {name = GetSubZoneText and GetSubZoneText(), source = "sub"},
         {name = GetMinimapZoneText and GetMinimapZoneText(), source = "minimap"},
@@ -622,12 +638,14 @@ local function ResolveUiMapIDByZoneTexts()
                 local mapType = uiData and uiData.mapType
                 local isZoneLikeMap = mapType and mapType >= 3
                 local isGenericWaterSubzone = genericWaterSubzones[zoneName] and (candidate.source == "sub" or candidate.source == "minimap")
-                if isZoneLikeMap and (not isGenericWaterSubzone) then
-                    return zoneUiMapID, zoneName
-                end
-                if not fallbackUiMapID then
-                    fallbackUiMapID = zoneUiMapID
-                    fallbackZoneName = zoneName
+                if IsUiMapCompatibleWithPlayerInstance(zoneUiMapID) then
+                    if isZoneLikeMap and (not isGenericWaterSubzone) then
+                        return zoneUiMapID, zoneName
+                    end
+                    if not fallbackUiMapID then
+                        fallbackUiMapID = zoneUiMapID
+                        fallbackZoneName = zoneName
+                    end
                 end
             end
         end
@@ -1065,6 +1083,12 @@ function QuestieCompat.GetCurrentUiMapID()
         uiMapID = ResolveDirectUiMapID(mapID, mapLevel)
     end
     if uiMapID then
+        if (not worldMapVisible) and not IsUiMapCompatibleWithPlayerInstance(uiMapID) then
+            local zoneUiMapID = ResolveUiMapIDByZoneTexts()
+            if zoneUiMapID then
+                uiMapID = zoneUiMapID
+            end
+        end
         if (not worldMapVisible) and IsContinentalOrCosmicUiMap(uiMapID) then
             local zoneUiMapID = ResolveUiMapIDByZoneTexts()
             if zoneUiMapID and IsZoneLikeUiMap(zoneUiMapID) then
@@ -1105,6 +1129,59 @@ function QuestieCompat.GetCurrentUiMapID()
         return lastKnownZoneLikeUiMapID
     end
     return 946
+end
+
+local function ResolveCurrentAreaIdByZoneTexts()
+    EnsureLocalizedZoneNameMappings()
+
+    local candidates = {
+        GetMinimapZoneText and GetMinimapZoneText(),
+        GetSubZoneText and GetSubZoneText(),
+        GetRealZoneText and GetRealZoneText(),
+        GetZoneText and GetZoneText(),
+    }
+
+    for _, zoneName in ipairs(candidates) do
+        if zoneName and zoneName ~= "" then
+            local areaId = zoneNameToAreaId[zoneName]
+            if areaId then
+                return areaId
+            end
+        end
+    end
+
+    return nil
+end
+
+---Returns the player's current AzerothCore AreaTable area ID.
+---@return number?
+function QuestieCompat.GetCurrentAreaId()
+    local areaId = ResolveCurrentAreaIdByZoneTexts()
+    if areaId then
+        return areaId
+    end
+
+    local uiMapID = QuestieCompat.GetCurrentUiMapID()
+    if uiMapID and ZoneDB.GetAreaIdByUiMapId then
+        local success, resolvedAreaId = pcall(ZoneDB.GetAreaIdByUiMapId, ZoneDB, uiMapID)
+        if success then
+            return resolvedAreaId
+        end
+    end
+
+    return nil
+end
+
+---Returns the player's current AzerothCore AreaTable parent zone ID.
+---@return number?
+function QuestieCompat.GetCurrentZoneId()
+    local areaId = QuestieCompat.GetCurrentAreaId()
+    if not areaId then
+        return nil
+    end
+
+    local subZoneToParentZone = ZoneDB.private and ZoneDB.private.subZoneToParentZone
+    return subZoneToParentZone and subZoneToParentZone[areaId] or areaId
 end
 
 -- maps mapAreaID to Zone and Continent index
@@ -1199,20 +1276,6 @@ function QuestieCompat.GetCurrentPlayerPosition()
         return cachedUiMapID, cachedX, cachedY
     end
 
-    -- Try using UnitPosition + HBD to derive player's zone-relative coordinates
-    -- This avoids changing the current map zoom/selection which can cause UI churn.
-    local actualUiMapID = ResolveUiMapIDByZoneTexts()
-    if actualUiMapID and (type(UnitPosition) == "function") and QuestieCompat.HBD and QuestieCompat.HBD.GetZoneCoordinatesFromWorld then
-        local worldX, worldY, instanceID, unitUiMapID = GetPlayerWorldPositionFromUnitPosition(actualUiMapID)
-        if worldX and worldY and unitUiMapID then
-            local zoneX, zoneY = QuestieCompat.HBD:GetZoneCoordinatesFromWorld(worldX, worldY, unitUiMapID, true)
-            if IsValidZoneCoords(zoneX, zoneY) then
-                StoreCachedPlayerPosition(playerPositionCache, contextKey, unitUiMapID, zoneX, zoneY)
-                return unitUiMapID, zoneX, zoneY
-            end
-        end
-    end
-
     local x, y = GetPlayerMapPosition("player");
 	if ( x <= 0 and y <= 0 ) then
 		if ( WorldMapFrame:IsVisible() ) then
@@ -1301,6 +1364,15 @@ function QuestieCompat.GetCurrentPlayerPosition()
         end
     end
 	local uiMapID = rawUiMapID;
+    if uiMapID and (not WorldMapFrame:IsVisible()) and not IsUiMapCompatibleWithPlayerInstance(uiMapID) then
+        if zoneUiMapID and SetLegacyMapToUiMap(zoneUiMapID) then
+            local zoneX, zoneY = GetPlayerMapPosition("player")
+            if zoneX and zoneY and (zoneX > 0 or zoneY > 0) then
+                uiMapID = zoneUiMapID
+                x, y = zoneX, zoneY
+            end
+        end
+    end
     if uiMapID and (not WorldMapFrame:IsVisible()) and IsContinentalOrCosmicUiMap(uiMapID) then
         -- Continental/cosmic map contexts can produce distorted local coordinates for minimap math.
         -- Re-anchor to the player's actual zone map first.
@@ -1603,15 +1675,6 @@ function QuestieCompat.GetCurrentPlayerMinimapWorldPosition()
             StoreCachedPlayerPosition(minimapPlayerWorldPositionCache, contextKey, exactWorldX, exactWorldY, exactInstanceID, exactUiMapID)
             return exactWorldX, exactWorldY, exactInstanceID, exactUiMapID
         end
-    end
-
-    local unitWorldX, unitWorldY, unitInstanceID, unitUiMapID = GetPlayerWorldPositionFromUnitPosition(actualUiMapID)
-    if unitWorldX and unitWorldY then
-        ResetAnchoredMinimapWorldPosition()
-        unitUiMapID = unitUiMapID or actualUiMapID
-        CacheMinimapPlayerWorldPosition(unitWorldX, unitWorldY, unitInstanceID, unitUiMapID)
-        StoreCachedPlayerPosition(minimapPlayerWorldPositionCache, contextKey, unitWorldX, unitWorldY, unitInstanceID, unitUiMapID)
-        return unitWorldX, unitWorldY, unitInstanceID, unitUiMapID
     end
 
     local isPlayerMoving = true
@@ -2006,9 +2069,121 @@ QuestieCompat.WorldMapFrame = {
     end,
 }
 
+local exploredMapOverlays = {}
+local mapsWithoutExploration = {
+    [1453] = true, [1454] = true, [1455] = true, -- Stormwind, Orgrimmar, Ironforge
+    [1456] = true, [1457] = true, [1458] = true, -- Thunder Bluff, Darnassus, Undercity
+    [1947] = true, [1954] = true, [1955] = true, -- Exodar, Silvermoon, Shattrath
+    [125] = true, [126] = true, -- Dalaran and the Underbelly
+    [123] = true, -- Wintergrasp
+}
+
+function QuestieCompat.ClearExplorationCache()
+    wipe(exploredMapOverlays)
+end
+
+local function IsOverlayPixelOpaque(overlay, x, y)
+    local localX, localY = x - overlay[1], y - overlay[2]
+    local tile = math.floor(localY / 256) * math.ceil(overlay.width / 256) + math.floor(localX / 256) + 1
+    local key = overlay.texture .. tile
+    local rows = QuestieCompat.ExplorationMasks[key]
+    if not rows then
+        -- Unknown/custom artwork: preserve icons instead of hiding an entire region.
+        return true
+    end
+    if type(rows) == "string" then
+        local mask = rows
+        rows = {}
+        for row in mask:gmatch("(.-)~") do rows[#rows + 1] = row end
+        QuestieCompat.ExplorationMasks[key] = rows
+    end
+    local row = rows[math.floor((localY % 256) / 4) + 1]
+    local column = math.floor((localX % 256) / 4)
+    for i = 1, #row, 2 do
+        if column >= row:byte(i) - 33 and column <= row:byte(i + 1) - 33 then
+            return true
+        end
+    end
+    return false
+end
+
+local function IsMapPositionExplored(uiMapID, x, y)
+    local data = QuestieCompat.UiMapData[uiMapID]
+    -- Cities, instances and maps without a usable outdoor map have no fog to check.
+    if not data or mapsWithoutExploration[uiMapID] or data.mapType ~= 3
+        or not outdoorWorldInstanceIDs[data.instance] or not data.mapID or data.mapID <= 0 then
+        return true
+    end
+    if not x or not y then return true end
+
+    local overlays = exploredMapOverlays[uiMapID]
+    if not overlays then
+        overlays = {}
+        -- Cache before selecting the map to guard against map-update hooks reentering.
+        exploredMapOverlays[uiMapID] = overlays
+        local savedSelection = CaptureLegacyMapSelection()
+        BeginInternalMapRead(savedSelection)
+        SetLegacyMapToUiMap(uiMapID)
+        -- UiMapData stores the ID returned by GetCurrentMapAreaID. Only the
+        -- SetMapByID call in SetLegacyMapToUiMap needs the legacy -1 adjustment.
+        if GetCurrentMapAreaID() ~= math.floor(data.mapID) then
+            RestoreLegacyMapSelection(savedSelection)
+            EndInternalMapRead()
+            exploredMapOverlays[uiMapID] = nil
+            return true
+        end
+
+        -- Mapster's fog removal replaces the overlay count with zero. Read its
+        -- original API so revealing the map visually does not count as exploration.
+        local getNumOverlays = GetNumMapOverlays
+        local mapster = LibStub("AceAddon-3.0"):GetAddon("Mapster", true)
+        local fogClear = mapster and mapster:GetModule("FogClear", true)
+        if fogClear and fogClear.hooks and fogClear.hooks.GetNumMapOverlays then
+            getNumOverlays = fogClear.hooks.GetNumMapOverlays
+        end
+        for i = 1, getNumOverlays() do
+            local texture, width, height, left, top = GetMapOverlayInfo(i)
+            if texture and texture ~= "" and width and height and left and top
+                and width > 0 and height > 0 and not texture:lower():find("pixelfix", 1, true) then
+                overlays[#overlays + 1] = {
+                    left, top, left + width, top + height,
+                    width = width,
+                    texture = texture:lower():gsub("^interface\\worldmap\\", ""),
+                }
+            end
+        end
+        RestoreLegacyMapSelection(savedSelection)
+        EndInternalMapRead()
+    end
+
+    -- Legacy world-map overlays use a fixed 1002 x 668 canvas, regardless of UI scale.
+    x, y = x * 10.02, y * 6.68
+    for _, rect in ipairs(overlays) do
+        if x >= rect[1] and y >= rect[2] and x < rect[3] and y < rect[4]
+            and IsOverlayPixelOpaque(rect, x, y) then
+            return true
+        end
+    end
+    return false
+end
+
 function QuestieCompat.InitializeMapCompatibility()
     if mapCompatibilityInitialized then return end
     mapCompatibilityInitialized = true
+
+    local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
+    QuestieMap.utils.IsExplored = IsMapPositionExplored
+    local mapExplorationUpdate = QuestieMap.utils.MapExplorationUpdate
+    QuestieMap.utils.MapExplorationUpdate = function()
+        QuestieCompat.ClearExplorationCache()
+        mapExplorationUpdate()
+    end
+
+    -- SetUILocale is defined only after all addon files have loaded. Install
+    -- the cache invalidation hook here instead of while Compat/Map.lua loads.
+    hooksecurefunc(l10n, "SetUILocale", function()
+        localizedZoneMappingsLocale = nil
+    end)
 
     for uiMapId, data in pairs(QuestieCompat.UiMapData) do
         mapIdToUiMapId[data.mapID] = uiMapId

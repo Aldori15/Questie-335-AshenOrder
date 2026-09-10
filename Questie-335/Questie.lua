@@ -7,12 +7,18 @@ local QuestieOptionsDefaults = QuestieLoader:ImportModule("QuestieOptionsDefault
 local QuestieEventHandler = QuestieLoader:ImportModule("QuestieEventHandler")
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
+---@type MinimapIcon
+local MinimapIcon = QuestieLoader:ImportModule("MinimapIcon")
 ---@type TrackerBaseFrame
 local TrackerBaseFrame = QuestieLoader:ImportModule("TrackerBaseFrame")
 ---@type QuestieValidateGameCache
 local QuestieValidateGameCache = QuestieLoader:ImportModule("QuestieValidateGameCache")
 ---@type QuestieLib
 local QuestieLib = QuestieLoader:ImportModule("QuestieLib");
+---@type CommsVisibility
+local CommsVisibility = QuestieLoader:ImportModule("CommsVisibility")
+---@type QuestieProfilerPreHook
+local QuestieProfilerPreHook = QuestieLoader:ImportModule("ProfilerPreHook")
 
 BINDING_HEADER_QUESTIE = "Questie"
 BINDING_NAME_QUESTIE_TOGGLE_JOURNEY = "Toggle My Journey"
@@ -21,6 +27,10 @@ local band = bit.band
 local strlower = string.lower
 
 function Questie:OnInitialize()
+    -- SavedVariables are now restored. This is an ordering-safe fallback if AceAddon receives ADDON_LOADED
+    -- before the profiler's early event frame; it is idempotent when that frame already armed the session.
+    QuestieProfilerPreHook.StartIfEnabled()
+
     -- This has to happen OnInitialize to be available asap
     Questie.db = LibStub("AceDB-3.0"):New("QuestieConfig", QuestieOptionsDefaults:Load(), true)
 
@@ -50,9 +60,11 @@ end
 
 function Questie:RefreshConfig(_, db, profileName)
     Questie:SetIcons()
+    MinimapIcon:Refresh()
     QuestieQuest:SmoothReset()
     TrackerBaseFrame:OnProfileChange()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "Switched Ace Profile!")
+    CommsVisibility:ScheduleSnapshot("PROFILE_CHANGED")
+    Questie.Debug(Questie.DEBUG_DEVELOP, "Switched Ace Profile!")
 end
 
 ---@class QuestieColor
@@ -176,11 +188,11 @@ function Questie:GetClassColor(class)
     end
 end
 
-function Questie:Error(...)
+function Questie.Error(...)
     Questie:Print("|cffff0000[ERROR]|r", ...)
 end
 
-function Questie:Warning(...)
+function Questie.Warning(...)
     if Questie.db.profile.debugEnabled then -- prints regardless of "debugPrint" toggle
         Questie:Print("|cffffff00[WARNING]|r", ...)
     end
@@ -188,14 +200,14 @@ end
 
 -- Global debug levels
 -- When adding a new level here it MUST be assigned a corresponding number and name in
--- `debugLevel.values` of QuestieOptionsAdvanced.lua as well as text in Questie:Debug below
+-- `debugLevel.values` of QuestieOptionsAdvanced.lua as well as text in Questie.Debug below
 Questie.DEBUG_CRITICAL = 2 ^ 0
 Questie.DEBUG_ELEVATED = 2 ^ 1
 Questie.DEBUG_INFO = 2 ^ 2
 Questie.DEBUG_DEVELOP = 2 ^ 3
 Questie.DEBUG_SPAM = 2 ^ 4
 
-function Questie:Debug(msgDebugLevel, ...)
+function Questie.Debug(msgDebugLevel, ...)
     if (Questie.db.profile.debugEnabled) then
         local optionsDebugLevel = Questie.db.profile.debugLevel
 
@@ -324,3 +336,11 @@ Questie.LOWLEVEL_RANGE = 4
 
 -- Start checking the game's cache.
 QuestieValidateGameCache.StartCheck()
+
+-- Questie.lua is the final TOC entry. Close load timing before ADDON_LOADED work begins.
+-- 3.3.5 cannot read the persisted startup flag until ADDON_LOADED, so the loader always captures this
+-- one-time diagnostic. ProfilerPreHook imports it only when that event arms a session.
+local loadTimingClosed, loadTimingCloseError = pcall(QuestieLoader.FinishLoadTimings, QuestieLoader)
+if not loadTimingClosed then
+    Questie.Error("QuestieProfiler failed to close load timing", loadTimingCloseError)
+end

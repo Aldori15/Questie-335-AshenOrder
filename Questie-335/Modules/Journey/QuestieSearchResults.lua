@@ -14,6 +14,8 @@ local QuestieJourneyUtils = QuestieLoader:ImportModule("QuestieJourneyUtils")
 local QuestieSearch = QuestieLoader:ImportModule("QuestieSearch")
 ---@type QuestieMap
 local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
+---@type ThreadLib
+local ThreadLib = QuestieLoader:ImportModule("ThreadLib")
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestieCorrections
@@ -32,6 +34,8 @@ local GetItemIcon = GetItemIcon
 local stringrep = string.rep
 local stringsub = string.sub
 local C_Timer = QuestieCompat.C_Timer
+local coYield = coroutine.yield
+local TICKS_PER_YIELD = 30
 
 local AceGUI = LibStub("AceGUI-3.0");
 
@@ -173,13 +177,41 @@ local function AddLinkedParagraph(frame, linkType, lookup, header, query, addTom
     end
 end
 
+-- Track which items the user explicitly chose to show on the map
+---@type table<string, true>
+local _shownItemIds = {}
+
+function QuestieSearchResults.ClearShownItemIds()
+    _shownItemIds = {}
+end
+
+-- Check whether the relevant manual frames are already shown on the map
+---@param id NpcId|ObjectId|ItemId @NPC (>0) or object (<0) id, or item id when idsToShow is provided
+---@param idsToShow NpcId[]|ObjectId[]? @NPC/object ids shown together (e.g. all mobs dropping an item)
+---@param groupName string? @Source group name for items (e.g. "NPC", "Object", "Vendor")
+local function _HasShownFrames(id, idsToShow, groupName)
+    if idsToShow and groupName then
+        return _shownItemIds[id .. ":" .. groupName] ~= nil
+    end
+
+    if (not QuestieMap.manualFrames["any"]) then
+        return false
+    end
+
+    return QuestieMap.manualFrames["any"][id] ~= nil
+end
+
 -- Create a button for showing/hiding manual notes of NPCs/objects
-local function CreateShowHideButton(id)
+---@param id NpcId|ObjectId|ItemId @NPC (>0) or object (<0) id, or item id when idsToShow is provided
+---@param idsToShow NpcId[]|ObjectId[]? @NPC/object ids shown together
+---@param groupName string? @Source group name for items
+local function CreateShowHideButton(id, idsToShow, groupName)
     -- Initialise button
     local button = AceGUI:Create("Button")
     button.id = id
-    button.idsToShow = nil
-    if (not QuestieMap.manualFrames["any"]) or (not QuestieMap.manualFrames["any"][id]) then
+    button.idsToShow = idsToShow
+    button.groupName = groupName
+    if (not _HasShownFrames(id, idsToShow, groupName)) then
         button:SetText(l10n("Show on Map"))
         button:SetCallback("OnClick", function(self) self:ShowOnMap(self) end)
     else
@@ -188,10 +220,23 @@ local function CreateShowHideButton(id)
     end
     -- Functions for showing/hiding and switching behaviour afterwards
     button.RemoveFromMap = function(self)
-        if self.idsToShow then
+        if self.idsToShow and self.groupName then
+            _shownItemIds[self.id .. ":" .. self.groupName] = nil
+            local idsToRemove = {}
             for _, spawnId in pairs(self.idsToShow) do
-                QuestieMap:UnloadManualFrames(spawnId)
+                idsToRemove[#idsToRemove + 1] = spawnId
             end
+            ThreadLib.ThreadInstant(function()
+                local yieldCount = 0
+                for _, spawnId in ipairs(idsToRemove) do
+                    QuestieMap:UnloadManualFrames(spawnId)
+                    yieldCount = yieldCount + 1
+                    if yieldCount >= TICKS_PER_YIELD then
+                        yieldCount = 0
+                        coYield()
+                    end
+                end
+            end)
         else
             QuestieMap:UnloadManualFrames(self.id)
         end
@@ -199,14 +244,27 @@ local function CreateShowHideButton(id)
         self:SetCallback("OnClick", function() self:ShowOnMap(self) end)
     end
     button.ShowOnMap = function(self)
-        if self.idsToShow then
+        if self.idsToShow and self.groupName then
+            _shownItemIds[self.id .. ":" .. self.groupName] = true
+            local idsToShow = {}
             for _, spawnId in pairs(self.idsToShow) do
-                if spawnId > 0 then
-                    QuestieMap:ShowNPC(spawnId)
-                else
-                    QuestieMap:ShowObject(-spawnId)
-                end
+                idsToShow[#idsToShow + 1] = spawnId
             end
+            ThreadLib.ThreadInstant(function()
+                local yieldCount = 0
+                for _, spawnId in ipairs(idsToShow) do
+                    if spawnId > 0 then
+                        QuestieMap:ShowNPC(spawnId)
+                    else
+                        QuestieMap:ShowObject(-spawnId)
+                    end
+                    yieldCount = yieldCount + 1
+                    if yieldCount >= TICKS_PER_YIELD then
+                        yieldCount = 0
+                        coYield()
+                    end
+                end
+            end)
         else
             if self.id > 0 then
                 QuestieMap:ShowNPC(self.id)
@@ -519,8 +577,7 @@ function QuestieSearchResults:ItemsFrameAfterTicker(f, itemId)
         npcLabel:SetText(l10n("%d NPCs drop this item", #npcIdsWithSpawns))
         f:AddChild(npcLabel)
         if (#npcIdsWithSpawns > 0) then
-            local showHideButton = CreateShowHideButton(itemId)
-            showHideButton.idsToShow = npcIdsWithSpawns
+            local showHideButton = CreateShowHideButton(itemId, npcIdsWithSpawns, "NPC")
             f:AddChild(showHideButton)
         end
         AddLinkedParagraph(f, "npc", npcIdsWithSpawns, "", QuestieDB.QueryNPCSingle, false)
@@ -550,8 +607,7 @@ function QuestieSearchResults:ItemsFrameAfterTicker(f, itemId)
         objectLabel:SetText(l10n("%d Objects drop this item", #objectIdsWithSpawns))
         f:AddChild(objectLabel)
         if (#objectIdsWithSpawns > 0) then
-            local showHideButton = CreateShowHideButton(itemId)
-            showHideButton.idsToShow = objectIdsWithSpawns
+            local showHideButton = CreateShowHideButton(itemId, objectIdsWithSpawns, "Object")
             f:AddChild(showHideButton)
         end
         AddLinkedParagraph(f, "object", objectIdsWithSpawns, "", QuestieDB.QueryObjectSingle, false)
@@ -583,8 +639,7 @@ function QuestieSearchResults:ItemsFrameAfterTicker(f, itemId)
         vendorLabel:SetText(l10n("%d Vendors sell this item", #vendorIdsWithSpawns))
         f:AddChild(vendorLabel)
         if (#vendorIdsWithSpawns > 0) then
-            local showHideButton = CreateShowHideButton(itemId)
-            showHideButton.idsToShow = vendorIdsWithSpawns
+            local showHideButton = CreateShowHideButton(itemId, vendorIdsWithSpawns, "Vendor")
             f:AddChild(showHideButton)
         end
         AddLinkedParagraph(f, "npc", vendorIdsWithSpawns, "", QuestieDB.QueryNPCSingle)
@@ -665,12 +720,7 @@ _HandleTreeItemClick = function(group, ...)
     -- This is either the questId, npcId, objectId or itemId
     local selectedId = tonumber(treePath[2])
     if IsShiftKeyDown() and lastOpenSearch == "quest" then
-        if Questie.db.profile.trackerShowQuestLevel then
-            ChatEdit_InsertLink(QuestieLink:GetQuestLinkStringById(selectedId))
-        else
-            local questName = QuestieDB.QueryQuestSingle(selectedId, "name")
-            ChatEdit_InsertLink("[" .. questName .. " (" .. selectedId .. ")]")
-        end
+        ChatEdit_InsertLink(QuestieLink:GetQuestInsertStringById(selectedId))
     end
 
     -- get master frame and create scroll frame inside
@@ -713,7 +763,7 @@ local function _GetSearchFunction(searchBox, searchGroup)
             elseif stringsub(searchText, 1, 4) == "|cff" then
                 -- This should be impossible to reach, since when you see an item link in the game the item should
                 -- be cached already which would be caught by the condition above
-                Questie:Debug(Questie.DEBUG_DEVELOP, "Search with link of an uncached item")
+                Questie.Debug(Questie.DEBUG_DEVELOP, "Search with link of an uncached item")
             else
                 -- Normal search
                 local text = string.trim(searchText, " \n\r\t[]");
