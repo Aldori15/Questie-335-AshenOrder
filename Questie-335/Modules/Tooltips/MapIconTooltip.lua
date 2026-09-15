@@ -708,6 +708,11 @@ function _MapIconTooltip:GetObjectiveTooltip(icon)
                     end
                     local remoteColor = QuestieLib:GetRGBForObjective(objectiveEntry)
                     local colorizedPlayerName = " (" .. playerColor .. playerName .. "|r" .. remoteColor .. ")|r" .. playerType
+
+                    if objectiveEntry.status == "F" then
+                        colorizedPlayerName = colorizedPlayerName .. " |cFFFF4444[" .. l10n("Failed") .. "]|r"
+                    end
+
                     local remoteText = QuestieLib:GetObjectiveDescription(iconData.ObjectiveData)
 
                     if objectiveEntry and objectiveEntry.fulfilled and objectiveEntry.required then
