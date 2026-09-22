@@ -425,6 +425,7 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
     end
 
     Questie.started = true
+    QuestieQuest:ResumeLootedSpawns()
     AutoRoute.RestoreSavedWaypoint()
     AutoRoute.PruneRoute()
     AutoRoute.ScheduleUpdate(0.5)
