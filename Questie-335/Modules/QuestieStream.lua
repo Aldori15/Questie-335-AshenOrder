@@ -16,6 +16,11 @@ local stringchar = string.char
 local stringbyte = string.byte
 local stringsub = string.sub
 
+-- Warmane does not forward the normal b89 pipe escape byte
+local realmList = string.lower(GetCVar("realmList") or "")
+local isWarmane = string.find(realmList, "warmane", 1, true) ~= nil
+local quoteEscapeByte = isWarmane and stringbyte("~") or stringbyte("|")
+
 -- When QuestieCompat swaps stream byte IO to its segmented-table implementation,
 -- we must also load incoming data into the expected segmented structure.
 local COMPAT_MAX_TABLE_SIZE = 524288
@@ -30,7 +35,7 @@ QSL_dltab[stringbyte("z")] = 2;
 -- translation table
 local QSL_dttab = {};
 QSL_dttab[123] = 1;
-QSL_dttab[124] = 6;
+QSL_dttab[quoteEscapeByte] = 6;
 QSL_dttab[125] = 59;
 
 local QSL_ltab = {};
@@ -39,7 +44,7 @@ QSL_ltab[0] = string.byte("x");
 QSL_ltab[1] = string.byte("y");
 QSL_ltab[2] = string.byte("z");
 QSL_ttab[34] = 123;
-QSL_ttab[39] = 124;
+QSL_ttab[39] = quoteEscapeByte;
 QSL_ttab[92] = 125;
 
 local StreamPool = {}
@@ -57,7 +62,7 @@ end
 
 function QuestieStreamLib:GetStream(mode) -- returns a new stream
     if not mode then
-        Questie:Error("QuestieStreamLib: Stream encoding mode is not defined.")
+        Questie.Error("QuestieStreamLib: Stream encoding mode is not defined.")
         error("Stream encoding mode is not defined.")
     end
 
@@ -250,7 +255,7 @@ function QuestieStreamLib:_ReadShort_raw()
     -- database corrupted, needs recompile
     if not a then
         Questie.db.global.dbIsCompiled = false
-        Questie:Error(l10n("Questie has detected the database to be corrupted. You may type \"/run ReloadUI()\" or \"/reload\" to start the recompiling process when the conditions allow it.\n\nThe process will take 1-2 minutes depending on your configuration."))
+        Questie.Error(l10n("Questie has detected the database to be corrupted. You may type \"/run ReloadUI()\" or \"/reload\" to start the recompiling process when the conditions allow it.\n\nThe process will take 1-2 minutes depending on your configuration."))
         return
     end
     return a*256 + b

@@ -7,7 +7,7 @@ ZoneDB.private = {}
 --- the UiMapId of each zone.
 --- The UiMapId identifies a map which can be displayed ingame on the worldmap.
 --- Dungeons don't have a UiMapId!
---- https://wowpedia.fandom.com/wiki/UiMapID#Classic
+--- https://wow.gamepedia.com/UiMapID/Classic
 ---@type table<AreaId, UiMapId>
 ZoneDB.private.areaIdToUiMapId = {
     [1] = 1426, -- Dun Morogh
@@ -601,6 +601,9 @@ ZoneDB.private.uiMapIdToAreaId = {
 
 -- Some correction tables use high fake zone IDs that are not AreaIDs.
 -- Resolve them straight to the UiMap they represent.
+-- Keep synthetic IDs within the DB compiler's unsigned 16-bit zone field.
+ZoneDB.private.wdmInstanceFloorZoneIdOffset = 11000
+
 ---@type table<AreaId, UiMapId>
 ZoneDB.private.specialZoneIdToUiMapId = {
     [10002] = 243, -- Blackrock Depths - Shadowforge City
@@ -3194,7 +3197,6 @@ ZoneDB.private.zoneIDs = {
     NAXXRAMAS = 3456,
     EVERSONG_WOODS = 3430,
     GHOSTLANDS = 3433,
-    NAXXRAMAS = 3456,
     KARAZHAN = 3457,
     HELLFIRE_PENINSULA = 3483,
     SILVERMOON_CITY = 3487,
@@ -3236,14 +3238,7 @@ ZoneDB.private.zoneIDs = {
     MAGISTERS_TERRACE = 4131,
     DRAKTHARON_KEEP = 4196,
     UPPER_BLACKROCK_SPIRE = 7307,
-    DRAGONBLIGHT = 65,
-    ZUL_DRAK = 66,
-    STORM_PEAKS = 67,
-    ICECROWN = 210,
-    GRIZZLY_HILLS = 394,
-    HOWLING_FJORD = 495,
     CRYSTALSONG_FOREST = 2817,
-    BOREAN_TUNDRA = 3537,
     SHOLAZAR_BASIN = 3711,
     WINTERGRASP = 4197,
     THE_OCULUS = 4228,
@@ -3252,7 +3247,6 @@ ZoneDB.private.zoneIDs = {
     HALLS_OF_LIGHTNING = 4272,
     ULDUAR = 4273,
     DALARAN = 4395,
-    UTGARDE_KEEP = 206,
     AZJOL_NERUB = 4277,
     ACHERUS_THE_EBON_HOLD = 4281,
     PLAGUELANDS_THE_SCARLET_ENCLAVE = 4298,
@@ -3262,6 +3256,7 @@ ZoneDB.private.zoneIDs = {
     AHNKAHET_THE_OLD_KINGDOM = 4494,
     THE_EYE_OF_ETERNITY = 4500,
     THE_UNDERBELLY = 4560,
+    VAULT_OF_ARCHAVON = 4603,
     THE_ARCHIVUM = 4657,
     GILNEAS = 4714,
     TRIAL_OF_THE_CRUSADER = 4722,
@@ -3279,9 +3274,9 @@ ZoneDB.private.zoneIDs = {
     NAXXRAMAS_PLAGUE_QUARTER = 4841, -- UiMapID 165
     NAXXRAMAS_FROSTWYRM_LAIR = 4842, -- UiMapID 167
     -- Fake IDS for ICC
-    ICECROWN_CITADEL_SINDRAGOSA = 4834, -- UiMapID 189
     ICECROWN_CITADEL_UPPER_SPIRE = 4830, -- UiMapID 190
     ICECROWN_CITADEL_QUEEN_LANA_THEL = 4831, -- UiMapID 191
+    ICECROWN_CITADEL_SINDRAGOSA = 4834, -- UiMapID 189
     ICECROWN_CITADEL_RAMPART_OF_SKULLS = 4835, -- UiMapID 187
     ICECROWN_CITADEL_DEATHBRINGERS_RISE = 4836, -- UiMapID 188
     ICECROWN_CITADEL_THE_FROZEN_THRONE = 4837, -- UiMapID 192
@@ -3324,19 +3319,59 @@ ZoneDB.private.zoneIDs = {
     GUNDRAK_LOWER_LEVEL = 4825, --153
     -- Fake IDs for Blackrock Depths
     BLACKROCK_DEPTHS_SHADOWFORGE_CITY = 10002, -- 243
-    -- Fake IDs for Naxxramas
-    NAXXRAMAS_CONSTRUCT_QUARTER = 10062, -- 162
-    NAXXRAMAS_ARACHNID_QUARTER = 10063, -- 163
-    NAXXRAMAS_MILITARY_QUARTER = 10064, -- 164
-    NAXXRAMAS_PLAGUE_QUARTER = 10065, -- 165
-    NAXXRAMAS_FROSTWYRM_LAIR = 10066, -- 167
-    -- Fake IDs for Icecrown Citadel
-    ICECROWN_CITADEL_UPPER_SPIRE = 10067, -- 190
-    ICECROWN_CITADEL_QUEEN_LANA_THEL = 10068, -- 191
-    ICECROWN_CITADEL_SINDRAGOSA = 10069, -- 189
-    ICECROWN_CITADEL_RAMPART_OF_SKULLS = 10070, -- 187
-    ICECROWN_CITADEL_DEATHBRINGERS_RISE = 10071, -- 188
-    ICECROWN_CITADEL_THE_FROZEN_THRONE = 10072, -- 192
+    -- WDM instance floors without distinct AreaIDs
+    WDM_BLACKFATHOM_DEEPS_FLOOR_2 = 11222,
+    WDM_BLACKFATHOM_DEEPS_FLOOR_3 = 11223,
+    WDM_GNOMEREGAN_FLOOR_2 = 11227,
+    WDM_GNOMEREGAN_FLOOR_3 = 11228,
+    WDM_GNOMEREGAN_FLOOR_4 = 11229,
+    WDM_ULDAMAN_FLOOR_2 = 11231,
+    WDM_DIRE_MAUL_FLOOR_2 = 11235,
+    WDM_DIRE_MAUL_FLOOR_3 = 11236,
+    WDM_DIRE_MAUL_FLOOR_4 = 11237,
+    WDM_DIRE_MAUL_FLOOR_5 = 11238,
+    WDM_DIRE_MAUL_FLOOR_6 = 11239,
+    WDM_BLACKROCK_SPIRE_FLOOR_2 = 11251,
+    WDM_BLACKROCK_SPIRE_FLOOR_3 = 11252,
+    WDM_BLACKROCK_SPIRE_FLOOR_4 = 11253,
+    WDM_BLACKROCK_SPIRE_FLOOR_5 = 11254,
+    WDM_BLACKROCK_SPIRE_FLOOR_6 = 11255,
+    WDM_AUCHENAI_CRYPTS_FLOOR_2 = 11257,
+    WDM_SETHEKK_HALLS_FLOOR_2 = 11259,
+    WDM_THE_STEAMVAULT_FLOOR_2 = 11264,
+    WDM_THE_MECHANAR_FLOOR_2 = 11268,
+    WDM_THE_ARCATRAZ_FLOOR_2 = 11270,
+    WDM_THE_ARCATRAZ_FLOOR_3 = 11271,
+    WDM_MARAUDON_FLOOR_2 = 11281,
+    WDM_BLACKWING_LAIR_FLOOR_2 = 11288,
+    WDM_BLACKWING_LAIR_FLOOR_3 = 11289,
+    WDM_BLACKWING_LAIR_FLOOR_4 = 11290,
+    WDM_THE_DEADMINES_FLOOR_2 = 11292,
+    WDM_SCARLET_MONASTERY_FLOOR_2 = 11303,
+    WDM_SCARLET_MONASTERY_FLOOR_3 = 11304,
+    WDM_SCARLET_MONASTERY_FLOOR_4 = 11305,
+    WDM_SCHOLOMANCE_FLOOR_2 = 11307,
+    WDM_SCHOLOMANCE_FLOOR_3 = 11308,
+    WDM_SCHOLOMANCE_FLOOR_4 = 11309,
+    WDM_SHADOWFANG_KEEP_FLOOR_2 = 11311,
+    WDM_SHADOWFANG_KEEP_FLOOR_3 = 11312,
+    WDM_SHADOWFANG_KEEP_FLOOR_4 = 11313,
+    WDM_SHADOWFANG_KEEP_FLOOR_5 = 11314,
+    WDM_SHADOWFANG_KEEP_FLOOR_6 = 11315,
+    WDM_SHADOWFANG_KEEP_FLOOR_7 = 11316,
+    WDM_STRATHOLME_FLOOR_2 = 11318,
+    WDM_AHN_QIRAJ_FLOOR_2 = 11320,
+    WDM_AHN_QIRAJ_FLOOR_3 = 11321,
+    WDM_BLACK_TEMPLE_FLOOR_2 = 11340,
+    WDM_BLACK_TEMPLE_FLOOR_3 = 11341,
+    WDM_BLACK_TEMPLE_FLOOR_4 = 11342,
+    WDM_BLACK_TEMPLE_FLOOR_5 = 11343,
+    WDM_BLACK_TEMPLE_FLOOR_6 = 11344,
+    WDM_BLACK_TEMPLE_FLOOR_7 = 11345,
+    WDM_MAGISTERS_TERRACE_FLOOR_2 = 11349,
+    WDM_THE_TEMPLE_OF_ATAL_HAKKAR_FLOOR_2 = 22001,
+    WDM_THE_TEMPLE_OF_ATAL_HAKKAR_FLOOR_3 = 22002,
+    WDM_BLACKROCK_SPIRE_FLOOR_7 = 22003,
     -- Fake IDs for Karazhan
     KARAZHAN_SERVANTS_QUARTERS = 10102, -- Karazhan - Servant's Quarters 350
     KARAZHAN_UPPER_LIVERY_STABLES = 10103, -- Karazhan - Upper Livery Stables 351
@@ -3437,4 +3472,60 @@ ZoneDB.instanceIdToAreaId = {
     [658] = ZoneDB.private.zoneIDs.PIT_OF_SARON,
     [668] = ZoneDB.private.zoneIDs.HALLS_OF_REFLECTION,
     [724] = ZoneDB.private.zoneIDs.THE_RUBY_SANCTUM,
+}
+
+-- WDM floors have UiMaps but no distinct client AreaIDs.
+ZoneDB.private.wdmInstanceFloorZoneIdToUiMapId = {
+    [ZoneDB.private.zoneIDs.WDM_BLACKFATHOM_DEEPS_FLOOR_2] = 222,
+    [ZoneDB.private.zoneIDs.WDM_BLACKFATHOM_DEEPS_FLOOR_3] = 223,
+    [ZoneDB.private.zoneIDs.WDM_GNOMEREGAN_FLOOR_2] = 227,
+    [ZoneDB.private.zoneIDs.WDM_GNOMEREGAN_FLOOR_3] = 228,
+    [ZoneDB.private.zoneIDs.WDM_GNOMEREGAN_FLOOR_4] = 229,
+    [ZoneDB.private.zoneIDs.WDM_ULDAMAN_FLOOR_2] = 231,
+    [ZoneDB.private.zoneIDs.WDM_DIRE_MAUL_FLOOR_2] = 235,
+    [ZoneDB.private.zoneIDs.WDM_DIRE_MAUL_FLOOR_3] = 236,
+    [ZoneDB.private.zoneIDs.WDM_DIRE_MAUL_FLOOR_4] = 237,
+    [ZoneDB.private.zoneIDs.WDM_DIRE_MAUL_FLOOR_5] = 238,
+    [ZoneDB.private.zoneIDs.WDM_DIRE_MAUL_FLOOR_6] = 239,
+    [ZoneDB.private.zoneIDs.WDM_BLACKROCK_SPIRE_FLOOR_2] = 251,
+    [ZoneDB.private.zoneIDs.WDM_BLACKROCK_SPIRE_FLOOR_3] = 252,
+    [ZoneDB.private.zoneIDs.WDM_BLACKROCK_SPIRE_FLOOR_4] = 253,
+    [ZoneDB.private.zoneIDs.WDM_BLACKROCK_SPIRE_FLOOR_5] = 254,
+    [ZoneDB.private.zoneIDs.WDM_BLACKROCK_SPIRE_FLOOR_6] = 255,
+    [ZoneDB.private.zoneIDs.WDM_AUCHENAI_CRYPTS_FLOOR_2] = 257,
+    [ZoneDB.private.zoneIDs.WDM_SETHEKK_HALLS_FLOOR_2] = 259,
+    [ZoneDB.private.zoneIDs.WDM_THE_STEAMVAULT_FLOOR_2] = 264,
+    [ZoneDB.private.zoneIDs.WDM_THE_MECHANAR_FLOOR_2] = 268,
+    [ZoneDB.private.zoneIDs.WDM_THE_ARCATRAZ_FLOOR_2] = 270,
+    [ZoneDB.private.zoneIDs.WDM_THE_ARCATRAZ_FLOOR_3] = 271,
+    [ZoneDB.private.zoneIDs.WDM_MARAUDON_FLOOR_2] = 281,
+    [ZoneDB.private.zoneIDs.WDM_BLACKWING_LAIR_FLOOR_2] = 288,
+    [ZoneDB.private.zoneIDs.WDM_BLACKWING_LAIR_FLOOR_3] = 289,
+    [ZoneDB.private.zoneIDs.WDM_BLACKWING_LAIR_FLOOR_4] = 290,
+    [ZoneDB.private.zoneIDs.WDM_THE_DEADMINES_FLOOR_2] = 292,
+    [ZoneDB.private.zoneIDs.WDM_SCARLET_MONASTERY_FLOOR_2] = 303,
+    [ZoneDB.private.zoneIDs.WDM_SCARLET_MONASTERY_FLOOR_3] = 304,
+    [ZoneDB.private.zoneIDs.WDM_SCARLET_MONASTERY_FLOOR_4] = 305,
+    [ZoneDB.private.zoneIDs.WDM_SCHOLOMANCE_FLOOR_2] = 307,
+    [ZoneDB.private.zoneIDs.WDM_SCHOLOMANCE_FLOOR_3] = 308,
+    [ZoneDB.private.zoneIDs.WDM_SCHOLOMANCE_FLOOR_4] = 309,
+    [ZoneDB.private.zoneIDs.WDM_SHADOWFANG_KEEP_FLOOR_2] = 311,
+    [ZoneDB.private.zoneIDs.WDM_SHADOWFANG_KEEP_FLOOR_3] = 312,
+    [ZoneDB.private.zoneIDs.WDM_SHADOWFANG_KEEP_FLOOR_4] = 313,
+    [ZoneDB.private.zoneIDs.WDM_SHADOWFANG_KEEP_FLOOR_5] = 314,
+    [ZoneDB.private.zoneIDs.WDM_SHADOWFANG_KEEP_FLOOR_6] = 315,
+    [ZoneDB.private.zoneIDs.WDM_SHADOWFANG_KEEP_FLOOR_7] = 316,
+    [ZoneDB.private.zoneIDs.WDM_STRATHOLME_FLOOR_2] = 318,
+    [ZoneDB.private.zoneIDs.WDM_AHN_QIRAJ_FLOOR_2] = 320,
+    [ZoneDB.private.zoneIDs.WDM_AHN_QIRAJ_FLOOR_3] = 321,
+    [ZoneDB.private.zoneIDs.WDM_BLACK_TEMPLE_FLOOR_2] = 340,
+    [ZoneDB.private.zoneIDs.WDM_BLACK_TEMPLE_FLOOR_3] = 341,
+    [ZoneDB.private.zoneIDs.WDM_BLACK_TEMPLE_FLOOR_4] = 342,
+    [ZoneDB.private.zoneIDs.WDM_BLACK_TEMPLE_FLOOR_5] = 343,
+    [ZoneDB.private.zoneIDs.WDM_BLACK_TEMPLE_FLOOR_6] = 344,
+    [ZoneDB.private.zoneIDs.WDM_BLACK_TEMPLE_FLOOR_7] = 345,
+    [ZoneDB.private.zoneIDs.WDM_MAGISTERS_TERRACE_FLOOR_2] = 349,
+    [ZoneDB.private.zoneIDs.WDM_THE_TEMPLE_OF_ATAL_HAKKAR_FLOOR_2] = 11001,
+    [ZoneDB.private.zoneIDs.WDM_THE_TEMPLE_OF_ATAL_HAKKAR_FLOOR_3] = 11002,
+    [ZoneDB.private.zoneIDs.WDM_BLACKROCK_SPIRE_FLOOR_7] = 11003,
 }

@@ -29,6 +29,8 @@ local Sounds = QuestieLoader:ImportModule("Sounds")
 local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
 ---@type QuestiePartyObjectives
 local QuestiePartyObjectives = QuestieLoader:ImportModule("QuestiePartyObjectives")
+---@type MinimapIcon
+local MinimapIcon = QuestieLoader:ImportModule("MinimapIcon")
 
 QuestieOptions.tabs.general = { ... }
 local optionsDefaults = QuestieOptionsDefaults:Load()
@@ -85,7 +87,7 @@ function QuestieOptions.tabs.general:Initialize()
                         get = function() return Questie.db.profile.questAnnounceChannel; end,
                         set = function(_, key)
                             Questie.db.profile.questAnnounceChannel = key
-                            Questie:Debug(Questie.DEBUG_DEVELOP, "Channels to announce changed to:", key)
+                            Questie.Debug(Questie.DEBUG_DEVELOP, "Channels to announce changed to:", key)
                         end,
                     },
                     printLocalMessages = {
@@ -98,14 +100,14 @@ function QuestieOptions.tabs.general:Initialize()
                         get = function () return Questie.db.profile.questAnnounceLocally end,
                         set = function (_, value)
                             Questie.db.profile.questAnnounceLocally = value
-                            Questie:Debug(Questie.DEBUG_DEVELOP, "Quest announce locally changed to:", value)
+                            Questie.Debug(Questie.DEBUG_DEVELOP, "Quest announce locally changed to:", value)
                         end,
                     },
                     showPartyQuestObjectives = {
                         type = "toggle",
                         order = 7.35,
-                        name = function() return l10n("Show party members' quest objectives"); end,
-                        desc = function() return l10n("Show quest objectives from party members on the map and minimap, even for quests you don't have or have already completed."); end,
+                        name = function() return l10n("Show party members' tracked quest objectives"); end,
+                        desc = function() return l10n("Show tracked quest objectives from party members on the map and minimap, even for quests you don't have or have already completed. Only your tracked quests will show for your party members."); end,
                         width = 2.5,
                         get = function () return Questie.db.profile.showPartyQuestObjectives end,
                         set = function (_, value)
@@ -145,7 +147,7 @@ function QuestieOptions.tabs.general:Initialize()
                                 get = function () return Questie.db.profile.questAnnounceItems; end,
                                 set = function (_, value)
                                     Questie.db.profile.questAnnounceItems = value
-                                    Questie:Debug(Questie.DEBUG_DEVELOP, "Items starting a quest changed to:", value)
+                                    Questie.Debug(Questie.DEBUG_DEVELOP, "Items starting a quest changed to:", value)
                                 end,
                             },
                             questAnnounceAccepted = {
@@ -157,7 +159,7 @@ function QuestieOptions.tabs.general:Initialize()
                                 get = function () return Questie.db.profile.questAnnounceAccepted; end,
                                 set = function (_, value)
                                     Questie.db.profile.questAnnounceAccepted = value
-                                    Questie:Debug(Questie.DEBUG_DEVELOP, "Quest accepted announce changed to:", value)
+                                    Questie.Debug(Questie.DEBUG_DEVELOP, "Quest accepted announce changed to:", value)
                                 end,
                             },
                             questAnnounceAbandoned = {
@@ -169,7 +171,7 @@ function QuestieOptions.tabs.general:Initialize()
                                 get = function () return Questie.db.profile.questAnnounceAbandoned; end,
                                 set = function (_, value)
                                     Questie.db.profile.questAnnounceAbandoned = value
-                                    Questie:Debug(Questie.DEBUG_DEVELOP, "Quest abandoned announce changed to:", value)
+                                    Questie.Debug(Questie.DEBUG_DEVELOP, "Quest abandoned announce changed to:", value)
                                 end,
                             },
                             questAnnounceCompleted = {
@@ -181,7 +183,7 @@ function QuestieOptions.tabs.general:Initialize()
                                 get = function () return Questie.db.profile.questAnnounceCompleted; end,
                                 set = function (_, value)
                                     Questie.db.profile.questAnnounceCompleted = value
-                                    Questie:Debug(Questie.DEBUG_DEVELOP, "Quest completed announce changed to:", value)
+                                    Questie.Debug(Questie.DEBUG_DEVELOP, "Quest completed announce changed to:", value)
                                 end,
                             },
                             questAnnounceObjectives = {
@@ -193,7 +195,7 @@ function QuestieOptions.tabs.general:Initialize()
                                 get = function () return Questie.db.profile.questAnnounceObjectives; end,
                                 set = function (_, value)
                                     Questie.db.profile.questAnnounceObjectives = value
-                                    Questie:Debug(Questie.DEBUG_DEVELOP, "Objective completed announce changed to:", value)
+                                    Questie.Debug(Questie.DEBUG_DEVELOP, "Objective completed announce changed to:", value)
                                 end,
                             },
                             questAnnounceObjectiveProgress = {
@@ -205,7 +207,7 @@ function QuestieOptions.tabs.general:Initialize()
                                 get = function () return Questie.db.profile.questAnnounceObjectiveProgress; end,
                                 set = function (_, value)
                                     Questie.db.profile.questAnnounceObjectiveProgress = value
-                                    Questie:Debug(Questie.DEBUG_DEVELOP, "Objective progress announce changed to:", value)
+                                    Questie.Debug(Questie.DEBUG_DEVELOP, "Objective progress announce changed to:", value)
                                 end,
                             },
                             questAnnounceIncompleteBreadcrumb = {
@@ -217,7 +219,7 @@ function QuestieOptions.tabs.general:Initialize()
                                 get = function () return Questie.db.profile.questAnnounceIncompleteBreadcrumb; end,
                                 set = function (_, value)
                                     Questie.db.profile.questAnnounceIncompleteBreadcrumb = value
-                                    Questie:Debug(Questie.DEBUG_DEVELOP, "Quest announce incomplete breadcrumb changed to:", value)
+                                    Questie.Debug(Questie.DEBUG_DEVELOP, "Quest announce incomplete breadcrumb changed to:", value)
                                 end,
                             },
                         },
@@ -271,18 +273,25 @@ function QuestieOptions.tabs.general:Initialize()
                         width = 1.55,
                         get = function() return not Questie.db.profile.minimap.hide; end,
                         set = function(info, value)
-                            Questie.db.profile.minimap.hide = not value;
-
-                            if value then
-                                Questie.minimapConfigIcon:Show("Questie");
-                            else
-                                Questie.minimapConfigIcon:Hide("Questie");
-                            end
+                            MinimapIcon:SetShown(value)
+                        end,
+                    },
+                    detachMinimapButton = {
+                        type = "toggle",
+                        order = 5.4,
+                        name = function() return l10n('Detach Minimap Button'); end,
+                        desc = function() return l10n('Detach the Questie minimap button from the minimap and allow it to be moved anywhere on the screen.'); end,
+                        width = 1.55,
+                        disabled = function() return Questie.db.profile.minimap.hide end,
+                        get = function() return Questie.db.profile.minimap.detached end,
+                        set = function(_, value)
+                            Questie.db.profile.minimap.detached = value
+                            MinimapIcon:ApplyButtonMode()
                         end,
                     },
                     minimapCoordinatesEnabled = {
                         type = "toggle",
-                        order = 5.4,
+                        order = 5.5,
                         name = function() return l10n('Show Minimap Coordinates'); end,
                         desc = function() return l10n("Place the Player's coordinates on the Minimap title."); end,
                         width = 1.55,
@@ -297,7 +306,7 @@ function QuestieOptions.tabs.general:Initialize()
                     },
                     announceWorldEvents = {
                         type = "toggle",
-                        order = 5.5,
+                        order = 5.6,
                         name = function() return l10n('Show active world event notifications'); end,
                         desc = function() return l10n('Print a chat message when a world event is active or about to start.'); end,
                         width = 1.55,
@@ -339,7 +348,7 @@ function QuestieOptions.tabs.general:Initialize()
                             Questie.db.profile.lowLevelStyle = value
                             AvailableQuests.ResetLevelRequirementCache()
                             AvailableQuests.CalculateAndDrawAll()
-                            Questie:Debug(Questie.DEBUG_DEVELOP, "Lowlevel Quests set to:", value)
+                            Questie.Debug(Questie.DEBUG_DEVELOP, "Lowlevel Quests set to:", value)
                         end,
                     },
                     manualOffset = {
@@ -475,6 +484,17 @@ function QuestieOptions.tabs.general:Initialize()
                         get = function() return Questie.db.profile.enableTooltipsNextInChain; end,
                         set = function (_, value)
                             Questie.db.profile.enableTooltipsNextInChain = value
+                        end
+                    },
+                    showBreadcrumbQuests = {
+                        type = "toggle",
+                        order = 8.51,
+                        name = function() return l10n("Show breadcrumb quests"); end,
+                        desc = function() return l10n("If checked, breadcrumb quests will show in the expanded map tooltips."); end,
+                        width = 1.5,
+                        get = function() return Questie.db.profile.enableTooltipsBreadcrumbQuests; end,
+                        set = function (_, value)
+                            Questie.db.profile.enableTooltipsBreadcrumbQuests = value
                         end
                     },
                     showDropRates = {

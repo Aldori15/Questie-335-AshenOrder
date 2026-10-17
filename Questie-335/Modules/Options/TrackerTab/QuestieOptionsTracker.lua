@@ -13,6 +13,10 @@ local TrackerBaseFrame = QuestieLoader:ImportModule("TrackerBaseFrame")
 local TrackerLinePool = QuestieLoader:ImportModule("TrackerLinePool")
 ---@type TrackerQuestTimers
 local TrackerQuestTimers = QuestieLoader:ImportModule("TrackerQuestTimers")
+---@type AutoRoute
+local AutoRoute = QuestieLoader:ImportModule("AutoRoute")
+---@type CommsVisibility
+local CommsVisibility = QuestieLoader:ImportModule("CommsVisibility")
 
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
@@ -26,20 +30,6 @@ local _GetShortcuts
 local trackerOptions = {}
 
 local SharedMedia = LibStub("LibSharedMedia-3.0")
-
----Toggle tracker visibility based on a condition
----@param shouldHide boolean Whether to hide (true) or show (false) the tracker
----@param conditionFn fun(): boolean Function that returns true if the condition is met
-local function toggleTrackerVisibility(shouldHide, conditionFn)
-    local baseFrame = TrackerBaseFrame.baseFrame
-    if baseFrame and conditionFn() then
-        if shouldHide then
-            QuestieTracker:Hide()
-        else
-            QuestieTracker:Show()
-        end
-    end
-end
 
 local function startFadeTicker()
     local fadeTicker
@@ -125,7 +115,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                 inline = true,
                 width = 0.5,
                 name = function()
-                    if Questie.IsWotlk then
+                    if Questie.IsWotlk or QuestieCompat.Is335 then
                         return l10n("Quest and Achievement Options")
                     else
                         return l10n('Quest Options')
@@ -149,6 +139,8 @@ function QuestieOptions.tabs.tracker:Initialize()
                                 Questie.db.char.AutoUntrackedQuests = {}
                             end
 
+                            CommsVisibility:ScheduleSnapshot("AUTO_TRACK_QUESTS")
+
                             -- Update Quest Log and mark tracked Quests
                             local questLogFrame = QuestLogExFrame or ClassicQuestLog or QuestLogFrame
                             if questLogFrame:IsShown() then
@@ -156,6 +148,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                             end
 
                             QuestieTracker:Update()
+                            AutoRoute.ScheduleUpdate()
                         end
                     },
                     showQuestLevels = {
@@ -212,14 +205,14 @@ function QuestieOptions.tabs.tracker:Initialize()
                         values = _GetShortcuts(),
                         style = 'dropdown',
                         name = function()
-                            if Questie.IsWotlk then
+                            if Questie.IsWotlk or QuestieCompat.Is335 then
                                 return l10n('Show Quest / Achievement')
                             else
                                 return l10n('Show in Quest Log')
                             end
                         end,
                         desc = function()
-                            if Questie.IsWotlk then
+                            if Questie.IsWotlk or QuestieCompat.Is335 then
                                 return l10n('This shortcut will open the Quest Log with the clicked Quest selected or open Achievements with the clicked Achievement selected.')
                             else
                                 return l10n('This shortcut will open the Quest Log with the clicked Quest selected.')
@@ -238,14 +231,14 @@ function QuestieOptions.tabs.tracker:Initialize()
                         values = _GetShortcuts(),
                         style = 'dropdown',
                         name = function()
-                            if Questie.IsWotlk then
+                            if Questie.IsWotlk or QuestieCompat.Is335 then
                                 return l10n('Untrack / Link')
                             else
                                 return l10n('Untrack / Link Quest')
                             end
                         end,
                         desc = function()
-                            if Questie.IsWotlk then
+                            if Questie.IsWotlk or QuestieCompat.Is335 then
                                 return l10n('This shortcut removes a Quest or an Achievement from the Questie Tracker when the chat input box is NOT visible, otherwise this will link a Quest or an Achievement to chat.')
                             else
                                 return l10n('This shortcut removes a Quest from the Questie Tracker when the chat input box is NOT visible, otherwise this will link a Quest to chat.')
@@ -338,7 +331,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                                 name = function() return l10n('Hide Completed Achieve Objectives') end,
                                 desc = function() return l10n('When this is checked, completed Achievement Objectives will automatically be removed from the Questie Tracker.') end,
                                 disabled = function() return not Questie.db.profile.trackerEnabled end,
-                                hidden = function() return not Questie.IsWotlk end,
+                                hidden = function() return not (Questie.IsWotlk or QuestieCompat.Is335) end,
                                 get = function() return Questie.db.profile.hideCompletedAchieveObjectives end,
                                 set = function(_, value)
                                     Questie.db.profile.hideCompletedAchieveObjectives = value
@@ -455,41 +448,33 @@ function QuestieOptions.tabs.tracker:Initialize()
                         order = 1,
                         width = 1.5,
                         name = function() return l10n('Minimize In Combat') end,
-                        desc = function() return l10n('When this is checked, the Questie Tracker will automatically be minimized while entering combat.') end,
+                        desc = function() return l10n('If checked, the Questie Tracker will automatically be minimized while entering combat.') end,
                         disabled = function() return not Questie.db.profile.trackerEnabled end,
                         get = function() return Questie.db.profile.minimizeTrackerInCombat end,
                         set = function(_, value)
                             Questie.db.profile.minimizeTrackerInCombat = value
-                            -- Disable the hide option when minimize is enabled
                             if value then
                                 Questie.db.profile.hideTrackerInCombat = false
+                                QuestieTracker.OnHideInCombatChanged(false)
                             end
-                            if value and InCombatLockdown() then
-                                QuestieTracker:Collapse()
-                            else
-                                QuestieTracker:Expand()
-                            end
+                            QuestieTracker.OnMinimizeInCombatChanged(value)
                         end
                     },
-                    minimizeInDungeons = {
+                    minimizeInInstances = {
                         type = "toggle",
                         order = 2,
                         width = 1.5,
-                        name = function() return l10n('Minimize In Dungeons') end,
-                        desc = function() return l10n('When this is checked, the Questie Tracker will automatically be minimized when entering a dungeon.') end,
+                        name = function() return l10n('Minimize In Instances') end,
+                        desc = function() return l10n('If checked, the Questie Tracker will automatically be minimized when entering a dungeon, raid, or battleground.') end,
                         disabled = function() return not Questie.db.profile.trackerEnabled end,
-                        get = function() return Questie.db.profile.minimizeTrackerInDungeons end,
+                        get = function() return Questie.db.profile.minimizeTrackerInInstances end,
                         set = function(_, value)
-                            Questie.db.profile.minimizeTrackerInDungeons = value
-                            -- Disable the hide option when minimize is enabled
+                            Questie.db.profile.minimizeTrackerInInstances = value
                             if value then
-                                Questie.db.profile.hideTrackerInDungeons = false
+                                Questie.db.profile.hideTrackerInInstances = false
+                                QuestieTracker.OnHideInInstancesChanged(false)
                             end
-                            if value and IsInInstance() then
-                                QuestieTracker:Collapse()
-                            else
-                                QuestieTracker:Expand()
-                            end
+                            QuestieTracker.OnMinimizeInInstancesChanged(value)
                         end
                     },
                     hideInCombat = {
@@ -504,24 +489,26 @@ function QuestieOptions.tabs.tracker:Initialize()
                             Questie.db.profile.hideTrackerInCombat = value
                             if value then
                                 Questie.db.profile.minimizeTrackerInCombat = false
+                                QuestieTracker.OnMinimizeInCombatChanged(false)
                             end
-                            toggleTrackerVisibility(value, InCombatLockdown)
+                            QuestieTracker.OnHideInCombatChanged(value)
                         end
                     },
-                    hideInDungeons = {
+                    hideInInstances = {
                         type = "toggle",
                         order = 4,
                         width = 1.5,
-                        name = function() return l10n("Hide In Dungeons") end,
-                        desc = function() return l10n("If checked, the Questie Tracker will automatically be hidden when entering a dungeon.") end,
+                        name = function() return l10n("Hide In Instances") end,
+                        desc = function() return l10n("If checked, the Questie Tracker will automatically be hidden when entering a dungeon, raid, or battleground.") end,
                         disabled = function() return not Questie.db.profile.trackerEnabled end,
-                        get = function() return Questie.db.profile.hideTrackerInDungeons end,
+                        get = function() return Questie.db.profile.hideTrackerInInstances end,
                         set = function(_, value)
-                            Questie.db.profile.hideTrackerInDungeons = value
+                            Questie.db.profile.hideTrackerInInstances = value
                             if value then
-                                Questie.db.profile.minimizeTrackerInDungeons = false
+                                Questie.db.profile.minimizeTrackerInInstances = false
+                                QuestieTracker.OnMinimizeInInstancesChanged(false)
                             end
-                            toggleTrackerVisibility(value, IsInInstance)
+                            QuestieTracker.OnHideInInstancesChanged(value)
                         end
                     },
                     fadeMinMaxButtons = {
@@ -667,6 +654,19 @@ function QuestieOptions.tabs.tracker:Initialize()
                             QuestieTracker:Update()
                         end
                     },
+                    autoRouteEnabled = {
+                        type = "toggle",
+                        order = 11.05,
+                        width = 1.5,
+                        name = function() return l10n("Automatic |cFF54e33bTomTom|r Route") end,
+                        desc = function() return l10n("Automatically point TomTom at the next tracked quest. Quests added to an ordered route from the Tracker are visited first; otherwise Questie uses distance and quest level. Manually set Questie waypoints take priority.") end,
+                        disabled = function() return not Questie.db.profile.trackerEnabled end,
+                        hidden = function() return not IsAddOnLoaded("TomTom") end,
+                        get = function() return Questie.db.profile.autoRouteEnabled end,
+                        set = function(_, value)
+                            AutoRoute.SetEnabled(value)
+                        end
+                    },
                     Spacer_Dropdowns = QuestieOptionsUtils:Spacer(11.1),
                     setTomTom = {
                         type = "select",
@@ -675,7 +675,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                         style = 'dropdown',
                         name = function() return l10n('Set |cFF54e33bTomTom|r Target') end,
                         desc = function()
-                            if Questie.IsWotlk then
+                            if Questie.IsWotlk or QuestieCompat.Is335 then
                                 return l10n('This shortcut will set the TomTom arrow to point to either an NPC or the first incomplete Quest Objective (if location data is available).\n\nNOTE: This will not work with Achievements.')
                             else
                                 return l10n('This shortcut will set the TomTom arrow to point to either an NPC or the first incomplete Quest Objective (if location data is available).')
@@ -1054,25 +1054,21 @@ function QuestieOptions.tabs.tracker:Initialize()
                     },
                     fontOutline = {
                         type = "select",
-                        dialogControl = 'LSM30_Font',
                         order = 9,
                         width = 1.5,
                         values = {
-                            ["None"] = "",
-                            ["Outline"] = "OUTLINE",
-                            ["Monochrome"] = "MONOCHROME"
+                            [""] = "None",
+                            ["OUTLINE"] = "Outline",
+                            ["MONOCHROME"] = "Monochrome"
                         },
                         style = 'dropdown',
                         name = function() return l10n('Outline for Zones, Titles, and Objectives') end,
                         desc = function() return l10n('The outline used for Quest Zones, Titles, and Objectives in the Questie Tracker.') end,
                         disabled = function() return not Questie.db.profile.trackerEnabled end,
                         get = function()
-                            return Questie.db.profile.trackerFontOutline == "" and "None" or Questie.db.profile.trackerFontOutline
+                            return Questie.db.profile.trackerFontOutline
                         end,
                         set = function(_, value)
-                            if value == "None" then
-                                value = ""
-                            end
                             Questie.db.profile.trackerFontOutline = value
                             QuestieTracker:Update()
                         end

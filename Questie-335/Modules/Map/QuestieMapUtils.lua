@@ -3,64 +3,151 @@ local QuestieMap = QuestieLoader:ImportModule("QuestieMap");
 ---@class QuestieMapUtils
 QuestieMap.utils = QuestieMap.utils or {}
 
-local HBD = QuestieCompat.HBD or LibStub("HereBeDragonsQuestie-2.0")
-
-local ZOOM_MODIFIER = 1;
-
 -- All the speed we can get is worth it.
-local tinsert = table.insert
 local pairs = pairs
 
-function QuestieMap.utils:SetDrawOrder(frame)
-    -- We need to add 2015, because of the regular WorldMapFrame.ScrollContainer which seems to start at 2000
-    if frame.miniMapIcon then
-        local frameLevel = Minimap:GetFrameLevel() + 2015
-        if frame.isManualIcon then
-            frameLevel = frameLevel - 1 -- This is to make sure that manual icons are always below other icons
-        end
-        local frameStrata = Minimap:GetFrameStrata()
-        frame:SetParent(Minimap)
-        frame:SetFrameStrata(frameStrata)
-        frame:SetFrameLevel(frameLevel)
-    else
-        local frameLevel = WorldMapFrame:GetFrameLevel() + 2015
-        if frame.isManualIcon then
-            frameLevel = frameLevel - 1 -- This is to make sure that manual icons are always below other icons
-        end
-        local frameStrata = WorldMapFrame:GetFrameStrata()
-        frame:SetParent(WorldMapButton)
-        frame:SetFrameStrata(frameStrata)
-        frame:SetFrameLevel(frameLevel)
+local DRAW_ORDER_BY_ICON_TYPE_LOOKUP
+
+local DRAW_LAYER_KEYS = {
+    "line",
+    "manual",
+    "objective",
+    "available",
+    "repeatable",
+    "complete",
+}
+
+local worldMapDrawLayers
+local minimapDrawLayers
+
+local function CreateDrawLayers(root, strata)
+    local drawLayers = {
+        root = root,
+        frames = {},
+    }
+
+    -- On the 3.3.5 client, reparenting sibling frames can affect their render
+    -- order even when explicit frame levels differ. These persistent category
+    -- parents are created once from lowest to highest priority, so recreating
+    -- an icon cannot move it above an icon from a higher priority category.
+    for index, key in ipairs(DRAW_LAYER_KEYS) do
+        local layer = CreateFrame("Frame", nil, root)
+        layer:SetAllPoints(root)
+        layer:SetFrameStrata(strata)
+        layer:SetFrameLevel(root:GetFrameLevel() + index)
+        layer:EnableMouse(false)
+        drawLayers.frames[index] = layer
+        drawLayers[key] = layer
     end
 
-    -- Draw layer is between -8 and 7, please leave some number above so we don't paint ourselves into a corner...
-    -- These are sorted by order of most common occurrence to reduce if checks; it's less readable but more performant with so many icons
-    if frame.data then
-        if frame.data.Icon == Questie.ICON_TYPE_AVAILABLE then
-            frame.texture:SetDrawLayer("OVERLAY", 5)
-        elseif frame.data.Icon == Questie.ICON_TYPE_REPEATABLE then
-            frame.texture:SetDrawLayer("OVERLAY", 4)
-        elseif frame.data.Icon == Questie.ICON_TYPE_EVENTQUEST then
-            frame.texture:SetDrawLayer("OVERLAY", 4)
-        elseif frame.data.Icon == Questie.ICON_TYPE_PVPQUEST then
-            frame.texture:SetDrawLayer("OVERLAY", 4)
-        elseif frame.data.Icon == Questie.ICON_TYPE_COMPLETE then
-            frame.texture:SetDrawLayer("OVERLAY", 6)
-        elseif frame.data.Icon == Questie.ICON_TYPE_REPEATABLE_COMPLETE then
-            frame.texture:SetDrawLayer("OVERLAY", 6)
-        elseif frame.data.Icon == Questie.ICON_TYPE_EVENTQUEST_COMPLETE then
-            frame.texture:SetDrawLayer("OVERLAY", 6)
-        elseif frame.data.Icon == Questie.ICON_TYPE_PVPQUEST_COMPLETE then
-            frame.texture:SetDrawLayer("OVERLAY", 6)
-        else
-            frame.texture:SetDrawLayer("OVERLAY", 0)
-        end
-    else
-        frame.texture:SetDrawLayer("OVERLAY", 0)
-    end
+    return drawLayers
 end
 
-function QuestieMap.utils:IsExplored(uiMapId, x, y)
+local function GetDrawLayers(isMinimap)
+    local root = isMinimap and Minimap or WorldMapButton
+    local strata = isMinimap and Minimap:GetFrameStrata() or WorldMapFrame:GetFrameStrata()
+    local drawLayers = isMinimap and minimapDrawLayers or worldMapDrawLayers
+
+    if (not drawLayers) or drawLayers.root ~= root then
+        drawLayers = CreateDrawLayers(root, strata)
+        if isMinimap then
+            minimapDrawLayers = drawLayers
+        else
+            worldMapDrawLayers = drawLayers
+        end
+    end
+
+    -- Map replacements can adjust the root frame after Questie initializes.
+    -- Refresh the compact levels without changing the containers' order.
+    for index, layer in ipairs(drawLayers.frames) do
+        if layer:GetFrameStrata() ~= strata then
+            layer:SetFrameStrata(strata)
+        end
+        local frameLevel = root:GetFrameLevel() + index
+        if layer:GetFrameLevel() ~= frameLevel then
+            layer:SetFrameLevel(frameLevel)
+        end
+    end
+
+    return drawLayers, strata
+end
+
+local function EnsureDrawOrderLookup()
+    if DRAW_ORDER_BY_ICON_TYPE_LOOKUP then return end
+
+    -- Questie.lua is loaded last in the 3.3.5 TOC, so its icon constants are
+    -- not available while QuestieMapUtils.lua itself is being loaded.
+    DRAW_ORDER_BY_ICON_TYPE_LOOKUP = {
+        [Questie.ICON_TYPE_SLAY] = 0,
+        [Questie.ICON_TYPE_LOOT] = 0,
+        [Questie.ICON_TYPE_EVENT] = 0,
+        [Questie.ICON_TYPE_OBJECT] = 0,
+        [Questie.ICON_TYPE_TALK] = 0,
+        [Questie.ICON_TYPE_AVAILABLE] = 1,
+        [Questie.ICON_TYPE_AVAILABLE_GRAY] = 0,
+        [Questie.ICON_TYPE_COMPLETE] = 3,
+        [Questie.ICON_TYPE_GLOW] = 0,
+        [Questie.ICON_TYPE_REPEATABLE] = 2,
+        [Questie.ICON_TYPE_REPEATABLE_COMPLETE] = 3,
+        [Questie.ICON_TYPE_INCOMPLETE] = 0,
+        [Questie.ICON_TYPE_EVENTQUEST] = 2,
+        [Questie.ICON_TYPE_EVENTQUEST_COMPLETE] = 3,
+        [Questie.ICON_TYPE_PVPQUEST] = 2,
+        [Questie.ICON_TYPE_PVPQUEST_COMPLETE] = 3,
+        [Questie.ICON_TYPE_INTERACT] = 0,
+        [Questie.ICON_TYPE_MOUNT_UP] = 0,
+        [Questie.ICON_TYPE_NODE_FISH] = 0,
+        [Questie.ICON_TYPE_NODE_HERB] = 0,
+        [Questie.ICON_TYPE_NODE_ORE] = 0,
+        [Questie.ICON_TYPE_CHEST] = 0,
+    }
+end
+
+function QuestieMap.utils.SetDrawOrder(frame)
+    EnsureDrawOrderLookup()
+
+    local drawLayers, strata = GetDrawLayers(frame.miniMapIcon)
+    local layer
+    if frame.isManualIcon then
+        layer = drawLayers.manual
+    else
+        local priority
+        if frame.data and frame.data.Type == "complete" then
+            priority = 3
+        else
+            priority = (frame.data and DRAW_ORDER_BY_ICON_TYPE_LOOKUP[frame.data.Icon]) or 0
+        end
+
+        if priority == 3 then
+            layer = drawLayers.complete
+        elseif priority == 2 then
+            layer = drawLayers.repeatable
+        elseif priority == 1 then
+            layer = drawLayers.available
+        else
+            layer = drawLayers.objective
+        end
+    end
+
+    frame:SetParent(layer)
+    frame:SetFrameStrata(strata)
+    frame:SetFrameLevel(layer:GetFrameLevel() + 1)
+
+    -- These sublayers only control the regions within this individual icon.
+    frame.glowTexture:SetDrawLayer("ARTWORK", -1)
+    frame.texture:SetDrawLayer("OVERLAY", 0)
+    frame.overlayTexture:SetDrawLayer("OVERLAY", 1)
+end
+
+function QuestieMap.utils.SetLineDrawOrder(frame)
+    local drawLayers, strata = GetDrawLayers(false)
+    frame.questieDrawLayerParent = drawLayers.line
+    frame:SetParent(drawLayers.line)
+    frame:SetFrameStrata(strata)
+    frame:SetFrameLevel(drawLayers.line:GetFrameLevel() + 1)
+end
+
+function QuestieMap.utils.IsExplored(uiMapId, x, y)
     local IsExplored = false
     if uiMapId then
         local exploredAreaIDs = C_MapExplorationInfo.GetExploredAreaIDsAtPosition(uiMapId, CreateVector2D(x / 100, y / 100))
@@ -83,12 +170,12 @@ function QuestieMap.utils:IsExplored(uiMapId, x, y)
     return IsExplored
 end
 
-function QuestieMap.utils:MapExplorationUpdate()
+function QuestieMap.utils.MapExplorationUpdate()
     for _, frameList in pairs(QuestieMap.questIdFrames) do
         for _, frameName in pairs(frameList) do
             local frame = _G[frameName]
             if (frame and frame.x and frame.y and frame.UiMapID and frame.hidden) then
-                if (QuestieMap.utils:IsExplored(frame.UiMapID, frame.x, frame.y)) then
+                if (QuestieMap.utils.IsExplored(frame.UiMapID, frame.x, frame.y) and not frame:ShouldBeHidden()) then
                     frame:FakeShow()
                 end
             end
@@ -111,7 +198,7 @@ end
 --- Rescale a single icon
 ---@param frameRef string|IconFrame @The global name/iconRef of the icon frame, e.g. "QuestieFrame1"
 ---@param mapScale number? @Scale value for the final size of the Icon
-function QuestieMap.utils:RescaleIcon(frameRef, mapScale)
+function QuestieMap.utils.RescaleIcon(frameRef, mapScale)
     local frame = frameRef;
     local iconScale = mapScale or 1
     if type(frameRef) == "string" then
@@ -131,10 +218,11 @@ function QuestieMap.utils:RescaleIcon(frameRef, mapScale)
             end
 
             if scale > 1 then
-                frame:SetSize(scale * ZOOM_MODIFIER, scale * ZOOM_MODIFIER);
+                frame:SetSize(scale, scale)
+                frame:GlowUpdate()
             end
         else
-            Questie:Error("A frame is lacking the GetIconScale function for resizing!", frame.data.Id);
+            Questie.Error("A frame is lacking the GetIconScale function for resizing!", frame.data.Id);
         end
     end
 end

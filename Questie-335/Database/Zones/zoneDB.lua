@@ -29,6 +29,11 @@ local UI_MAP_TYPE_CONTINENT = 2
 
 local areaIdToUiMapId = ZoneDB.private.areaIdToUiMapId or {}
 local specialZoneIdToUiMapId = ZoneDB.private.specialZoneIdToUiMapId or {}
+local wdmInstanceFloorZoneIdToUiMapId = ZoneDB.private.wdmInstanceFloorZoneIdToUiMapId or {}
+local wdmInstanceFloorUiMapIdToZoneId = {}
+for zoneId, uiMapId in pairs(wdmInstanceFloorZoneIdToUiMapId) do
+    wdmInstanceFloorUiMapIdToZoneId[uiMapId] = zoneId
+end
 local uiMapIdToAreaId = ZoneDB.private.uiMapIdToAreaId or {}
 local dungeons = ZoneDB.private.dungeons or {}
 local dungeonLocations = ZoneDB.private.dungeonLocations or {}
@@ -87,15 +92,14 @@ end
 ---@param areaId AreaId
 ---@return UiMapId
 function ZoneDB:GetUiMapIdByAreaId(areaId)
-    local uiMapId = areaIdToUiMapId[areaId] or specialZoneIdToUiMapId[areaId]
+    local uiMapId = areaIdToUiMapId[areaId] or specialZoneIdToUiMapId[areaId] or wdmInstanceFloorZoneIdToUiMapId[areaId]
     if (not uiMapId) then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "No UiMapId found for AreaId: " .. tostring(areaId))
+        Questie.Debug(Questie.DEBUG_CRITICAL, "No UiMapId found for AreaId: " .. tostring(areaId))
     end
 
     return uiMapId
 end
 
---- Use with care, kind of slow.
 ---@param uiMapId UiMapId
 ---@return AreaId
 function ZoneDB:GetAreaIdByUiMapId(uiMapId)
@@ -104,44 +108,27 @@ function ZoneDB:GetAreaIdByUiMapId(uiMapId)
         return UiMapIdOverrides[uiMapId]
     end
 
-    local foundId
-    -- First we look for a direct match
-    for AreaUiMapId, lAreaId in pairs(uiMapIdToAreaId) do
-        local areaId = lAreaId
-        if (AreaUiMapId == uiMapId and not foundId) then
-            --Questie:Debug(Questie.DEBUG_DEVELOP, "[ZoneDB:GetAreaIdByUiMapId] : ", " AreaUiMapId: ", AreaUiMapId, " ==  uiMapId: ", uiMapId, " and areaId = ", areaId, " foundID is nil")
-            foundId = areaId
-        elseif AreaUiMapId == uiMapId and foundId ~= AreaUiMapId then
-            -- If we find a second match that does not match the first
-            -- Print an error, but we still return the first one we found.
+    if wdmInstanceFloorUiMapIdToZoneId[uiMapId] then
+        return wdmInstanceFloorUiMapIdToZoneId[uiMapId]
+    end
 
-            -- Only print if debug is enabled.
-            if Questie.db.profile.debugEnabled then
-                Questie:Error("[ZoneDB:GetAreaIdByUiMapId] : ", "UiMapId", uiMapId, "has multiple AreaIds:", foundId, areaId)
-            end
-        end
-    end
-    if foundId then -- debug --TechnoHunter adding debug print to report found AreaId
-        --if Questie.db.profile.debugEnabled then
-            --local uiMapInfo = C_Map.GetMapInfo(uiMapId)
-            --local foundName = C_Map.GetAreaInfo(foundId)
-            --Questie:Debug(Questie.DEBUG_DEVELOP, "[ZoneDB:GetAreaIdByUiMapId] : ", "Found AreaId", foundName, ":", foundId, " for UiMapId", uiMapInfo.name, ":", uiMapId, "direct match")
-        --end
+    local foundId = uiMapIdToAreaId[uiMapId]
+    if foundId then
         return foundId
-    else
-        -- As a last resort we try to match AreaId and UiMapId by name
-        -- uses the original table in zoneTables as the area id's are
-        -- all in that and we dont care if the uiMapId is there or not
-        for areaId in pairs(areaIdToUiMapId) do
-            local mapInfo = C_Map.GetMapInfo(uiMapId)
-            local areaName = C_Map.GetAreaInfo(areaId)
-            if mapInfo and mapInfo.name == areaName then
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[ZoneDB:GetAreaIdByUiMapId] : ", "Found AreaId", areaName, ":", areaId, "for UiMapId", mapInfo.name, ":", uiMapId, "by name")
-                return areaId
-            end
-        end
-        error("No AreaId found for UiMapId: " .. uiMapId .. ":" .. C_Map.GetMapInfo(uiMapId).name)
     end
+
+    -- As a last resort we try to match AreaId and UiMapId by name
+    -- uses the original table in zoneTables as the area id's are
+    -- all in that and we dont care if the uiMapId is there or not
+    local mapInfo = C_Map.GetMapInfo(uiMapId)
+    for areaId in pairs(areaIdToUiMapId) do
+        local areaName = C_Map.GetAreaInfo(areaId)
+        if mapInfo and mapInfo.name == areaName then
+            Questie.Debug(Questie.DEBUG_DEVELOP, "[ZoneDB:GetAreaIdByUiMapId] : ", "Found AreaId", areaName, ":", areaId, "for UiMapId", mapInfo.name, ":", uiMapId, "by name")
+            return areaId
+        end
+    end
+    error("No AreaId found for UiMapId: " .. tostring(uiMapId) .. ":" .. (mapInfo and mapInfo.name or "unknown map"))
 end
 
 
@@ -184,8 +171,11 @@ function ZoneDB:GetLocalizedDungeonName(areaId)
 end
 
 ---@param areaId AreaId
+---@return boolean
 function ZoneDB.IsDungeonZone(areaId)
-    return dungeonLocations[areaId] ~= nil
+    local alternativeDungeonAreaId = alternativeDungeonAreaIdToDungeonAreaId[areaId]
+    local parentZoneId = alternativeDungeonAreaId or dungeonParentZones[areaId] or subZoneToParentZone[areaId]
+    return dungeonLocations[areaId] ~= nil or alternativeDungeonAreaId ~= nil or (parentZoneId ~= nil and dungeonLocations[parentZoneId] ~= nil)
 end
 
 ---@param areaId AreaId
@@ -204,8 +194,9 @@ function ZoneDB:GetAlternativeZoneId(areaId)
 end
 
 ---@param areaId AreaId
+---@return AreaId?
 function ZoneDB:GetParentZoneId(areaId)
-    return dungeonParentZones[areaId] or subZoneToParentZone[areaId]
+    return alternativeDungeonAreaIdToDungeonAreaId[areaId] or dungeonParentZones[areaId] or subZoneToParentZone[areaId]
 end
 
 
@@ -451,16 +442,16 @@ end
 function _ZoneDB:RunTests()
     -- Fetch all UiMapIds (WOTLK/TBC, ERA)
     local maps = C_Map.GetMapChildrenInfo(946, nil, true) or C_Map.GetMapChildrenInfo(947, nil, true)
-    Questie:Debug(Questie.DEBUG_CRITICAL, "[" .. Questie:Colorize("ZoneDBTests", "yellow") .. "] Testing ZoneDB")
+    Questie.Debug(Questie.DEBUG_CRITICAL, "[" .. Questie:Colorize("ZoneDBTests", "yellow") .. "] Testing ZoneDB")
     for _, map in pairs(maps) do
         --- We don't care about World, Continent or Cosmic
         if map.mapType ~= UI_MAP_TYPE_WORLD and map.mapType ~= UI_MAP_TYPE_CONTINENT and map.mapType ~= UI_MAP_TYPE_COSMIC then
             local success, result = pcall(ZoneDB.GetAreaIdByUiMapId, ZoneDB, map.mapID)
             if not success then
-                Questie:Error("[ZoneDBTests] ZoneDB.GetAreaIdByUiMapId fails for " .. map.name .. " (" .. map.mapID .. "). Result: " .. result)
+                Questie.Error("[ZoneDBTests] ZoneDB.GetAreaIdByUiMapId fails for " .. map.name .. " (" .. map.mapID .. "). Result: " .. result)
             end
 
         end
     end
-    Questie:Debug(Questie.DEBUG_CRITICAL, "[" .. Questie:Colorize("ZoneDBTests", "yellow") .. "] Testing ZoneDB done")
+    Questie.Debug(Questie.DEBUG_CRITICAL, "[" .. Questie:Colorize("ZoneDBTests", "yellow") .. "] Testing ZoneDB done")
 end

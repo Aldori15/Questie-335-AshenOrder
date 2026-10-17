@@ -9,6 +9,8 @@ local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
 local TrackerBaseFrame = QuestieLoader:ImportModule("TrackerBaseFrame")
 ---@type TrackerUtils
 local TrackerUtils = QuestieLoader:ImportModule("TrackerUtils")
+---@type AutoRoute
+local AutoRoute = QuestieLoader:ImportModule("AutoRoute")
 -------------------------
 --Import Questie modules.
 -------------------------
@@ -68,12 +70,15 @@ TrackerMenu.addTomTomOption = function(menu, quest, objective)
             LibDropDown:CloseDropDownMenus()
 
             local spawn, zone, name = QuestieMap:GetNearestQuestSpawn(quest)
+            local targetObjectiveIndex
             if (not spawn) and objective ~= nil then
                 spawn, zone, name = QuestieMap:GetNearestSpawn(objective)
+                targetObjectiveIndex = objective.Index
             end
 
             if spawn then
-                TrackerUtils:SetTomTomTarget(name, zone, spawn[1], spawn[2])
+                local questId = quest and quest.Id or objective and objective.questId
+                TrackerUtils:SetTomTomTarget(name, zone, spawn[1], spawn[2], questId, targetObjectiveIndex)
             elseif quest then
                 TrackerUtils:SetTomTomTargetToDungeonEntrance(quest)
             end
@@ -115,7 +120,7 @@ TrackerMenu.addShowHideObjectivesOption = function(menu, quest, objective)
                 LibDropDown:CloseDropDownMenus()
                 objective.HideIcons = nil
                 Questie.db.char.TrackerHiddenObjectives[tostring(quest.Id) .. " " .. tostring(objective.Index)] = nil
-                QuestieQuest:ToggleNotes(true)
+                QuestieQuest.ToggleQuestNotes(true)
             end
         })
     else
@@ -125,7 +130,7 @@ TrackerMenu.addShowHideObjectivesOption = function(menu, quest, objective)
                 LibDropDown:CloseDropDownMenus()
                 objective.HideIcons = true
                 Questie.db.char.TrackerHiddenObjectives[tostring(quest.Id) .. " " .. tostring(objective.Index)] = true
-                QuestieQuest:ToggleNotes(false)
+                QuestieQuest.ToggleQuestNotes(false)
             end
         })
     end
@@ -138,7 +143,7 @@ TrackerMenu.addShowHideQuestsOption = function(menu, quest)
             func = function()
                 quest.HideIcons = nil
                 Questie.db.char.TrackerHiddenQuests[quest.Id] = nil
-                QuestieQuest:ToggleNotes(true)
+                QuestieQuest.ToggleQuestNotes(true)
             end
         })
     else
@@ -147,7 +152,7 @@ TrackerMenu.addShowHideQuestsOption = function(menu, quest)
             func = function()
                 quest.HideIcons = true
                 Questie.db.char.TrackerHiddenQuests[quest.Id] = true
-                QuestieQuest:ToggleNotes(false)
+                QuestieQuest.ToggleQuestNotes(false)
             end
         })
     end
@@ -177,7 +182,7 @@ TrackerMenu.addShowObjectivesOnMapOption = function(menu, quest, objective)
             end
 
             if needHiddenUpdate then
-                QuestieQuest:ToggleNotes(true)
+                QuestieQuest.ToggleQuestNotes(true)
             end
 
             TrackerUtils:ShowObjectiveOnMap(objective)
@@ -236,7 +241,7 @@ TrackerMenu.addAbandonedQuest = function(menu, quest)
             local lastQuest = GetQuestLogSelection()
             local questLogIndex = GetQuestLogIndexByID(quest.Id)
             if (not questLogIndex) then
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerMenu:addAbandonedQuest] Missing quest log index for tracked quest:", quest.Id)
+                Questie.Debug(Questie.DEBUG_DEVELOP, "[TrackerMenu:addAbandonedQuest] Missing quest log index for tracked quest:", quest.Id)
                 QuestieTracker:UntrackQuestId(quest.Id)
                 return
             end
@@ -274,6 +279,58 @@ TrackerMenu.addUntrackOption = function(menu, quest)
                 QuestLog_Update()
             end
         end
+    })
+end
+
+TrackerMenu.addRouteOption = function(menu, quest)
+    local position = AutoRoute.GetRoutePosition(quest.Id)
+    if not position then
+        tinsert(menu, {
+            text = l10n("Add to |cFF54e33bTomTom|r Route"),
+            func = function()
+                LibDropDown:CloseDropDownMenus()
+                AutoRoute.AddToRoute(quest.Id)
+            end,
+        })
+        return
+    end
+
+    local routeMenu = {
+        {
+            text = l10n("Move Up"),
+            disabled = position == 1,
+            func = function()
+                LibDropDown:CloseDropDownMenus()
+                AutoRoute.MoveInRoute(quest.Id, -1)
+            end,
+        },
+        {
+            text = l10n("Move Down"),
+            disabled = position == #(Questie.db.char.autoRouteOrder or {}),
+            func = function()
+                LibDropDown:CloseDropDownMenus()
+                AutoRoute.MoveInRoute(quest.Id, 1)
+            end,
+        },
+        {
+            text = l10n("Remove from Route"),
+            func = function()
+                LibDropDown:CloseDropDownMenus()
+                AutoRoute.RemoveFromRoute(quest.Id)
+            end,
+        },
+        {
+            text = l10n("Clear Route"),
+            func = function()
+                LibDropDown:CloseDropDownMenus()
+                AutoRoute.ClearRoute()
+            end,
+        },
+    }
+    tinsert(menu, {
+        text = l10n("|cFF54e33bTomTom|r Route") .. " |cFFAAAAAA(#" .. position .. ")|r",
+        hasArrow = true,
+        menuList = routeMenu,
     })
 end
 
@@ -339,7 +396,7 @@ StaticPopupDialogs["QUESTIE_WOWHEAD_URL"] = {
         local name = quest_wow.name
 
         -- self.text:SetText(self.text:GetText() .. "\n\n|cffff7f00" .. name .. "|r")
-        self.text:SetFont("GameFontNormal", 12)
+        self.text:SetFont(GameFontNormal:GetFont(), 12)
         -- self.text:SetText(self.text:GetText() .. "\n\n|c FFFFB9 00" .. name .. "|r")
         self.text:SetText(self.text:GetText() .. Questie:Colorize("\n\n" .. name, "gold"))
 
@@ -349,7 +406,7 @@ StaticPopupDialogs["QUESTIE_WOWHEAD_URL"] = {
         end
 
         local wowheadLink
-        if Questie.IsWotlk then
+        if Questie.IsWotlk or QuestieCompat.Is335 then
             if langShort then
                 langShort = langShort:gsub("%.", "/") -- The Wotlk WoWHead URL differs to the other Classic URLs
             end
@@ -414,6 +471,9 @@ function TrackerMenu:GetMenuForQuest(quest)
     TrackerMenu.addObjectiveOption(menu, subMenu, quest)
     TrackerMenu.addFocusUnfocusOption(menu, quest)
     TrackerMenu.addTomTomOption(menu, quest, nil)
+    if IsAddOnLoaded("TomTom") then
+        TrackerMenu.addRouteOption(menu, quest)
+    end
     TrackerMenu.minMaxQuestOption(menu, quest)
     TrackerMenu.addShowHideQuestsOption(menu, quest)
     TrackerMenu.addShowFinisherOnMapOption(menu, quest)
@@ -515,7 +575,7 @@ StaticPopupDialogs["QUESTIE_WOWHEAD_AURL"] = {
         local achieveID = self.text.text_arg1 or self.data
         local name = select(2, GetAchievementInfo(achieveID))
 
-        self.text:SetFont("GameFontNormal", 12)
+        self.text:SetFont(GameFontNormal:GetFont(), 12)
         self.text:SetText(self.text:GetText() .. Questie:Colorize("\n\n" .. name, "gold"))
 
         local langShort = string.sub(l10n:GetUILocale(), 1, 2) .. "."

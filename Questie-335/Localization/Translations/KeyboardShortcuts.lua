@@ -101,7 +101,7 @@ local keyboardShortcutLocales = {
     ["Shift"] = {
         ["ptBR"] = true,
         ["ruRU"] = true,
-        ["deDE"] = "Umschalt",
+        ["deDE"] = true,
         ["koKR"] = "Shift",
         ["esMX"] = "Mayús",
         ["enUS"] = true,
@@ -117,7 +117,7 @@ local keyboardShortcutLocales = {
         ["koKR"] = "Shift 길게누르기",
         ["esMX"] = "Mantener Mayús",
         ["enUS"] = true,
-        ["zhCN"] = "按住Shift查看更多",
+        ["zhCN"] = "按住Shift",
         ["zhTW"] = "按住Shift",
         ["esES"] = "Mantener Mayús",
         ["frFR"] = "Maintenir Maj",
@@ -133,6 +133,18 @@ local keyboardShortcutLocales = {
         ["zhTW"] = "按住左鍵",
         ["esES"] = "Clic izq. + Mantener",
         ["frFR"] = "Clic Gauche + Maintenir",
+    },
+    ["Use Nearest Quest Item"] = {
+        ["ptBR"] = "Usar o item de missão mais próximo",
+        ["ruRU"] = "Использовать ближайший предмет задания",
+        ["deDE"] = "Nächstgelegenen Questgegenstand benutzen",
+        ["koKR"] = "가장 가까운 퀘스트 아이템 사용",
+        ["esMX"] = "Usar el objeto de misión más cercano",
+        ["enUS"] = true,
+        ["zhCN"] = "使用最近的任务物品",
+        ["zhTW"] = "使用最近的任務物品",
+        ["esES"] = "Usar el objeto de misión más cercano",
+        ["frFR"] = "Utiliser l'objet de quête le plus proche",
     },
 }
 

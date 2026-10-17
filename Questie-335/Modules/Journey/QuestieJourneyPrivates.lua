@@ -8,8 +8,12 @@ local _QuestieJourney = QuestieJourney.private
 local QuestieSearchResults = QuestieLoader:ImportModule("QuestieSearchResults")
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
+---@type QuestieLib
+local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
+---@type ThreadLib
+local ThreadLib = QuestieLoader:ImportModule("ThreadLib")
 
 _QuestieJourney.containerCache = nil
 _QuestieJourney.treeCache = nil
@@ -44,13 +48,13 @@ function _QuestieJourney:CreateObjectiveText(desc)
     if desc then
         if type(desc) == "table" then
             for _, v in ipairs(desc) do
-                objText = objText .. v .. "\n"
+                objText = objText .. QuestieLib:FormatQuestText(v) .. "\n"
             end
         else
-            objText = objText .. tostring(desc) .. "\n"
+            objText = objText .. QuestieLib:FormatQuestText(tostring(desc)) .. "\n"
         end
     else
-        objText = Questie:Colorize(l10n('This quest is an automatic completion quest and does not contain an objective.'), 'yellow')
+        objText = Questie:Colorize(l10n("This quest is an automatic completion quest and does not contain an objective."), "yellow")
     end
 
     return objText
@@ -73,7 +77,9 @@ function _QuestieJourney:HandleTabChange(container, group)
         _QuestieJourney.lastOpenWindow = "zone"
         return nil
     elseif group == "faction" then
-        _QuestieJourney.questsByFaction:DrawTab(container)
+        ThreadLib.ThreadInstant(function()
+            _QuestieJourney.questsByFaction:DrawTab(container)
+        end)
         _QuestieJourney.lastOpenWindow = "faction"
         return nil
     elseif group == "search" then

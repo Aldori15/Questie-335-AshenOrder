@@ -113,10 +113,15 @@ QuestieCompat.ChrClasses = {
 local activeTimers = {}
 local inactiveTimers = {}
 
+local math_ceil = math.ceil
 local math_max = math.max
 local strfind = string.find
 
 local MIN_TIMER_DURATION = 0.01
+-- WoW 3.3.5 stores animation progress as a single-precision float. Long
+-- animation durations can stop advancing once their elapsed time reaches 2048
+-- seconds, so longer timer intervals are divided into safe animation chunks.
+local MAX_ANIMATION_TIMER_SECONDS = 30 * 60
 
 local function timerCancel(id)
     local timer = activeTimers[id]
@@ -130,6 +135,10 @@ local function timerCancel(id)
 end
 
 local function timerOnFinished(self)
+    self.pendingChunks = self.pendingChunks - 1
+    if self.pendingChunks > 0 then return end
+
+    self.pendingChunks = self.chunksPerIteration
     local id = self.id
     self.callback(id)
 
@@ -145,7 +154,7 @@ local function timerOnFinished(self)
 end
 
 QuestieCompat.C_Timer = {
-    -- Schedules a (repeating) timer that can be canceled. (https://wowpedia.fandom.com/wiki/API_C_Timer.NewTimer)
+    -- Schedules a repeating timer that can be canceled. (https://wowpedia.fandom.com/wiki/API_C_Timer.NewTicker)
     NewTicker = function(duration, callback, iterations)
         local timer = next(inactiveTimers)
         if timer then
@@ -157,9 +166,12 @@ QuestieCompat.C_Timer = {
         end
 
         if duration < MIN_TIMER_DURATION then duration = MIN_TIMER_DURATION end
-        timer:SetDuration(duration)
+        local chunksPerIteration = math_ceil(duration / MAX_ANIMATION_TIMER_SECONDS)
+        timer:SetDuration(duration / chunksPerIteration)
 
         timer.callback = callback
+        timer.chunksPerIteration = chunksPerIteration
+        timer.pendingChunks = chunksPerIteration
         timer.iterations = iterations or -1
         timer.id = {Cancel = timerCancel}
         activeTimers[timer.id] = timer
@@ -170,9 +182,13 @@ QuestieCompat.C_Timer = {
 
         return timer.id
     end,
+    -- Schedules a one-shot timer that can be canceled. (https://wowpedia.fandom.com/wiki/API_C_Timer.NewTimer)
+    NewTimer = function(duration, callback)
+        return QuestieCompat.C_Timer.NewTicker(duration, callback, 1)
+    end,
     -- Schedules a timer. (https://wowpedia.fandom.com/wiki/API_C_Timer.After)
     After = function(duration, callback)
-        return QuestieCompat.C_Timer.NewTicker(duration, callback, 1)
+        return QuestieCompat.C_Timer.NewTimer(duration, callback)
     end
 }
 
@@ -288,7 +304,7 @@ function QuestieCompat.UnitGUID(unit)
 end
 
 function QuestieCompat.GetMaxPlayerLevel()
-    return (Questie.IsWotlk and 80) or (Questie.IsTBC and 70) or (Questie.IsClassic and 60)
+    return ((Questie.IsWotlk or QuestieCompat.Is335) and 80) or (Questie.IsTBC and 70) or (Questie.IsClassic and 60)
 end
 
 -- https://wowpedia.fandom.com/wiki/API_UnitAura?oldid=2681338
@@ -508,6 +524,11 @@ end
 QuestieCompat.IsSpellKnownOrOverridesKnown = IsSpellKnown
 QuestieCompat.IsPlayerSpell = IsSpellKnown
 
+function QuestieCompat.GetSpellName(spellId)
+    local spellName = GetSpellInfo(spellId)
+    return spellName
+end
+
 local LARGE_NUMBER_SEPERATOR = ",";
 function QuestieCompat.FormatLargeNumber(amount)
 	amount = tostring(amount);
@@ -552,9 +573,15 @@ function QuestieCompat.PopulateGlobals(self)
     end
 end
 
--- change sound files extension from .ogg to .wav
+-- The 3.3.5 game archive uses .wav names for Questie's built-in sound paths.
+-- LibSharedMedia addon paths must keep their registered extension.
 function QuestieCompat.GetSelectedSoundFile(typeSelected)
-    return QuestieCompat.orig_GetSelectedSoundFile(typeSelected):gsub("[^.]+$", "wav")
+    local soundFile = QuestieCompat.orig_GetSelectedSoundFile(typeSelected)
+    if soundFile:lower():find("^interface[\\/]addons[\\/]") then
+        return soundFile
+    end
+
+    return soundFile:gsub("%.ogg$", ".wav")
 end
 
 QuestieCompat.isReloadingUi = false
@@ -584,7 +611,7 @@ function QuestieCompat:PLAYER_LOGOUT(event)
 end
 
 local townsfolk_texturemap = {
-    ["Ammo"] = "Interface\\Icons\\inv_ammo_arrow_02",
+    ["Ammo"] = "Interface\\Minimap\\tracking\\ammunition",
     ["Bags"] = "Interface\\Icons\\inv_misc_bag_09",
     ["Potions"] = "Interface\\Icons\\inv_potion_51",
     ["Trade Goods"] ="Interface\\Icons\\inv_fabric_wool_02",
@@ -630,9 +657,11 @@ function QuestieCompat.QuestieOptions_Initialize()
         StaticPopup_Show("QUESTIE_RELOAD")
     end
 
-    -- disable settings for not implemented functionality
-    Questie.db.profile.hideUnexploredMapIcons = false
-    optionsTable.args.icons_tab.args.map_settings_group.args.hideUnexploredMapIconsToggle.disabled = true
+    optionsTable.args.icons_tab.args.map_settings_group.args.hideUnexploredMapIconsToggle.set = function(info, value)
+        Questie.db.profile.hideUnexploredMapIcons = value
+        QuestieCompat.ClearExplorationCache()
+        QuestieQuest:RefreshQuestIconVisibility()
+    end
 
     -- 3.3.5 section
     optionsTable.args.advanced_tab.args.compat_header = {
@@ -736,6 +765,11 @@ function QuestieCompat.LoadBlacklists()
     end
 end
 
+function QuestieCompat.ReleaseCorrectionRegistries()
+    correctionsRegistry = {}
+    blacklistRegistry = {}
+end
+
 function QuestieCompat.Merge(target, source, override)
 	if type(target) ~= "table" then target = {} end
 	for k,v in pairs(source) do
@@ -762,6 +796,7 @@ function QuestieCompat:ADDON_LOADED(event, addon)
         char = {
             daily = {},
             weekly = {},
+            monthly = {},
         }
     })
 
@@ -800,6 +835,8 @@ function QuestieCompat:ADDON_LOADED(event, addon)
     Sounds.GetSelectedSoundFile = QuestieCompat.GetSelectedSoundFile
 	QuestieLink.GetQuestLinkString = rawget(QuestieLink, "GetQuestLinkString") or QuestieCompat.GetQuestLinkString
 	QuestieLink.GetQuestLinkStringById = rawget(QuestieLink, "GetQuestLinkStringById") or QuestieCompat.GetQuestLinkStringById
+	QuestieLink.GetQuestInsertString = rawget(QuestieLink, "GetQuestInsertString") or QuestieCompat.GetQuestInsertString
+	QuestieLink.GetQuestInsertStringById = rawget(QuestieLink, "GetQuestInsertStringById") or QuestieCompat.GetQuestInsertStringById
 	QuestieLink.GetQuestHyperLink = rawget(QuestieLink, "GetQuestHyperLink") or QuestieCompat.GetQuestLinkStringById
 
     QuestieCompat.RegisterEventCompatibilityHooks()

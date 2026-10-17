@@ -6,8 +6,18 @@ local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestieProfessions
 local QuestieProfessions = QuestieLoader:ImportModule("QuestieProfessions")
 
-local _, playerClass = UnitClassBase("player")
-local playerFaction = UnitFactionGroup("player")
+local playerClass
+local playerFaction
+
+local function _UpdatePlayerIdentity()
+    local _, currentPlayerClass = QuestieCompat.UnitClass("player")
+    local currentPlayerFaction = UnitFactionGroup("player")
+
+    playerClass = currentPlayerClass or playerClass
+    playerFaction = currentPlayerFaction or playerFaction
+
+    return playerClass, playerFaction
+end
 
 local tinsert = tinsert
 local sub, bitband, strlen = string.sub, bit.band, string.len
@@ -139,11 +149,11 @@ function Townsfolk.Initialize()
         [professionKeys.SKINNING] = {}
     }
 
-    if Questie.IsTBC or Questie.IsWotlk then
+    if Questie.IsTBC or Questie.IsWotlk or QuestieCompat.Is335 then
         professionTrainers[professionKeys.JEWELCRAFTING] = {}
     end
 
-    if Questie.IsWotlk then
+    if Questie.IsWotlk or QuestieCompat.Is335 then
         professionTrainers[professionKeys.INSCRIPTION] = {}
     end
 
@@ -205,7 +215,7 @@ function Townsfolk.Initialize()
     -- Fix NPC Gubber Blump (10216) can train fishing profession
     tinsert(professionTrainers[professionKeys.FISHING], 10216)
     -- Fix NPC Aresella (18991) can train first aid profession
-    if Questie.IsTBC or Questie.IsWotlk then
+    if Questie.IsTBC or Questie.IsWotlk or QuestieCompat.Is335 then
         tinsert(professionTrainers[professionKeys.FIRST_AID], 18991)
     end
 
@@ -215,7 +225,7 @@ function Townsfolk.Initialize()
         tinsert(professionTrainers[professionKeys.FIRST_AID], 13476)
     end
 
-    if Questie.IsWotlk or Questie.IsTBC then
+    if Questie.IsWotlk or Questie.IsTBC or QuestieCompat.Is335 then
         local meetingStones = Townsfolk.GetMeetingStones()
 
         townfolk["Meeting Stones"] = {}
@@ -315,28 +325,45 @@ function Townsfolk.PostBoot() -- post DB boot (use queries here)
         2928,4361,10647,10648,4291,4357,8924,8343,4363,2678,5173,4400,2930,4342,2325,4340,
         6261,8923,2324,2604,6260,4378,10290,17194,4341
     }))
-    Questie.db.char.vendorList["Bags"] = _reformatVendors(Townsfolk:PopulateVendors({4496, 4497, 4498, 4499, (Questie.IsTBC or Questie.IsWotlk) and 30744 or nil}))
+    Questie.db.char.vendorList["Bags"] = _reformatVendors(Townsfolk:PopulateVendors({4496, 4497, 4498, 4499, (Questie.IsTBC or Questie.IsWotlk or QuestieCompat.Is335) and 30744 or nil}))
     Questie.db.char.vendorList["Potions"] = _reformatVendors(Townsfolk:PopulateVendors({
-        118, 858, 929, 1710, 3928, 13446, 18839, (Questie.IsTBC or Questie.IsWotlk) and 22829 or nil, (Questie.IsTBC or Questie.IsWotlk) and 32947 or nil, (Questie.IsWotlk) and 33447 or nil, -- Healing Potions
-        2455, 3385, 3827, 6149, 13443, 13444, 18841, (Questie.IsTBC or Questie.IsWotlk) and 22832 or nil, (Questie.IsTBC or Questie.IsWotlk) and 32948 or nil, (Questie.IsWotlk) and 33448 or nil, -- Mana Potions
+        118, 858, 929, 1710, 3928, 13446, 18839, (Questie.IsTBC or Questie.IsWotlk or QuestieCompat.Is335) and 22829 or nil, (Questie.IsTBC or Questie.IsWotlk or QuestieCompat.Is335) and 32947 or nil, (Questie.IsWotlk or QuestieCompat.Is335) and 33447 or nil, -- Healing Potions
+        2455, 3385, 3827, 6149, 13443, 13444, 18841, (Questie.IsTBC or Questie.IsWotlk or QuestieCompat.Is335) and 22832 or nil, (Questie.IsTBC or Questie.IsWotlk or QuestieCompat.Is335) and 32948 or nil, (Questie.IsWotlk or QuestieCompat.Is335) and 33448 or nil, -- Mana Potions
     }))
-    Townsfolk:UpdatePlayerVendors()
     Questie.db.char.vendorListInitialized = true
+    Townsfolk:UpdatePlayerVendors()
 end
 
 function Townsfolk:BuildCharacterTownsfolk()
-    Questie.db.char.townsfolk = {}
+    local currentPlayerClass, currentPlayerFaction = _UpdatePlayerIdentity()
+    local factionSpecificTownsfolk = Questie.db.global.factionSpecificTownsfolk
+    local classSpecificTownsfolk = Questie.db.global.classSpecificTownsfolk
+    local factionTownsfolk = factionSpecificTownsfolk and factionSpecificTownsfolk[currentPlayerFaction]
+    local classTownsfolk = classSpecificTownsfolk and classSpecificTownsfolk[currentPlayerClass]
+
+    if not factionTownsfolk or not classTownsfolk then
+        Questie.Error("Unable to build townsfolk: player class or faction is unavailable")
+        return false
+    end
+
+    playerClass = currentPlayerClass
+    playerFaction = currentPlayerFaction
+
+    local townsfolk = {}
     Questie.db.char.vendorList = {}
     Questie.db.char.vendorListInitialized = nil
-    Questie.db.char.townsfolkClass = select(2, UnitClassBase("player"))
 
-    for key, npcs in pairs(Questie.db.global.factionSpecificTownsfolk[playerFaction]) do
-        Questie.db.char.townsfolk[key] = npcs
+    for key, npcs in pairs(factionTownsfolk) do
+        townsfolk[key] = npcs
     end
 
-    for key, npcs in pairs(Questie.db.global.classSpecificTownsfolk[playerClass]) do
-        Questie.db.char.townsfolk[key] = npcs
+    for key, npcs in pairs(classTownsfolk) do
+        townsfolk[key] = npcs
     end
+
+    Questie.db.char.townsfolk = townsfolk
+    Questie.db.char.townsfolkClass = playerClass
+    return true
 end
 
 local function _UpdatePetFood() -- call on change pet
@@ -372,6 +399,7 @@ function Townsfolk:UpdatePlayerVendors() -- call on levelup
         return
     end
 
+    _UpdatePlayerIdentity()
     _UpdateFoodDrink()
     _UpdateAmmoVendors()
 
@@ -386,6 +414,9 @@ end
 
 function Townsfolk:EnsureVendorDataInitialized()
     if Questie.db.char.vendorListInitialized then
+        if not Questie.db.char.vendorList["Ammo"] then
+            Townsfolk:UpdatePlayerVendors()
+        end
         return
     end
 
@@ -393,6 +424,7 @@ function Townsfolk:EnsureVendorDataInitialized()
 end
 
 function Townsfolk:PopulateVendors(itemList, existingTable, restrictLevel)
+    _UpdatePlayerIdentity()
     local factionKey = playerFaction == "Alliance" and "A" or "H"
     local tbl = existingTable or {}
     -- Create a cache to minimize db calls
@@ -459,7 +491,7 @@ function Townsfolk.GetFactionSpecificMailboxes()
                 tinsert(allianceMailBoxes, id)
             end
         else
-            Questie:Debug(Questie.DEBUG_DEVELOP, "Missing mailbox:", tostring(id))
+            Questie.Debug(Questie.DEBUG_DEVELOP, "Missing mailbox:", tostring(id))
         end
     end
 

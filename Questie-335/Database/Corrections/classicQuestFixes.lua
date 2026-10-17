@@ -17,17 +17,75 @@ local l10n = QuestieLoader:ImportModule("l10n")
 QuestieCorrections.itemObjectiveFirst[503] = true
 QuestieCorrections.itemObjectiveFirst[5088] = true
 
+-- Hoverable entities that directly drive coordinate-only triggerEnd objectives
+QuestieCorrections.triggerEndTooltipTargets[155] = {{"monster",467}} -- The Defias Traitor
+QuestieCorrections.triggerEndTooltipTargets[219] = {{"monster",349}} -- Corporal Keeshan
+QuestieCorrections.triggerEndTooltipTargets[273] = {{"monster",2057}} -- Huldar
+QuestieCorrections.triggerEndTooltipTargets[309] = {{"monster",1379}} -- Miran
+QuestieCorrections.triggerEndTooltipTargets[434] = {{"monster",1754}} -- Lord Gregor Lescovar
+QuestieCorrections.triggerEndTooltipTargets[435] = {{"monster",1978}} -- Deathstalker Erland
+QuestieCorrections.triggerEndTooltipTargets[590] = {{"monster",6784}} -- Calvin Montague
+QuestieCorrections.triggerEndTooltipTargets[648] = {{"monster",7784}} -- Homing Robot OOX-17/TN
+QuestieCorrections.triggerEndTooltipTargets[660] = {{"monster",2713}} -- Kinelory
+QuestieCorrections.triggerEndTooltipTargets[665] = {{"monster",2768}} -- Professor Phizzlethorpe
+QuestieCorrections.triggerEndTooltipTargets[667] = {{"monster",2610}} -- Shakes O'Breen
+QuestieCorrections.triggerEndTooltipTargets[731] = {{"monster",2917}} -- Prospector Remtravel
+QuestieCorrections.triggerEndTooltipTargets[836] = {{"monster",7806}} -- Homing Robot OOX-09/HL
+QuestieCorrections.triggerEndTooltipTargets[863] = {{"monster",3439}} -- Wizzlecrank's Shredder
+QuestieCorrections.triggerEndTooltipTargets[898] = {{"monster",3465}} -- Gilthares Firebough
+QuestieCorrections.triggerEndTooltipTargets[945] = {{"monster",3584}} -- Therylune
+QuestieCorrections.triggerEndTooltipTargets[976] = {{"monster",4484}} -- Feero Ironhand
+QuestieCorrections.triggerEndTooltipTargets[994] = {{"monster",3692}} -- Volcor
+QuestieCorrections.triggerEndTooltipTargets[995] = {{"monster",3692}} -- Volcor
+QuestieCorrections.triggerEndTooltipTargets[1144] = {{"monster",4508}} -- Willix the Importer
+QuestieCorrections.triggerEndTooltipTargets[1173] = {{"monster",4500}} -- Overlord Mok'Morokk
+QuestieCorrections.triggerEndTooltipTargets[1222] = {{"monster",4880}} -- "Stinky" Ignatz
+QuestieCorrections.triggerEndTooltipTargets[1270] = {{"monster",4880}} -- "Stinky" Ignatz
+QuestieCorrections.triggerEndTooltipTargets[1273] = {{"monster",4980}} -- Paval Reethe
+QuestieCorrections.triggerEndTooltipTargets[1393] = {{"monster",5391}} -- Galen Goodward
+QuestieCorrections.triggerEndTooltipTargets[1440] = {{"monster",5644}} -- Dalinda Malem
+QuestieCorrections.triggerEndTooltipTargets[1560] = {{"monster",5955}} -- Tooga
+QuestieCorrections.triggerEndTooltipTargets[1651] = {{"monster",6182}} -- Daphne Stilwell
+QuestieCorrections.triggerEndTooltipTargets[2480] = {{"monster",2391}} -- Serge Hinott
+QuestieCorrections.triggerEndTooltipTargets[2608] = {{"monster",7207}} -- Doc Mixilpixil
+QuestieCorrections.triggerEndTooltipTargets[2742] = {{"monster",7780}} -- Rin'ji
+QuestieCorrections.triggerEndTooltipTargets[2767] = {{"monster",7807}} -- Homing Robot OOX-22/FE
+QuestieCorrections.triggerEndTooltipTargets[2845] = {{"monster",7774}} -- Shay Leafrunner
+QuestieCorrections.triggerEndTooltipTargets[2904] = {{"monster",7850}} -- Kernobee
+QuestieCorrections.triggerEndTooltipTargets[2936] = {{"object",142715}} -- Tablet of Theka
+QuestieCorrections.triggerEndTooltipTargets[2954] = {{"monster",7918}} -- Stone Watcher of Norgannon
+QuestieCorrections.triggerEndTooltipTargets[3367] = {{"monster",8284}} -- Dorius Stonetender
+QuestieCorrections.triggerEndTooltipTargets[3382] = {{"monster",8380}} -- Captain Vanessa Beltis
+QuestieCorrections.triggerEndTooltipTargets[3525] = {{"monster",8516}} -- Belnistrasz
+QuestieCorrections.triggerEndTooltipTargets[4121] = {{"monster",9520}} -- Grark Lorkrub
+QuestieCorrections.triggerEndTooltipTargets[4245] = {{"monster",9623}} -- A-Me 01
+QuestieCorrections.triggerEndTooltipTargets[4261] = {{"monster",9598}} -- Arei
+QuestieCorrections.triggerEndTooltipTargets[4265] = {{"monster",9546}} -- Raschal the Courier
+QuestieCorrections.triggerEndTooltipTargets[4285] = {{"object",164955}} -- Northern Crystal Pylon
+QuestieCorrections.triggerEndTooltipTargets[4287] = {{"object",164957}} -- Eastern Crystal Pylon
+QuestieCorrections.triggerEndTooltipTargets[4288] = {{"object",164956}} -- Western Crystal Pylon
+QuestieCorrections.triggerEndTooltipTargets[4491] = {{"monster",9999}} -- Ringo
+QuestieCorrections.triggerEndTooltipTargets[4506] = {{"monster",9937}} -- Common Kitten
+QuestieCorrections.triggerEndTooltipTargets[4770] = {{"monster",10427}} -- Pao'ka Swiftmountain
+QuestieCorrections.triggerEndTooltipTargets[4901] = {{"monster",10300}} -- Ranshalla
+QuestieCorrections.triggerEndTooltipTargets[4904] = {{"monster",10646}} -- Lakota Windsong
+QuestieCorrections.triggerEndTooltipTargets[4941] = {{"monster",3144}} -- Eitrigg
+QuestieCorrections.triggerEndTooltipTargets[5203] = {{"monster",11016}} -- Captured Arko'narin
+QuestieCorrections.triggerEndTooltipTargets[5321] = {{"monster",11218}} -- Kerlonian Evershade
+QuestieCorrections.triggerEndTooltipTargets[5713] = {{"monster",11711}} -- Sentinel Aynasha
+QuestieCorrections.triggerEndTooltipTargets[5821] = {{"monster",11625}} -- Cork Gizelton
+QuestieCorrections.triggerEndTooltipTargets[5943] = {{"monster",11625}} -- Cork Gizelton
+QuestieCorrections.triggerEndTooltipTargets[6132] = {{"monster",12277}} -- Melizza Brimbuzzle
+QuestieCorrections.triggerEndTooltipTargets[6482] = {{"monster",12818}} -- Ruul Snowhoof
+QuestieCorrections.triggerEndTooltipTargets[6523] = {{"monster",11856}} -- Kaya Flathoof
+QuestieCorrections.triggerEndTooltipTargets[6544] = {{"monster",12858}} -- Torek
+QuestieCorrections.triggerEndTooltipTargets[6566] = {{"monster",4949}} -- Thrall
+QuestieCorrections.triggerEndTooltipTargets[6627] = {{"monster",4489}} -- Braug Dimspirit
+QuestieCorrections.triggerEndTooltipTargets[6628] = {{"monster",4488}} -- Parqual Fintallas
+QuestieCorrections.triggerEndTooltipTargets[7046] = {{"monster",13716}} -- Celebras the Redeemed
+
 -- Further information on how to use this can be found at the wiki
 -- https://github.com/Questie/Questie/wiki/Corrections
-
-function QuestieQuestFixes:LoadMissingQuests()
-    QuestieDB.questData[5640] = {} -- Desperate Prayer
-    QuestieDB.questData[5678] = {} -- Arcane Feedback
-
-    QuestieDB.questData[7668] = {} -- Add missing quest index
-    QuestieDB.questData[7669] = {} -- Add missing quest index
-    QuestieDB.questData[7670] = {} -- Add missing quest index #1432
-end
 
 function QuestieQuestFixes:Load()
     local questKeys = QuestieDB.questKeys
@@ -721,7 +779,7 @@ function QuestieQuestFixes:Load()
             [questKeys.nextQuestInChain] = 4901,
         },
         [984] = {
-            [questKeys.triggerEnd] = {"Find a corrupt furbolg camp",{[zoneIDs.DARKSHORE]={{50.91,34.74},{39.86,53.89},{42.68,86.53},{39.95,78.41}}}},
+            [questKeys.triggerEnd] = {"Find a corrupt furbolg camp",{[zoneIDs.DARKSHORE]={{39.34,53.51},{39.86,53.89},{42.68,86.53}}}},
         },
         [985] = {
             [questKeys.nextQuestInChain] = 986,
@@ -1074,7 +1132,7 @@ function QuestieQuestFixes:Load()
             [questKeys.objectives] = {{{4961}}},
         },
         [1448] = {
-            [questKeys.triggerEnd] = {"Search for the Temple of Atal'Hakkar", {[zoneIDs.SWAMP_OF_SORROWS]={{70.2,45.2},{66.6,48.1},{73.6,48.1},{64.9,53.3},{75.4,53.3},{66.6,58.4},{73.6,58.4},{70.2,60.5}}}},
+            [questKeys.triggerEnd] = {"Search for the Temple of Atal'Hakkar", {[zoneIDs.SWAMP_OF_SORROWS]={{70.01,52.88}}}},
         },
         [1452] = { -- Rhapsody's Kalimdor Kocktail
             [questKeys.nextQuestInChain] = 1469,
@@ -1257,7 +1315,7 @@ function QuestieQuestFixes:Load()
             [questKeys.requiredSkill] = {356,30},
             [questKeys.extraObjectives] = {{{[zoneIDs.DARKSHORE]={{50.7,23.8},{40,73.6},{44.3,74.4},{53.3,32.4},{43.3,80.6}}}, Questie.ICON_TYPE_NODE_FISH, l10n("Fish for Electropellers"),}},
         },
-        [1581] = { -- bad race data
+        [1581] = { -- Elixirs for the Bladeleafs
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [1598] = {
@@ -1796,7 +1854,7 @@ function QuestieQuestFixes:Load()
             [questKeys.nextQuestInChain] = 2604,
         },
         [2608] = { -- The Touch of Zanzil
-            [questKeys.triggerEnd] = {"Diagnosis Complete", {[zoneIDs.STORMWIND_CITY]={{78.04,59}}}},
+            [questKeys.triggerEnd] = {"Diagnosis Complete", {[zoneIDs.STORMWIND_CITY]={{80.06,69.9}}}},
         },
         [2609] = { -- The Touch of Zanzil
             [questKeys.objectivesText] = {"Bring Doc Mixilpixil one bundle of Simple Wildflowers, one Leaded Vial, one Bronze Tube, and one Spool of Light Chartreuse Silk Thread. The 'itis' doesn't cure itself, young <fella/lady>."},
@@ -2359,7 +2417,7 @@ function QuestieQuestFixes:Load()
             [questKeys.preQuestSingle] = {5891},
         },
         [4121] = {
-            [questKeys.triggerEnd] = {"Prisoner Transport", {[zoneIDs.BURNING_STEPPES]={{25.73,27.1}}}},
+            [questKeys.triggerEnd] = {"Prisoner Transport", {[zoneIDs.SEARING_GORGE]={{33.87,73.34}}}},
         },
         [4122] = {
             [questKeys.preQuestSingle] = {4082}, -- #1349
@@ -2533,7 +2591,7 @@ function QuestieQuestFixes:Load()
             [questKeys.breadcrumbForQuestId] = 788, -- #1956
         },
         [4726] = {
-            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_INTERACT, l10n("Use the Draco-Incarcinatrix 900 and defeat the dragonkin."), 0, {{"monster",7047},{"monster",7048}},{"monster",7049}}},
+            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_INTERACT, l10n("Use the Draco-Incarcinatrix 900 and defeat the dragonkin."), 0, {{"monster",7047},{"monster",7048},{"monster",7049}}}},
         },
         [4729] = {
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_EVENT, l10n("Use the Empty Worg Pup Cage to capture it."), 0, {{"monster", 10221}}}},
@@ -2800,10 +2858,10 @@ function QuestieQuestFixes:Load()
             [questKeys.breadcrumbs] = {5142,5601},
         },
         [5151] = { -- Hypercapacitor Gizmo
-            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_INTERACT, l10n("Open the cage"), 0, {{"object", 176195}}}},
+            [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_OBJECT, l10n("Open the cage"), 0, {{"object", 176195}}}},
         },
         [5156] = {
-            [questKeys.triggerEnd] = {"Explore the craters in Shatter Scar Vale", {[zoneIDs.FELWOOD]={{41.03,41.96}}}},
+            [questKeys.triggerEnd] = {"Explore the craters in Shatter Scar Vale", {[zoneIDs.FELWOOD]={{40.44,41.25}}}},
         },
         [5203] = {
             [questKeys.triggerEnd] = {"Protect Arko'narin out of Shadow Hold", {[zoneIDs.FELWOOD]={{35.45,59.06}}}},
@@ -2832,7 +2890,7 @@ function QuestieQuestFixes:Load()
         [5227] = {
             [questKeys.preQuestSingle] = {5226,5236},
         },
-        [5234] = { -- bad race data
+        [5234] = { -- Return to the Bulwark
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [5236] = { -- Return to the Bulwark
@@ -3705,19 +3763,19 @@ function QuestieQuestFixes:Load()
         [7165] = {
             [questKeys.requiredRaces] = raceIDs.NONE,
         },
-        [7166] = { -- bad race data
+        [7166] = { -- Legendary Heroes
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
-        [7167] = { -- bad race data
+        [7167] = { -- The Eye of Command
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
-        [7170] = { -- bad race data
+        [7170] = { -- Earned Reverence
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [7171] = { -- bad race data
+        [7171] = { -- Legendary Heroes
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [7172] = { -- bad race data
+        [7172] = { -- The Eye of Command
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [7181] = {
@@ -3778,13 +3836,13 @@ function QuestieQuestFixes:Load()
             [questKeys.startedBy] = {{14188}},
             [questKeys.finishedBy] = {{14188}},
         },
-        [7426] = { -- bad race data
+        [7426] = { -- One Man's Love
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [7427] = { -- bad race data
+        [7427] = { -- Wanted: MORE DWARVES!
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
-        [7428] = { -- bad race data
+        [7428] = { -- Wanted: MORE ORCS!
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [7463] = {
@@ -4327,7 +4385,7 @@ function QuestieQuestFixes:Load()
         [8271] = {
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
-        [8272] = { -- bad race data
+        [8272] = { -- Hero of the Frostwolf
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [8275] = {
@@ -4352,7 +4410,7 @@ function QuestieQuestFixes:Load()
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
             [questKeys.specialFlags] = specialFlags.REPEATABLE,
         },
-        [8296] = { -- bad race data
+        [8296] = { -- Mark of Honor
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [8301] = { -- The Path of the Righteous
@@ -5850,10 +5908,10 @@ function QuestieQuestFixes:Load()
             [questKeys.requiredClasses] = classIDs.MAGE + classIDs.PRIEST + classIDs.DRUID + classIDs.WARLOCK,
         },
         [9260] = {
-            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.ELWYNN_FOREST] = {{34.72,50.95},{34.18,48.47},{32.24,53.77},{35.05,55.22}}}},
+            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.ELWYNN_FOREST] = {{35.06,55.24},{32.29,53.7},{37.37,56.23},{32.16,56.31}}}},
         },
         [9261] = {
-            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.DUN_MOROGH] = {{48.53,39.54},{49.70,39.17}}}},
+            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.DUN_MOROGH] = {{51.52,45.64},{51.61,42.52}}}},
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [9262] = {
@@ -5861,7 +5919,7 @@ function QuestieQuestFixes:Load()
             [questKeys.requiredRaces] = raceIDs.ALL_ALLIANCE,
         },
         [9263] = {
-            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.DUROTAR] = {{44.9,16.7},{44.6,18.1}}}},
+            [questKeys.triggerEnd] = {"Investigate a circle", {[zoneIDs.DUROTAR] = {{49.21,17.84}}}},
             [questKeys.requiredRaces] = raceIDs.ALL_HORDE,
         },
         [9264] = {

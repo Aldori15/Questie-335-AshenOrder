@@ -26,6 +26,32 @@ local function _GetIconScaleForLoot()
     return Questie.db.profile.lootScale or 1
 end
 
+local tooltipPrefixByTargetType = {
+    monster = "m_",
+    object = "o_",
+    item = "i_",
+}
+
+local function _GetEventTooltipKeys(tooltipTargets)
+    if not tooltipTargets then
+        return nil
+    end
+
+    local tooltipKeys = {}
+    for _, target in pairs(tooltipTargets) do
+        local targetType = type(target) == "table" and target[1]
+        local targetId = type(target) == "table" and target[2]
+        local prefix = tooltipPrefixByTargetType[targetType]
+        if prefix and type(targetId) == "number" and targetId > 0 then
+            tooltipKeys[#tooltipKeys+1] = prefix .. targetId
+        else
+            Questie.Error("Invalid triggerEnd tooltip target:", tostring(targetType), tostring(targetId))
+        end
+    end
+
+    return next(tooltipKeys) and tooltipKeys or nil
+end
+
 
 ---@class SpawnListBase
 ---@field Name string
@@ -52,6 +78,7 @@ end
 
 ---@class SpawnListEvent : SpawnListBase
 ---@field Id number The ID of the Event (Is this even used?)
+---@field TooltipKeys string[]?
 
 local killcredit, monster, object, event, item, spell
 
@@ -67,7 +94,10 @@ killcredit = function(npcId, objective, objectiveData)
     local ret = {}
     for npcIdIndex = 1, #objectiveData.IdList do
         local killCreditNpcId = objectiveData.IdList[npcIdIndex]
-        ret[killCreditNpcId] = monster(killCreditNpcId, objective)[killCreditNpcId]
+        local npc = monster(killCreditNpcId, objective)
+        if npc then
+            ret[killCreditNpcId] = npc[killCreditNpcId]
+        end
     end
     return ret
 end
@@ -77,7 +107,7 @@ end
 ---@return table<NpcId, SpawnListNPC>?
 monster = function(npcId, objective)
     if (not npcId) then
-        Questie:Error(
+        Questie.Error(
             "Corrupted objective data handed to objectiveSpawnListCallTable['monster']:",
             "'" .. objective.Description .. "' -",
             "Please report this error on Discord or GitHub."
@@ -87,13 +117,13 @@ monster = function(npcId, objective)
 
     local name = QuestieDB.QueryNPCSingle(npcId, "name")
     if (not name) then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "Name missing for NPC:", npcId)
+        Questie.Debug(Questie.DEBUG_CRITICAL, "Name missing for NPC:", npcId)
         return nil
     end
 
     local spawns = QuestieDB.QueryNPCSingle(npcId, "spawns")
     if (not spawns) then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for NPC:", npcId)
+        Questie.Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for NPC:", npcId)
         spawns = {}
     end
 
@@ -126,7 +156,7 @@ end
 ---@return table<ObjectId, SpawnListObject>?
 object = function(objectId, objective)
     if (not objectId) then
-        Questie:Error(
+        Questie.Error(
             "Corrupted objective data handed to objectiveSpawnListCallTable['object']:",
             "'" .. objective.Description .. "' -",
             "Please report this error on Discord or GitHub."
@@ -136,13 +166,13 @@ object = function(objectId, objective)
 
     local name = QuestieDB.QueryObjectSingle(objectId, "name")
     if (not name) then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "Name missing for object:", objectId)
+        Questie.Debug(Questie.DEBUG_CRITICAL, "Name missing for object:", objectId)
         return nil
     end
 
     local spawns = QuestieDB.QueryObjectSingle(objectId, "spawns")
     if (not spawns) then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for object:", objectId)
+        Questie.Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for object:", objectId)
         spawns = {}
     end
 
@@ -166,11 +196,12 @@ end
 ---comment
 ---@param eventId any
 ---@param objective any
+---@param objectiveData table?
 ---@return { [1]: SpawnListEvent }?
-event = function(eventId, objective)
+event = function(eventId, objective, objectiveData)
     local spawns = objective.Coordinates
     if (not spawns) then
-        Questie:Error("Missing event data for Objective:", objective.Description, "id:", eventId)
+        Questie.Error("Missing event data for Objective:", objective.Description, "id:", eventId)
         spawns = {}
     end
 
@@ -179,6 +210,7 @@ event = function(eventId, objective)
         Id = eventId or 0,
         Name = objective.Description or "Event Trigger",
         Spawns = spawns,
+        TooltipKeys = _GetEventTooltipKeys(objectiveData and objectiveData.TooltipTargets),
         Icon = Questie.ICON_TYPE_EVENT,
         GetIconScale = _GetIconScaleForEvent,
         IconScale = _GetIconScaleForEvent(),
@@ -195,7 +227,7 @@ end
 ---@return table<ItemId, SpawnListItem>?
 item = function(itemId, objective)
     if (not itemId) then
-        Questie:Error(
+        Questie.Error(
             "Corrupted objective data handed to objectiveSpawnListCallTable['item']:",
             "'" .. objective.Description .. "' -",
             "Please report this error on Discord or GitHub."
@@ -210,7 +242,7 @@ item = function(itemId, objective)
             if _QuestieQuest.objectiveSpawnListCallTable[source.Type] and source.Type ~= "item" then -- anti-recursive-loop check, should never be possible but would be bad if it was
                 local sourceList = _QuestieQuest.objectiveSpawnListCallTable[source.Type](source.Id, objective)
                 if not sourceList then
-                    Questie:Error("Missing objective data for", source.Type, "'", objective, "'", source.Id)
+                    Questie.Error("Missing objective data for", source.Type, "'", objective, "'", source.Id)
                 else
                     for id, sourceData in pairs(sourceList) do
                         if (not ret[id]) then
@@ -276,7 +308,7 @@ end
 ---@return table<ItemId, SpawnListItem>?
 spell = function(spellId, objective, objectiveData)
     if (not spellId) then
-        Questie:Error(
+        Questie.Error(
             "Corrupted objective data handed to objectiveSpawnListCallTable['spell']:",
             "'" .. objective.Description .. "' -",
             "Please report this error on Discord or GitHub."

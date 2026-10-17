@@ -31,8 +31,30 @@ QuestieCorrections.killCreditObjectiveFirst[13406] = true
 QuestieCorrections.killCreditObjectiveFirst[24498] = true
 QuestieCorrections.killCreditObjectiveFirst[24507] = true
 
+-- Hoverable entities that directly drive coordinate-only triggerEnd objectives
+QuestieCorrections.triggerEndTooltipTargets[11241] = {{"monster",23784}} -- Apothecary Hanes
+QuestieCorrections.triggerEndTooltipTargets[11436] = {{"monster",27924}} -- Dragonflayer Harpoon
+QuestieCorrections.triggerEndTooltipTargets[11570] = {{"monster",25208}} -- Lurgglbr
+QuestieCorrections.triggerEndTooltipTargets[11592] = {{"monster",25335}} -- Longrunner Proudhoof
+QuestieCorrections.triggerEndTooltipTargets[11664] = {{"monster",25504}} -- Mootoo the Younger
+QuestieCorrections.triggerEndTooltipTargets[11673] = {{"monster",25589}} -- Bonker Togglevolt
+QuestieCorrections.triggerEndTooltipTargets[11891] = {{"monster",25949}} -- Ice Caller Briatha
+QuestieCorrections.triggerEndTooltipTargets[12027] = {{"monster",26588}} -- Emily
+QuestieCorrections.triggerEndTooltipTargets[12082] = {{"monster",26814}} -- Harrison Jones
+QuestieCorrections.triggerEndTooltipTargets[12308] = {{"monster",27409}} -- Ducal's Horse
+QuestieCorrections.triggerEndTooltipTargets[12330] = {{"monster",27626}} -- Tatjana's Horse
+QuestieCorrections.triggerEndTooltipTargets[12570] = {{"monster",28217}} -- Injured Rainspeaker Oracle
+QuestieCorrections.triggerEndTooltipTargets[12688] = {{"monster",28787}} -- Engineer Helice
+QuestieCorrections.triggerEndTooltipTargets[12832] = {{"monster",29434}} -- Injured Goblin Miner
+QuestieCorrections.triggerEndTooltipTargets[13168] = {{"object",193058}} -- Eye of Dominion
+QuestieCorrections.triggerEndTooltipTargets[13221] = {{"monster",31279}} -- Father Kamaros
+QuestieCorrections.triggerEndTooltipTargets[13229] = {{"monster",31279}} -- Father Kamaros
+QuestieCorrections.triggerEndTooltipTargets[13429] = {{"monster",22990}} -- Akama
+
 QuestieCorrections.questTooltipHints[6681] = "Speak to the npc and select \"<Take the letter>\", then read the letter to start the quest."
 QuestieCorrections.questTooltipHints[9212] = "Inside the Amani Catacombs.  Entrances to the NW and NE."
+QuestieCorrections.questTooltipHints[12020] = "The wreckage appears for 15 minutes after a successful Dark Iron attack. Attacks begin at :00 and :30 during Brewfest."
+QuestieCorrections.questTooltipHints[12192] = "The wreckage appears for 15 minutes after a successful Dark Iron attack. Attacks begin at :00 and :30 during Brewfest."
 
 QuestieCorrections.objectiveTooltipHints[8306] = {
     [15215] = "Inside Hive'Regal. Enter the hive cave to the NE to reach Mistress Natalia.",
@@ -945,6 +967,12 @@ function QuestieWotlkQuestFixes:Load()
         [11286] = {
             [questKeys.preQuestSingle] = {},
         },
+        [11293] = { -- Bark for the Barleybrews!
+            [questKeys.objectives] = {{{24202,"Bark Outside the Bank",Questie.ICON_TYPE_EVENT},{24203,"Bark in the Military Ward",Questie.ICON_TYPE_EVENT},{24204,"Bark in the Hall of Explorers",Questie.ICON_TYPE_EVENT},{24205,"Bark in the Mystic Ward",Questie.ICON_TYPE_EVENT}}},
+        },
+        [11294] = { -- Bark for the Thunderbrews!
+            [questKeys.objectives] = {{{24202,"Bark Outside the Bank",Questie.ICON_TYPE_EVENT},{24203,"Bark in the Military Ward",Questie.ICON_TYPE_EVENT},{24204,"Bark in the Hall of Explorers",Questie.ICON_TYPE_EVENT},{24205,"Bark in the Mystic Ward",Questie.ICON_TYPE_EVENT}}},
+        },
         [11296] = {
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_SLAY, l10n("Break Riven Widow Cocoons to free captives"), 0, {{"monster", 24210}}}},
         },
@@ -1197,6 +1225,12 @@ function QuestieWotlkQuestFixes:Load()
         [11401] = {
             [questKeys.startedBy] = {nil,{186267}},
             [questKeys.finishedBy] = {nil,{186314}},
+        },
+        [11407] = { -- Bark for Drohn's Distillery!
+            [questKeys.objectives] = {{{24202,"Bark outside the Auction House",Questie.ICON_TYPE_EVENT},{24203,"Bark in the Valley of Honor",Questie.ICON_TYPE_EVENT},{24204,"Bark in the Valley of Wisdom",Questie.ICON_TYPE_EVENT},{24205,"Bark in the Valley of Spirits",Questie.ICON_TYPE_EVENT}}},
+        },
+        [11408] = { -- Bark for T'chali's Voodoo Brewery!
+            [questKeys.objectives] = {{{24202,"Bark outside the Auction House",Questie.ICON_TYPE_EVENT},{24203,"Bark in the Valley of Honor",Questie.ICON_TYPE_EVENT},{24204,"Bark in the Valley of Wisdom",Questie.ICON_TYPE_EVENT},{24205,"Bark in the Valley of Spirits",Questie.ICON_TYPE_EVENT}}},
         },
         [11409] = {
             [questKeys.preQuestSingle] = {},
@@ -2617,7 +2651,7 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.requiredSourceItems] = {},
         },
         [12570] = {
-            [questKeys.triggerEnd] = {"Escort the Injured Rainspeaker Oracle to Rainspaker Canopy",{[zoneIDs.SHOLAZAR_BASIN] = {{52.79,59.36}}}},
+            [questKeys.triggerEnd] = {"Escort the Injured Rainspeaker Oracle to Rainspaker Canopy",{[zoneIDs.SHOLAZAR_BASIN] = {{53.52,56.8}}}},
             [questKeys.extraObjectives] = {{nil, Questie.ICON_TYPE_TALK, l10n("Start the escort"), 0, {{"monster", 28217}}}},
         },
         [12571] = {
@@ -3248,10 +3282,10 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.requiredSourceItems] = {},
         },
         [12816] = {
-            [questKeys.triggerEnd] = {"Investigate a circle",{[zoneIDs.EVERSONG_WOODS] = {{56.5,52}}}},
+            [questKeys.triggerEnd] = {"Investigate a circle",{[zoneIDs.EVERSONG_WOODS] = {{58.16,51.58},{58.24,53.32},{57.41,54.48},{58.06,55.53}}}},
         },
         [12817] = {
-            [questKeys.triggerEnd] = {"Investigate a circle",{[zoneIDs.AZUREMYST_ISLE] = {{34.9,45.5}}}},
+            [questKeys.triggerEnd] = {"Investigate a circle",{[zoneIDs.AZUREMYST_ISLE] = {{40.56,45.1},{38.54,48.31},{38.92,51.21},{39.88,50.2}}}},
         },
         [12820] = {
             [questKeys.requiredSourceItems] = {},
@@ -4839,7 +4873,7 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.exclusiveTo] = {14181,14182,14183},
         },
         [13429] = {
-            [questKeys.triggerEnd] = {"Help Akama and Maiev enter the Black Temple.", {[zoneIDs.SHADOWMOON_VALLEY] = {{71.05,46.11},{66.29,44.06}}}},
+            [questKeys.triggerEnd] = {"Help Akama and Maiev enter the Black Temple.", {[zoneIDs.SHADOWMOON_VALLEY] = {{71.07,46.27}}}},
             [questKeys.exclusiveTo] = {10985},
             [questKeys.startedBy] = {{18528}},
             [questKeys.finishedBy] = {{18528}},
@@ -6033,7 +6067,7 @@ function QuestieWotlkQuestFixes:Load()
             [questKeys.exclusiveTo] = {13927},
         },
         [13951] = {
-            [questKeys.triggerEnd] = {"Keken taken to visit Snowfall Glade", {[zoneIDs.DRAGONBLIGHT] = {{46,61},{44,70}}}}, -- wolvar orphan
+            [questKeys.triggerEnd] = {"Keken taken to visit Snowfall Glade", {[zoneIDs.DRAGONBLIGHT] = {{46.37,60.16}}}}, -- wolvar orphan
             [questKeys.preQuestSingle] = {13927},
             [questKeys.exclusiveTo] = {13926},
         },

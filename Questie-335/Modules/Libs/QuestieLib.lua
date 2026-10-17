@@ -132,6 +132,30 @@ function QuestieLib:GetRGBForObjective(objective)
     end
 end
 
+---@param text string
+---@return string
+function QuestieLib:FormatQuestText(text)
+    if type(text) ~= "string" then
+        return text
+    end
+
+    -- Blizzard quest text line breaks
+    text = text:gsub("%$[bB]", "\n")
+
+    -- Replace the player name placeholder
+    text = text:gsub("%$[nN]", function()
+        return UnitName("player") or ""
+    end)
+
+    -- Replace gender dependent wording
+    text = text:gsub("%$[gG]%s*([^:;]+):([^;]+);", function(male, female)
+        local selected = UnitSex("player") == 3 and female or male
+        return selected:gsub("^%s+", ""):gsub("%s+$", "")
+    end)
+
+    return text
+end
+
 ---@param objective QuestObjective
 ---@return string
 function QuestieLib:GetObjectiveDescription(objective)
@@ -158,7 +182,7 @@ function QuestieLib:GetColoredQuestName(questId, showLevel, showState, blizzLike
     if not name or name == "" then
         name = l10n("Quest") .. " " .. questId
     end
-    local level, _ = QuestieLib.GetTbcLevel(questId);
+    local level, _ = QuestieLib.GetEffectiveQuestLevel(questId);
 
     if showLevel then
         name = QuestieLib:GetLevelString(questId, level, blizzLike) .. name
@@ -245,7 +269,7 @@ end
 ---@return Level questLevel
 ---@return Level requiredLevel
 ---@return Level requiredMaxLevel
-function QuestieLib.GetTbcLevel(questId, playerLevel)
+function QuestieLib.GetEffectiveQuestLevel(questId, playerLevel)
     local questLevel, requiredLevel = QuestieDB.QueryQuestSingle(questId, "questLevel"), QuestieDB.QueryQuestSingle(questId, "requiredLevel")
     if (questLevel == -1) then
         local level = playerLevel or QuestiePlayer.GetPlayerLevel();
@@ -461,7 +485,7 @@ function QuestieLib:CacheItemNames(questId)
         for _, objectiveDB in pairs(quest.ObjectiveData) do
             if objectiveDB.Type == "item" then
                 if not ((QuestieDB.ItemPointers or QuestieDB.itemData)[objectiveDB.Id]) then
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLib:CacheItemNames] Requesting item information for missing itemId:", objectiveDB.Id)
+                    Questie.Debug(Questie.DEBUG_DEVELOP, "[QuestieLib:CacheItemNames] Requesting item information for missing itemId:", objectiveDB.Id)
                     local itemId = objectiveDB.Id
                     local function cacheItemName(itemName)
                         if not itemName then
@@ -473,7 +497,7 @@ function QuestieLib:CacheItemNames(questId)
                         else
                             QuestieDB.itemDataOverrides[itemId][1] = itemName
                         end
-                        Questie:Debug(Questie.DEBUG_DEVELOP,
+                        Questie.Debug(Questie.DEBUG_DEVELOP,
                             "[QuestieLib:CacheItemNames] Created item information for item:", itemName, ":", itemId)
                     end
 
@@ -572,7 +596,7 @@ function QuestieLib:SortQuestIDsByLevel(quests)
     local sortedQuestsByLevel = {}
 
     for questId in pairs(quests) do
-        local questLevel, _ = QuestieLib.GetTbcLevel(questId)
+        local questLevel, _ = QuestieLib.GetEffectiveQuestLevel(questId)
         local suffix = QuestieLib:GetQuestTypeSuffix(questId)
         tinsert(sortedQuestsByLevel, {questLevel or 0, questId, suffix})
     end
@@ -667,7 +691,7 @@ function QuestieLib.TrimObjectiveText(text, objectiveType)
     end
 
     text = strim(text)
-    --Questie:Debug(Questie.DEBUG_DEVELOP, "[TrimObjectiveText] \""..originalText.."\" --> \""..text.."\"") -- Comment out this debug for speed when not used.
+    --Questie.Debug(Questie.DEBUG_DEVELOP, "[TrimObjectiveText] \""..originalText.."\" --> \""..text.."\"") -- Comment out this debug for speed when not used.
     return text
 end
 

@@ -11,6 +11,8 @@ local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
 ---@type QuestieSearch
 local QuestieSearch = QuestieLoader:ImportModule("QuestieSearch")
+---@type QuestieSearchResults
+local QuestieSearchResults = QuestieLoader:ImportModule("QuestieSearchResults")
 ---@type QuestieMap
 local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
 ---@type QuestieLib
@@ -121,6 +123,8 @@ function QuestieSlash.HandleCommands(input)
         if subCommand ~= nil then
             if subCommand == "reset" then
                 QuestieMap:ResetManualFrames()
+                QuestieSearchResults.ClearShownItemIds()
+                print(Questie:Colorize("/questie " .. input .. ":"), l10n("All map markers cleared."))
                 return
             end
 
@@ -160,7 +164,7 @@ function QuestieSlash.HandleCommands(input)
 
     if mainCommand == "version" then
         local gameType = ""
-        if Questie.IsWotlk then
+        if Questie.IsWotlk or QuestieCompat.Is335 then
             gameType = "WotLK-335"
         elseif Questie.IsEra then
             gameType = "Era"
@@ -179,7 +183,7 @@ function QuestieSlash.HandleCommands(input)
             return
         end
 
-        Questie:Print("[Availability] " .. tostring(QuestieDB.IsDoableVerbose(tonumber(subCommand), false, true, false, false)))
+        Questie:Print("[Availability] " .. tostring(QuestieDB.IsDoableVerbose(tonumber(subCommand), false, true, false)))
 
         return
     end
